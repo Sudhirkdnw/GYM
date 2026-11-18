@@ -168,3 +168,14 @@ flowchart TD
     J --> K["11. Immutable Audit Logging"]
     K --> L["12. Standardized API Response Envelope"]
 ```
+
+---
+
+## 6. Stage 2.2 Authentication & RBAC Integration
+
+In Stage 2.2, tenant context resolution is fully wired to cryptographic authentication:
+1. **JWT Tenant Claims**: When a user logs in or switches organizations, their JWT access token is minted with an explicit `organizationId` and validated `role`.
+2. **Context Activation**: `JwtAuthGuard` extracts this claim and populates `TenantContextStore` via Node's `AsyncLocalStorage`.
+3. **Database Guardrails**: All subsequent queries executing `withTenantContext()` set `SET LOCAL app.current_tenant_id` for the transaction scope.
+4. **Context Switching**: `POST /api/v1/auth/organizations/:id/select` verifies membership in `organization_users` and requires `status == ACTIVE` before issuing an updated access token. Client-supplied organization IDs are never trusted without server-side database validation.
+

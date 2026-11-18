@@ -37,3 +37,19 @@ export const SECURITY_CONFIG = {
   ],
   MAX_BODY_SIZE_BYTES: 10 * 1024 * 1024, // 10MB
 } as const;
+
+export const AUTH_CONFIG = {
+  ACCESS_TOKEN_EXPIRY: "15m",
+  ACCESS_TOKEN_EXPIRY_SECONDS: 15 * 60, // 900 seconds
+  REFRESH_TOKEN_EXPIRY_DAYS: 7,
+  REFRESH_TOKEN_EXPIRY_SECONDS: 7 * 24 * 60 * 60, // 604,800 seconds
+  PASSWORD_RESET_EXPIRY_HOURS: 1,
+  EMAIL_VERIFICATION_EXPIRY_HOURS: 24,
+  COOKIE_ACCESS_TOKEN: "gymos_access_token",
+  COOKIE_REFRESH_TOKEN: "gymos_refresh_token",
+  ARGON2_OPTIONS: {
+    memoryCost: 65536, // 64 MB
+    timeCost: 3,
+    parallelism: 4,
+  },
+} as const;

@@ -97,6 +97,22 @@ npm run db:generate
 npm run db:migrate
 ```
 
+### 3.3 Authentication & Security Configuration
+Add the following keys to `.env`:
+```ini
+JWT_SECRET=development-gymos-super-secret-jwt-key-replace-in-prod
+JWT_REFRESH_SECRET=development-gymos-super-secret-refresh-key-replace-in-prod
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+COOKIE_SECRET=development-gymos-super-secret-cookie-key-replace-in-prod
+COOKIE_SAME_SITE=lax
+```
+
+Apply migrations:
+```powershell
+npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+```
+
 ---
 
 ## 4. Launching Development Servers

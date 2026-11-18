@@ -1,5 +1,5 @@
 // GymOS Multi-Tenant PostgreSQL Schema
-// Stage 1 Foundation
+// Stage 2.2 Authentication & RBAC
 
 generator client {
   provider = "prisma-client-js"
@@ -20,9 +20,9 @@ enum TenantStatus {
 }
 
 enum UserRole {
-  SUPER_ADMIN
-  ORG_OWNER
-  ORG_STAFF
+  GYM_OWNER
+  GYM_ADMIN
+  RECEPTIONIST
   TRAINER
   MEMBER
 
@@ -33,6 +33,7 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   PENDING_VERIFICATION
+  SUSPENDED
 
   @@map("user_status")
 }
@@ -53,20 +54,27 @@ model Organization {
   @@map("organizations")
 }
 
-/// Global User entity
+/// Global User identity across the platform
 model User {
-  id           String             @id @default(uuid()) @map("id") @db.Uuid
-  email        String             @unique @map("email") @db.VarChar(255)
-  passwordHash String             @map("password_hash") @db.VarChar(255)
-  firstName    String             @map("first_name") @db.VarChar(100)
-  lastName     String             @map("last_name") @db.VarChar(100)
-  status       UserStatus         @default(ACTIVE) @map("status")
-  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  id                      String                   @id @default(uuid()) @map("id") @db.Uuid
+  email                   String                   @unique @map("email") @db.VarChar(255)
+  passwordHash            String                   @map("password_hash") @db.VarChar(255)
+  firstName               String                   @map("first_name") @db.VarChar(100)
+  lastName                String                   @map("last_name") @db.VarChar(100)
+  isSuperAdmin            Boolean                  @default(false) @map("is_super_admin")
+  status                  UserStatus               @default(ACTIVE) @map("status")
+  emailVerified           Boolean                  @default(false) @map("email_verified")
+  emailVerifiedAt         DateTime?                @map("email_verified_at") @db.Timestamptz
+  lastLoginAt             DateTime?                @map("last_login_at") @db.Timestamptz
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  memberships  OrganizationUser[]
-  auditLogs    AuditLog[]
+  memberships             OrganizationUser[]
+  auditLogs               AuditLog[]
+  refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@map("users")
 }
@@ -76,7 +84,7 @@ model OrganizationUser {
   id             String        @id @default(uuid()) @map("id") @db.Uuid
   organizationId String        @map("organization_id") @db.Uuid
   userId         String        @map("user_id") @db.Uuid
-  role           UserRole      @default(ORG_STAFF) @map("role")
+  role           UserRole      @default(MEMBER) @map("role")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
   // Foreign keys
@@ -86,6 +94,7 @@ model OrganizationUser {
   @@unique([organizationId, userId], name: "unique_org_user")
   @@index([organizationId], map: "idx_org_user_org_id")
   @@index([userId], map: "idx_org_user_user_id")
+  @@index([organizationId, id], map: "idx_org_users_org_composite")
   @@map("organization_users")
 }
 
@@ -108,5 +117,56 @@ model AuditLog {
   @@index([organizationId], map: "idx_audit_logs_org_id")
   @@index([userId], map: "idx_audit_logs_user_id")
   @@index([createdAt], map: "idx_audit_logs_created_at")
+  @@index([organizationId, id], map: "idx_audit_logs_org_composite")
   @@map("audit_logs")
+}
+
+/// Refresh tokens with family tracking for reuse detection and session revocation
+model RefreshToken {
+  id                  String    @id @default(uuid()) @map("id") @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  tokenHash           String    @unique @map("token_hash") @db.VarChar(255)
+  family              String    @map("family") @db.Uuid
+  isRevoked           Boolean   @default(false) @map("is_revoked")
+  replacedByTokenHash String?   @map("replaced_by_token_hash") @db.VarChar(255)
+  expiresAt           DateTime  @map("expires_at") @db.Timestamptz
+  userAgent           String?   @map("user_agent") @db.VarChar(500)
+  ipAddress           String?   @map("ip_address") @db.VarChar(45)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_refresh_tokens_user_id")
+  @@index([family], map: "idx_refresh_tokens_family")
+  @@map("refresh_tokens")
+}
+
+/// Single-use hashed password reset tokens with expiry
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @map("id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_password_reset_user_id")
+  @@map("password_reset_tokens")
+}
+
+/// Single-use hashed email verification tokens with expiry
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @map("id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_email_verification_user_id")
+  @@map("email_verification_tokens")
 }

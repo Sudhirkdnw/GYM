@@ -3,6 +3,7 @@ import { VersioningType } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
 import { AppLoggerService } from "./logging/app-logger.service";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
@@ -28,6 +29,7 @@ async function bootstrap() {
 
   // Security Headers
   app.use(helmet());
+  app.use(cookieParser());
 
   // CORS Configuration
   app.enableCors({

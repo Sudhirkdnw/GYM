@@ -76,7 +76,7 @@ describe('Multi-Tenant Row-Level Security & Isolation (e2e)', () => {
         data: {
           organizationId: tenantAId,
           userId: userAId,
-          role: UserRole.ORG_OWNER,
+          role: UserRole.GYM_OWNER,
         },
       });
 
@@ -85,7 +85,7 @@ describe('Multi-Tenant Row-Level Security & Isolation (e2e)', () => {
         data: {
           organizationId: tenantBId,
           userId: userBId,
-          role: UserRole.ORG_OWNER,
+          role: UserRole.GYM_OWNER,
         },
       });
 
