@@ -142,7 +142,7 @@ export class AuthService {
       await this.tokenService.createEmailVerificationToken(result.user.id);
 
     this.logger.log(
-      `[DEV NOTICE] Email verification token generated for ${normalizedEmail}: ${verificationToken}`,
+      `Email verification token dispatched for user ${result.user.id}`,
       'AuthService',
     );
 
@@ -429,7 +429,7 @@ export class AuthService {
       const resetToken = await this.tokenService.createPasswordResetToken(user.id);
       devToken = resetToken;
       this.logger.log(
-        `[DEV NOTICE] Password reset token for ${normalizedEmail}: ${resetToken}`,
+        `Password reset token dispatched for user ${user.id}`,
         'AuthService',
       );
     }

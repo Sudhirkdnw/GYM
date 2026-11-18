@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { TenantModule } from './common/tenant/tenant.module';
 import { AuthModule } from './auth/auth.module';
+import { CsrfProtectionGuard } from './common/auth/csrf-protection.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
@@ -26,6 +27,10 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     HealthModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: CsrfProtectionGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
