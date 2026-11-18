@@ -1,0 +1,112 @@
+// GymOS Multi-Tenant PostgreSQL Schema
+// Stage 1 Foundation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+  CANCELLED
+
+  @@map("tenant_status")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORG_OWNER
+  ORG_STAFF
+  TRAINER
+  MEMBER
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_VERIFICATION
+
+  @@map("user_status")
+}
+
+/// Organization represents an isolated Gym Tenant in GymOS
+model Organization {
+  id           String        @id @default(uuid()) @map("id") @db.Uuid
+  name         String        @map("name") @db.VarChar(255)
+  slug         String        @unique @map("slug") @db.VarChar(100)
+  status       TenantStatus  @default(ACTIVE) @map("status")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  memberships  OrganizationUser[]
+  auditLogs    AuditLog[]
+
+  @@map("organizations")
+}
+
+/// Global User entity
+model User {
+  id           String             @id @default(uuid()) @map("id") @db.Uuid
+  email        String             @unique @map("email") @db.VarChar(255)
+  passwordHash String             @map("password_hash") @db.VarChar(255)
+  firstName    String             @map("first_name") @db.VarChar(100)
+  lastName     String             @map("last_name") @db.VarChar(100)
+  status       UserStatus         @default(ACTIVE) @map("status")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  memberships  OrganizationUser[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+/// Association between Users and Organizations with assigned Role
+model OrganizationUser {
+  id             String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  role           UserRole      @default(ORG_STAFF) @map("role")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  // Foreign keys
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId], name: "unique_org_user")
+  @@index([organizationId], map: "idx_org_user_org_id")
+  @@index([userId], map: "idx_org_user_user_id")
+  @@map("organization_users")
+}
+
+/// Comprehensive Immutable Tenant Audit Log
+model AuditLog {
+  id             String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  userId         String?       @map("user_id") @db.Uuid
+  action         String        @map("action") @db.VarChar(100)
+  entity         String        @map("entity") @db.VarChar(100)
+  entityId       String?       @map("entity_id") @db.VarChar(100)
+  metadata       Json?         @map("metadata")
+  ipAddress      String?       @map("ip_address") @db.VarChar(45)
+  userAgent      String?       @map("user_agent") @db.VarChar(500)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId], map: "idx_audit_logs_org_id")
+  @@index([userId], map: "idx_audit_logs_user_id")
+  @@index([createdAt], map: "idx_audit_logs_created_at")
+  @@map("audit_logs")
+}

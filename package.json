@@ -1,0 +1,33 @@
+{
+  "name": "gymos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GymOS - Multi-Tenant Gym Management & Automation SaaS Foundation",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run --workspace=@gymos/api dev",
+    "dev:web": "npm run --workspace=@gymos/web dev",
+    "dev:worker": "npm run --workspace=@gymos/worker dev",
+    "build": "npm run --workspaces --if-present build",
+    "build:packages": "npm run --workspace=@gymos/shared-types build && npm run --workspace=@gymos/validation build && npm run --workspace=@gymos/config build",
+    "build:api": "npm run --workspace=@gymos/api build",
+    "build:web": "npm run --workspace=@gymos/web build",
+    "build:worker": "npm run --workspace=@gymos/worker build",
+    "lint": "npm run --workspaces --if-present lint",
+    "test": "npm run --workspaces --if-present test",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:migrate": "npm run --workspace=@gymos/api prisma:migrate",
+    "db:generate": "npm run --workspace=@gymos/api prisma:generate"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  }
+}

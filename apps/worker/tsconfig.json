@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "outDir": "./dist",
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@gymos/shared-types": ["../../packages/shared-types/dist/index.d.ts"],
+      "@gymos/validation": ["../../packages/validation/dist/index.d.ts"],
+      "@gymos/config": ["../../packages/config/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}
