@@ -34,8 +34,17 @@ Key rules:
 | `platform.organizations.manage` | Create, suspend, or configure tenants | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | `platform.audit.read` | View global audit events | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | `organization.dashboard.read` | View operational dashboard metrics | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `organization.profile.read` | View organization profile and stats | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `organization.profile.update` | Update enterprise profile details | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `organization.settings.read` | View organization settings | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `organization.settings.manage` | Modify organization configuration | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `organization.settings.update` | Update timezone and currency | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `organization.branches.read` | View and list gym branches | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| `organization.branches.create` | Create new gym branch locations | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `organization.branches.update` | Modify branch identity and settings | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `organization.branches.status.manage` | Activate, deactivate, or close branch | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `organization.branch_staff.read` | View branch staff assignments | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `organization.branch_staff.manage` | Assign or remove branch staff members | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `organization.members.read` | List and inspect gym members | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
 | `organization.members.manage` | Add, update, or deactivate members | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `organization.memberships.read` | View membership plans and contracts | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |

@@ -115,3 +115,136 @@ export const selectOrganizationSchema = z.object({
 });
 
 export type SelectOrganizationInput = z.infer<typeof selectOrganizationSchema>;
+
+/**
+ * Organization Profile & Settings Validation Schemas
+ */
+export const updateOrganizationProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(255).optional(),
+  slug: z
+    .string()
+    .min(2, 'Slug must be at least 2 characters')
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens')
+    .optional(),
+  legalName: z.string().max(255).nullable().optional(),
+  businessEmail: z.string().email('Invalid email address').nullable().optional().or(z.literal('')),
+  businessPhone: z.string().max(50).nullable().optional(),
+  website: z.string().max(255).nullable().optional().or(z.literal('')),
+  logoUrl: z.string().max(500).nullable().optional().or(z.literal('')),
+  description: z.string().max(2000).nullable().optional(),
+  addressLine1: z.string().max(255).nullable().optional(),
+  addressLine2: z.string().max(255).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  state: z.string().max(100).nullable().optional(),
+  country: z.string().max(100).nullable().optional(),
+  postalCode: z.string().max(20).nullable().optional(),
+  timezone: z.string().max(50).optional(),
+  currency: z.string().min(2).max(10).optional(),
+});
+
+export type UpdateOrganizationProfileInput = z.infer<typeof updateOrganizationProfileSchema>;
+
+export const updateOrganizationSettingsSchema = z.object({
+  timezone: z.string().max(50).optional(),
+  currency: z.string().min(2).max(10).optional(),
+});
+
+export type UpdateOrganizationSettingsInput = z.infer<typeof updateOrganizationSettingsSchema>;
+
+/**
+ * Branch CRUD & Status Validation Schemas
+ */
+export const branchStatusEnum = z.enum(['ACTIVE', 'INACTIVE', 'CLOSED']);
+export type BranchStatusType = z.infer<typeof branchStatusEnum>;
+
+export const createBranchSchema = z.object({
+  name: z.string().min(2, 'Branch name must be at least 2 characters').max(255),
+  slug: z
+    .string()
+    .min(2, 'Slug must be at least 2 characters')
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens')
+    .optional(),
+  branchCode: z
+    .string()
+    .min(2, 'Branch code must be at least 2 characters')
+    .max(50)
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Branch code must be alphanumeric with underscores or hyphens')
+    .transform((val) => val.toUpperCase().trim()),
+  description: z.string().max(2000).optional().nullable(),
+  email: z.string().email('Invalid branch email').optional().nullable().or(z.literal('')),
+  phone: z.string().max(50).optional().nullable(),
+  website: z.string().max(255).optional().nullable().or(z.literal('')),
+  logoUrl: z.string().max(500).optional().nullable().or(z.literal('')),
+  addressLine1: z.string().max(255).optional().nullable(),
+  addressLine2: z.string().max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  timezone: z.string().max(50).default('UTC'),
+});
+
+export type CreateBranchInput = z.infer<typeof createBranchSchema>;
+
+export const updateBranchSchema = z.object({
+  name: z.string().min(2, 'Branch name must be at least 2 characters').max(255).optional(),
+  slug: z
+    .string()
+    .min(2, 'Slug must be at least 2 characters')
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens')
+    .optional(),
+  branchCode: z
+    .string()
+    .min(2, 'Branch code must be at least 2 characters')
+    .max(50)
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Branch code must be alphanumeric with underscores or hyphens')
+    .transform((val) => val.toUpperCase().trim())
+    .optional(),
+  description: z.string().max(2000).optional().nullable(),
+  email: z.string().email('Invalid branch email').optional().nullable().or(z.literal('')),
+  phone: z.string().max(50).optional().nullable(),
+  website: z.string().max(255).optional().nullable().or(z.literal('')),
+  logoUrl: z.string().max(500).optional().nullable().or(z.literal('')),
+  addressLine1: z.string().max(255).optional().nullable(),
+  addressLine2: z.string().max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  timezone: z.string().max(50).optional(),
+});
+
+export type UpdateBranchInput = z.infer<typeof updateBranchSchema>;
+
+export const updateBranchStatusSchema = z.object({
+  status: branchStatusEnum,
+});
+
+export type UpdateBranchStatusInput = z.infer<typeof updateBranchStatusSchema>;
+
+export const branchQuerySchema = paginationQuerySchema.extend({
+  search: z.string().optional(),
+  status: branchStatusEnum.optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+});
+
+export type BranchQueryInput = z.infer<typeof branchQuerySchema>;
+
+/**
+ * Branch Staff Assignment Schemas
+ */
+export const assignBranchStaffSchema = z.object({
+  organizationUserId: z.string().uuid('Invalid organization user ID format'),
+});
+
+export type AssignBranchStaffInput = z.infer<typeof assignBranchStaffSchema>;
+
+export const selectBranchSchema = z.object({
+  branchId: z.string().uuid('Invalid branch ID format'),
+});
+
+export type SelectBranchInput = z.infer<typeof selectBranchSchema>;

@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -79,12 +80,12 @@ export class JwtAuthGuard implements CanActivate {
       }
 
       return true;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid or expired authentication token');
     }
   }
 
-  private extractTokenFromRequest(request: any): string | null {
+  private extractTokenFromRequest(request: Request): string | null {
     // 1. Check Authorization Bearer header
     const authHeader = request.headers?.authorization;
     if (authHeader && typeof authHeader === 'string') {

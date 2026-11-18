@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { UserRole, Permission, UserStatus } from "@gymos/shared-types";
+import { UserRole, Permission, UserStatus, BranchData } from "@gymos/shared-types";
 import { LoginInput, RegisterUserInput } from "@gymos/validation";
 
 export interface UserProfile {
@@ -27,13 +27,17 @@ export interface OrganizationContextData {
 interface AuthContextType {
   user: UserProfile | null;
   organization: OrganizationContextData | null;
+  branches: BranchData[];
+  selectedBranch: BranchData | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginInput) => Promise<void>;
   register: (data: RegisterUserInput) => Promise<void>;
   logout: () => Promise<void>;
   selectOrganization: (organizationId: string) => Promise<void>;
+  selectBranch: (branchId: string) => Promise<void>;
   refreshSession: () => Promise<void>;
+  refreshBranches: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,8 +46,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [organization, setOrganization] =
     useState<OrganizationContextData | null>(null);
+  const [branches, setBranches] = useState<BranchData[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<BranchData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  const refreshBranches = async () => {
+    try {
+      const branchList = await apiClient<BranchData[]>("/auth/organizations/current/branches");
+      setBranches(branchList || []);
+
+      const savedBranchId = typeof window !== "undefined" ? localStorage.getItem("gymos_selected_branch_id") : null;
+      let active = branchList.find((b) => b.id === savedBranchId);
+      if (!active && branchList.length > 0) {
+        active = branchList[0];
+      }
+
+      if (active) {
+        setSelectedBranch(active);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gymos_selected_branch_id", active.id);
+        }
+      } else {
+        setSelectedBranch(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("gymos_selected_branch_id");
+        }
+      }
+    } catch {
+      setBranches([]);
+      setSelectedBranch(null);
+    }
+  };
 
   const refreshSession = async () => {
     try {
@@ -56,13 +90,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res && res.user) {
         setUser(res.user);
         setOrganization(res.organization || null);
+        if (res.organization) {
+          await refreshBranches();
+        }
       } else {
         setUser(null);
         setOrganization(null);
+        setBranches([]);
+        setSelectedBranch(null);
       }
     } catch {
       setUser(null);
       setOrganization(null);
+      setBranches([]);
+      setSelectedBranch(null);
     } finally {
       setIsLoading(false);
     }
@@ -70,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async (data: LoginInput) => {
@@ -84,8 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
     setOrganization(res.organization || null);
 
-    // If user has organization, navigate to dashboard, else organization selection
     if (res.organization) {
+      await refreshBranches();
       router.push("/dashboard");
     } else {
       router.push("/select-organization");
@@ -105,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setOrganization(res.organization || null);
 
     if (res.organization) {
+      await refreshBranches();
       router.push("/dashboard");
     } else {
       router.push("/select-organization");
@@ -117,8 +160,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore network errors on logout
     } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("gymos_selected_branch_id");
+      }
       setUser(null);
       setOrganization(null);
+      setBranches([]);
+      setSelectedBranch(null);
       router.push("/login");
     }
   };
@@ -133,7 +181,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(res.user);
     setOrganization(res.organization);
+    await refreshBranches();
     router.push("/dashboard");
+  };
+
+  const selectBranch = async (branchId: string) => {
+    const res = await apiClient<{ selectedBranch: BranchData }>(
+      "/auth/organizations/current/branches/select",
+      {
+        method: "POST",
+        body: JSON.stringify({ branchId }),
+      },
+    );
+
+    if (res && res.selectedBranch) {
+      setSelectedBranch(res.selectedBranch);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("gymos_selected_branch_id", res.selectedBranch.id);
+      }
+    }
   };
 
   return (
@@ -141,13 +207,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         organization,
+        branches,
+        selectedBranch,
         isLoading,
         isAuthenticated: !!user,
         login,
         register,
         logout,
         selectOrganization,
+        selectBranch,
         refreshSession,
+        refreshBranches,
       }}
     >
       {children}

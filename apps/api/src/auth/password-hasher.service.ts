@@ -34,7 +34,7 @@ export class PasswordHasherService {
   async verifyPassword(hash: string, plainText: string): Promise<boolean> {
     try {
       return await argon2.verify(hash, plainText);
-    } catch (error) {
+    } catch {
       this.logger.warn(
         'Argon2 verification failed with internal error',
         'PasswordHasherService',

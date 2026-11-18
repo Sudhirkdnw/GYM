@@ -1,0 +1,13 @@
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { OrganizationsService } from './organizations.service';
+import { OrganizationsController } from './organizations.controller';
+import { DatabaseModule } from '../database/database.module';
+
+@Module({
+  imports: [DatabaseModule, JwtModule.register({})],
+  controllers: [OrganizationsController],
+  providers: [OrganizationsService],
+  exports: [OrganizationsService],
+})
+export class OrganizationsModule {}

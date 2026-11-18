@@ -15,8 +15,8 @@ In the GymOS multi-tenant architecture, all tables fall into five distinct class
 | :--- | :--- | :--- | :---: |
 | **Global Identity Tables** | `users` | Platform-wide identity records. A user can belong to multiple gyms. Queried during global login before tenant is resolved. | **No** (Direct query) |
 | **Tenant Root Table** | `organizations` | Represents individual gym organizations. Contains tenant settings, slug, and status. | **Yes** (`id = app.current_tenant_id`) |
-| **Association Tables** | `organization_users` | Maps global users to organizations with tenant-specific roles (`ORG_OWNER`, `ORG_STAFF`, `TRAINER`, `MEMBER`). | **Yes** (`organization_id = app.current_tenant_id`) |
-| **Tenant-Owned Tables** | `audit_logs` (future: `members`, `plans`, `invoices`, etc.) | Fully partitioned tenant records. Must contain an `organization_id` foreign key. | **Yes** (`organization_id = app.current_tenant_id`) |
+| **Association Tables** | `organization_users`, `branch_staff_assignments` | Maps global users to organizations/branches with roles and assignments. | **Yes** (`organization_id = app.current_tenant_id`) |
+| **Tenant-Owned Tables** | `branches`, `audit_logs` (future: `members`, `plans`, `invoices`, etc.) | Fully partitioned tenant records. Must contain an `organization_id` foreign key. | **Yes** (`organization_id = app.current_tenant_id`) |
 | **System Tables** | `_prisma_migrations` | Schema migration history and engine tooling. Global to the database. | **No** |
 
 ---

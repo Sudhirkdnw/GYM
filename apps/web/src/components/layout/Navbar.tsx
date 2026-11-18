@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Dumbbell, LogOut, Building2, User } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "@/lib/auth-context";
+import { BranchSelector } from "./BranchSelector";
 
 export function Navbar() {
   const { user, organization, isAuthenticated, logout } = useAuth();
@@ -29,17 +30,21 @@ export function Navbar() {
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               {organization && (
-                <Link
-                  href="/select-organization"
-                  className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors"
-                  title="Switch Organization"
-                >
-                  <Building2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span className="font-semibold">{organization.name}</span>
-                  <span className="text-[10px] uppercase text-zinc-500 dark:text-zinc-400">
-                    ({organization.role})
-                  </span>
-                </Link>
+                <>
+                  <Link
+                    href="/select-organization"
+                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors"
+                    title="Switch Organization"
+                  >
+                    <Building2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="font-semibold">{organization.name}</span>
+                    <span className="text-[10px] uppercase text-zinc-500 dark:text-zinc-400">
+                      ({organization.role})
+                    </span>
+                  </Link>
+
+                  <BranchSelector />
+                </>
               )}
 
               <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">

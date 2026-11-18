@@ -539,7 +539,7 @@ export class AuthService {
             user.isSuperAdmin,
           ),
         };
-      } catch (err) {
+      } catch {
         // User may not belong to this org anymore
         this.logger.warn(`Could not resolve membership for user ${userId} in org ${organizationId}`, 'AuthService');
       }

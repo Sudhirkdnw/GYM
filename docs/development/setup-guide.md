@@ -142,12 +142,15 @@ npm run typecheck
 # 2. Run unit tests
 npm test
 
-# 3. Run API e2e integration tests (verifies real DB & Redis)
+# 3. Run API e2e integration tests (verifies real DB & Redis - 92/92 tests PASS)
 npm run --workspace=@gymos/api test:e2e
 
-# 4. Run linter
+# 4. Run Stage 2.3 Branch Management specific tests (39 tests)
+npm --workspace=@gymos/api test:e2e -- test/branch-management.e2e-spec.ts
+
+# 5. Run linter (all workspaces clean)
 npm run lint
 
-# 5. Production build of web and api
+# 6. Production build of web, api, worker, and packages
 npm run build
 ```

@@ -21,6 +21,17 @@ export enum TenantStatus {
   CANCELLED = 'CANCELLED',
 }
 
+export enum BranchStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  CLOSED = 'CLOSED',
+}
+
+export enum AssignmentStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
@@ -41,8 +52,17 @@ export enum Permission {
   PLATFORM_AUDIT_READ = 'platform.audit.read',
 
   ORGANIZATION_DASHBOARD_READ = 'organization.dashboard.read',
+  ORGANIZATION_PROFILE_READ = 'organization.profile.read',
+  ORGANIZATION_PROFILE_UPDATE = 'organization.profile.update',
   ORGANIZATION_SETTINGS_READ = 'organization.settings.read',
   ORGANIZATION_SETTINGS_MANAGE = 'organization.settings.manage',
+  ORGANIZATION_SETTINGS_UPDATE = 'organization.settings.update',
+  ORGANIZATION_BRANCHES_READ = 'organization.branches.read',
+  ORGANIZATION_BRANCHES_CREATE = 'organization.branches.create',
+  ORGANIZATION_BRANCHES_UPDATE = 'organization.branches.update',
+  ORGANIZATION_BRANCHES_STATUS_MANAGE = 'organization.branches.status.manage',
+  ORGANIZATION_BRANCH_STAFF_READ = 'organization.branch_staff.read',
+  ORGANIZATION_BRANCH_STAFF_MANAGE = 'organization.branch_staff.manage',
   ORGANIZATION_MEMBERS_READ = 'organization.members.read',
   ORGANIZATION_MEMBERS_MANAGE = 'organization.members.manage',
   ORGANIZATION_MEMBERSHIPS_READ = 'organization.memberships.read',
@@ -61,8 +81,17 @@ export enum Permission {
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   [UserRole.GYM_OWNER]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
+    Permission.ORGANIZATION_PROFILE_READ,
+    Permission.ORGANIZATION_PROFILE_UPDATE,
     Permission.ORGANIZATION_SETTINGS_READ,
     Permission.ORGANIZATION_SETTINGS_MANAGE,
+    Permission.ORGANIZATION_SETTINGS_UPDATE,
+    Permission.ORGANIZATION_BRANCHES_READ,
+    Permission.ORGANIZATION_BRANCHES_CREATE,
+    Permission.ORGANIZATION_BRANCHES_UPDATE,
+    Permission.ORGANIZATION_BRANCHES_STATUS_MANAGE,
+    Permission.ORGANIZATION_BRANCH_STAFF_READ,
+    Permission.ORGANIZATION_BRANCH_STAFF_MANAGE,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
@@ -78,7 +107,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   [UserRole.GYM_ADMIN]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
+    Permission.ORGANIZATION_PROFILE_READ,
     Permission.ORGANIZATION_SETTINGS_READ,
+    Permission.ORGANIZATION_BRANCHES_READ,
+    Permission.ORGANIZATION_BRANCHES_CREATE,
+    Permission.ORGANIZATION_BRANCHES_UPDATE,
+    Permission.ORGANIZATION_BRANCHES_STATUS_MANAGE,
+    Permission.ORGANIZATION_BRANCH_STAFF_READ,
+    Permission.ORGANIZATION_BRANCH_STAFF_MANAGE,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
@@ -93,6 +129,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   [UserRole.RECEPTIONIST]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
+    Permission.ORGANIZATION_BRANCHES_READ,
+    Permission.ORGANIZATION_BRANCH_STAFF_READ,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
@@ -105,6 +143,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   [UserRole.TRAINER]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
+    Permission.ORGANIZATION_BRANCHES_READ,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_ATTENDANCE_READ,
     Permission.ORGANIZATION_ATTENDANCE_MANAGE,
@@ -190,4 +229,82 @@ export interface AuthenticatedUserContext {
   organizationId?: string;
   role?: UserRole;
   permissions?: Permission[];
+}
+
+export interface OrganizationProfile {
+  id: string;
+  name: string;
+  slug: string;
+  legalName?: string | null;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+  description?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
+  timezone: string;
+  currency: string;
+  status: TenantStatus;
+  createdAt: string;
+  updatedAt: string;
+  stats?: {
+    totalBranches: number;
+    activeBranches: number;
+    inactiveBranches: number;
+    totalStaff: number;
+  };
+}
+
+export interface BranchData {
+  id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+  branchCode: string;
+  description?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
+  timezone: string;
+  status: BranchStatus;
+  createdAt: string;
+  updatedAt: string;
+  staffCount?: number;
+}
+
+export interface BranchStaffAssignmentData {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  organizationUserId: string;
+  status: AssignmentStatus;
+  assignedAt: string;
+  assignedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+  };
+  branch?: {
+    id: string;
+    name: string;
+    branchCode: string;
+    status: BranchStatus;
+  };
 }

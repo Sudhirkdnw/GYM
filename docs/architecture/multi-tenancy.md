@@ -77,6 +77,40 @@ CREATE POLICY "tenant_isolation_policy_audit_logs" ON "audit_logs"
     OR
     organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
   );
+
+-- 4. Branches table (Stage 2.3: 20261118060000_organization_branch_management)
+ALTER TABLE "branches" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "branches" FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY "tenant_isolation_policy_branches" ON "branches"
+  FOR ALL
+  USING (
+    NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+    OR
+    organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+  )
+  WITH CHECK (
+    NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+    OR
+    organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+  );
+
+-- 5. Branch Staff Assignments table (Stage 2.3)
+ALTER TABLE "branch_staff_assignments" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "branch_staff_assignments" FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY "tenant_isolation_policy_branch_staff_assignments" ON "branch_staff_assignments"
+  FOR ALL
+  USING (
+    NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+    OR
+    organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+  )
+  WITH CHECK (
+    NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+    OR
+    organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+  );
 ```
 
 ### 2.2 Table Owner Bypass Prevention (`FORCE ROW LEVEL SECURITY`)

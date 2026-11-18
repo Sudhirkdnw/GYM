@@ -42,6 +42,14 @@ export async function apiClient<T>(
     );
   }
 
+  // Attach selected branch header if present in browser storage
+  if (typeof window !== "undefined") {
+    const activeBranchId = localStorage.getItem("gymos_selected_branch_id");
+    if (activeBranchId && !headers.has("x-branch-id")) {
+      headers.set("x-branch-id", activeBranchId);
+    }
+  }
+
   const response = await fetch(url, {
     credentials: "include",
     ...options,

@@ -82,9 +82,9 @@ export class TokenService {
    * Generates a signed JWT Access Token.
    */
   generateAccessToken(payload: JwtAccessTokenPayload): string {
-    return this.jwtService.sign(payload as any, {
+    return this.jwtService.sign(payload as unknown as Record<string, unknown>, {
       secret: this.jwtSecret,
-      expiresIn: this.accessTokenExpiresIn as any,
+      expiresIn: this.accessTokenExpiresIn as `${number}m`,
     });
   }
 

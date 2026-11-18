@@ -144,6 +144,70 @@ export default function DashboardShellPage() {
         </Card>
       </div>
 
+      {organization && (
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Organization Overview
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Manage gym business details, settings, and contact info
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/organization">
+                <Button size="sm" variant="outline" className="text-xs">
+                  View Organization
+                </Button>
+              </Link>
+              <Link href="/dashboard/organization/profile">
+                <Button size="sm" variant="ghost" className="text-xs">
+                  Edit Profile
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Gym Branches
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Multi-location management, staff assignments, and branch operations
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/branches">
+                <Button size="sm" variant="outline" className="text-xs">
+                  Manage Branches
+                </Button>
+              </Link>
+              <Link href="/dashboard/branches/new">
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  Add New Branch
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-8 rounded-lg border border-dashed border-zinc-300 p-6 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50">
         <h3 className="font-semibold text-zinc-800 dark:text-zinc-200 mb-2">
           Granted Permissions in Active Context:

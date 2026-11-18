@@ -19,6 +19,21 @@ enum TenantStatus {
   @@map("tenant_status")
 }
 
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+
+  @@map("branch_status")
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("assignment_status")
+}
+
 enum UserRole {
   GYM_OWNER
   GYM_ADMIN
@@ -40,16 +55,32 @@ enum UserStatus {
 
 /// Organization represents an isolated Gym Tenant in GymOS
 model Organization {
-  id           String        @id @default(uuid()) @map("id") @db.Uuid
-  name         String        @map("name") @db.VarChar(255)
-  slug         String        @unique @map("slug") @db.VarChar(100)
-  status       TenantStatus  @default(ACTIVE) @map("status")
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                      String                    @id @default(uuid()) @map("id") @db.Uuid
+  name                    String                    @map("name") @db.VarChar(255)
+  slug                    String                    @unique @map("slug") @db.VarChar(100)
+  legalName               String?                   @map("legal_name") @db.VarChar(255)
+  businessEmail           String?                   @map("business_email") @db.VarChar(255)
+  businessPhone           String?                   @map("business_phone") @db.VarChar(50)
+  website                 String?                   @map("website") @db.VarChar(255)
+  logoUrl                 String?                   @map("logo_url") @db.VarChar(500)
+  description             String?                   @map("description") @db.Text
+  addressLine1            String?                   @map("address_line_1") @db.VarChar(255)
+  addressLine2            String?                   @map("address_line_2") @db.VarChar(255)
+  city                    String?                   @map("city") @db.VarChar(100)
+  state                   String?                   @map("state") @db.VarChar(100)
+  country                 String?                   @map("country") @db.VarChar(100)
+  postalCode              String?                   @map("postal_code") @db.VarChar(20)
+  timezone                String                    @default("UTC") @map("timezone") @db.VarChar(50)
+  currency                String                    @default("INR") @map("currency") @db.VarChar(10)
+  status                  TenantStatus              @default(ACTIVE) @map("status")
+  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  memberships  OrganizationUser[]
-  auditLogs    AuditLog[]
+  memberships             OrganizationUser[]
+  branches                Branch[]
+  branchStaffAssignments  BranchStaffAssignment[]
+  auditLogs               AuditLog[]
 
   @@map("organizations")
 }
@@ -81,21 +112,82 @@ model User {
 
 /// Association between Users and Organizations with assigned Role
 model OrganizationUser {
-  id             String        @id @default(uuid()) @map("id") @db.Uuid
-  organizationId String        @map("organization_id") @db.Uuid
-  userId         String        @map("user_id") @db.Uuid
-  role           UserRole      @default(MEMBER) @map("role")
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  id                      String                  @id @default(uuid()) @map("id") @db.Uuid
+  organizationId          String                  @map("organization_id") @db.Uuid
+  userId                  String                  @map("user_id") @db.Uuid
+  role                    UserRole                @default(MEMBER) @map("role")
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz
 
   // Foreign keys
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                    User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchStaffAssignments  BranchStaffAssignment[]
 
   @@unique([organizationId, userId], name: "unique_org_user")
   @@index([organizationId], map: "idx_org_user_org_id")
   @@index([userId], map: "idx_org_user_user_id")
   @@index([organizationId, id], map: "idx_org_users_org_composite")
   @@map("organization_users")
+}
+
+/// Physical gym location belonging strictly to an Organization
+model Branch {
+  id               String                  @id @default(uuid()) @map("id") @db.Uuid
+  organizationId   String                  @map("organization_id") @db.Uuid
+  name             String                  @map("name") @db.VarChar(255)
+  slug             String                  @map("slug") @db.VarChar(100)
+  branchCode       String                  @map("branch_code") @db.VarChar(50)
+  description      String?                 @map("description") @db.Text
+  email            String?                 @map("email") @db.VarChar(255)
+  phone            String?                 @map("phone") @db.VarChar(50)
+  website          String?                 @map("website") @db.VarChar(255)
+  logoUrl          String?                 @map("logo_url") @db.VarChar(500)
+  addressLine1     String?                 @map("address_line_1") @db.VarChar(255)
+  addressLine2     String?                 @map("address_line_2") @db.VarChar(255)
+  city             String?                 @map("city") @db.VarChar(100)
+  state            String?                 @map("state") @db.VarChar(100)
+  country          String?                 @map("country") @db.VarChar(100)
+  postalCode       String?                 @map("postal_code") @db.VarChar(20)
+  timezone         String                  @default("UTC") @map("timezone") @db.VarChar(50)
+  status           BranchStatus            @default(ACTIVE) @map("status")
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staffAssignments BranchStaffAssignment[]
+
+  @@unique([organizationId, slug], name: "unique_org_branch_slug")
+  @@unique([organizationId, branchCode], name: "unique_org_branch_code")
+  @@index([organizationId], map: "idx_branches_org_id")
+  @@index([status], map: "idx_branches_status")
+  @@index([organizationId, id], map: "idx_branches_org_composite")
+  @@map("branches")
+}
+
+/// Assignment of organization staff member to a specific physical branch
+model BranchStaffAssignment {
+  id                 String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  branchId           String            @map("branch_id") @db.Uuid
+  organizationUserId String            @map("organization_user_id") @db.Uuid
+  status             AssignmentStatus  @default(ACTIVE) @map("status")
+  assignedAt         DateTime          @default(now()) @map("assigned_at") @db.Timestamptz
+  assignedBy         String?           @map("assigned_by") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch             Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  organizationUser   OrganizationUser  @relation(fields: [organizationUserId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, organizationUserId], name: "unique_branch_org_user")
+  @@index([organizationId], map: "idx_branch_staff_org_id")
+  @@index([branchId], map: "idx_branch_staff_branch_id")
+  @@index([organizationUserId], map: "idx_branch_staff_org_user_id")
+  @@index([organizationId, id], map: "idx_branch_staff_org_composite")
+  @@map("branch_staff_assignments")
 }
 
 /// Comprehensive Immutable Tenant Audit Log

@@ -22,7 +22,7 @@ import { AUTH_CONFIG } from '@gymos/config';
           'development-jwt-secret-min-16-chars-long',
         signOptions: {
           expiresIn: (configService.get<string>('jwt.accessTokenExpiresIn') ||
-            AUTH_CONFIG.ACCESS_TOKEN_EXPIRY) as any,
+            AUTH_CONFIG.ACCESS_TOKEN_EXPIRY) as `${number}m`,
         },
       }),
       inject: [ConfigService],
