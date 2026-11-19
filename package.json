@@ -24,7 +24,8 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "db:migrate": "npm run --workspace=@gymos/api prisma:migrate",
-    "db:generate": "npm run --workspace=@gymos/api prisma:generate"
+    "db:generate": "npm run --workspace=@gymos/api prisma:generate",
+    "seed:superadmin": "node scripts/create-superadmin.js"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
