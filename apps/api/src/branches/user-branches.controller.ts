@@ -6,12 +6,13 @@ import {
   UseGuards,
   Headers,
   BadRequestException,
-  NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/auth/jwt-auth.guard';
 import { CurrentUser } from '../common/auth/current-user.decorator';
 import { CurrentTenant } from '../common/auth/current-tenant.decorator';
+import { CurrentBranch } from '../common/auth/current-branch.decorator';
+import { RequireBranchContext } from '../common/auth/require-branch-context.decorator';
+import { BranchContextGuard } from '../common/auth/branch-context.guard';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
   AuthenticatedUserContext,
@@ -21,11 +22,15 @@ import {
 } from '@gymos/shared-types';
 import { selectBranchSchema, SelectBranchInput } from './dto/branch.dto';
 import { PrismaService } from '../database/prisma.service';
+import { BranchContextService } from '../common/tenant/branch-context.service';
 
 @Controller('auth/organizations/current/branches')
 @UseGuards(JwtAuthGuard)
 export class UserBranchesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly branchContextService: BranchContextService,
+  ) {}
 
   /**
    * List all branches accessible by the current authenticated user
@@ -128,68 +133,13 @@ export class UserBranchesController {
       throw new BadRequestException('Active organization context required');
     }
 
-    return this.prisma.withTenantContext(orgId, async (tx) => {
-      const branch = await tx.branch.findUnique({
-        where: { id: dto.branchId },
-      });
+    const branch = await this.branchContextService.validateBranchAccess(
+      orgId,
+      dto.branchId,
+      user,
+    );
 
-      if (!branch || branch.organizationId !== orgId) {
-        throw new NotFoundException('Branch not found in current organization');
-      }
-
-      if (branch.status !== BranchStatus.ACTIVE) {
-        throw new BadRequestException(
-          `Branch is ${branch.status.toLowerCase()} and cannot be selected for operational workflows`,
-        );
-      }
-
-      // Check user authority to select this branch
-      if (
-        user.role !== UserRole.GYM_OWNER &&
-        user.role !== UserRole.GYM_ADMIN &&
-        !user.isSuperAdmin
-      ) {
-        const assignment = await tx.branchStaffAssignment.findFirst({
-          where: {
-            branchId: dto.branchId,
-            organizationId: orgId,
-            organizationUser: { userId: user.id },
-            status: 'ACTIVE',
-          },
-        });
-
-        if (!assignment) {
-          throw new ForbiddenException(
-            'Forbidden: You are not assigned to this branch',
-          );
-        }
-      }
-
-      return {
-        selectedBranch: {
-          id: branch.id,
-          organizationId: branch.organizationId,
-          name: branch.name,
-          slug: branch.slug,
-          branchCode: branch.branchCode,
-          description: branch.description,
-          email: branch.email,
-          phone: branch.phone,
-          website: branch.website,
-          logoUrl: branch.logoUrl,
-          addressLine1: branch.addressLine1,
-          addressLine2: branch.addressLine2,
-          city: branch.city,
-          state: branch.state,
-          country: branch.country,
-          postalCode: branch.postalCode,
-          timezone: branch.timezone,
-          status: branch.status as BranchStatus,
-          createdAt: branch.createdAt.toISOString(),
-          updatedAt: branch.updatedAt.toISOString(),
-        },
-      };
-    });
+    return { selectedBranch: branch };
   }
 
   /**
@@ -205,18 +155,29 @@ export class UserBranchesController {
       throw new BadRequestException('Active organization context required');
     }
 
-    const accessible = await this.getAccessibleBranches(orgId, user);
-    if (accessible.length === 0) {
-      return { selectedBranch: null };
-    }
-
     if (requestedBranchId) {
-      const match = accessible.find((b) => b.id === requestedBranchId);
-      if (match) {
-        return { selectedBranch: match };
-      }
+      const selected = await this.branchContextService.validateBranchAccess(
+        orgId,
+        requestedBranchId,
+        user,
+      );
+      return { selectedBranch: selected };
     }
 
+    const accessible = await this.getAccessibleBranches(orgId, user);
     return { selectedBranch: accessible[0] || null };
+  }
+
+  /**
+   * Verified branch operational context test endpoint
+   * Guarantees branch is active, belongs to org, and user is authorized
+   */
+  @Get('current-context')
+  @UseGuards(BranchContextGuard)
+  @RequireBranchContext({ required: true, allowInactive: false })
+  async getCurrentBranchContext(
+    @CurrentBranch() branch: BranchData,
+  ): Promise<{ branch: BranchData }> {
+    return { branch };
   }
 }

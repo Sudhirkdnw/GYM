@@ -5,11 +5,12 @@ import { BranchStaffService } from './branch-staff.service';
 import { BranchesController } from './branches.controller';
 import { UserBranchesController } from './user-branches.controller';
 import { DatabaseModule } from '../database/database.module';
+import { BranchContextGuard } from '../common/auth/branch-context.guard';
 
 @Module({
   imports: [DatabaseModule, JwtModule.register({})],
   controllers: [BranchesController, UserBranchesController],
-  providers: [BranchesService, BranchStaffService],
-  exports: [BranchesService, BranchStaffService],
+  providers: [BranchesService, BranchStaffService, BranchContextGuard],
+  exports: [BranchesService, BranchStaffService, BranchContextGuard],
 })
 export class BranchesModule {}
