@@ -93,6 +93,64 @@ export enum OutboxStatus {
   FAILED = 'FAILED',
 }
 
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  ISSUED = 'ISSUED',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  VOID = 'VOID',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum InvoiceItemType {
+  MEMBERSHIP = 'MEMBERSHIP',
+  REGISTRATION_FEE = 'REGISTRATION_FEE',
+  PERSONAL_TRAINING = 'PERSONAL_TRAINING',
+  SERVICE = 'SERVICE',
+  MERCHANDISE = 'MERCHANDISE',
+  CUSTOM = 'CUSTOM',
+}
+
+export enum PaymentMethod {
+  CASH = 'CASH',
+  UPI = 'UPI',
+  CARD = 'CARD',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CHEQUE = 'CHEQUE',
+  MEMBER_CREDIT = 'MEMBER_CREDIT',
+  OTHER = 'OTHER',
+}
+
+export enum PaymentStatus {
+  COMPLETED = 'COMPLETED',
+  PENDING = 'PENDING',
+  FAILED = 'FAILED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+  REFUNDED = 'REFUNDED',
+  REVERSED = 'REVERSED',
+}
+
+export enum AllocationStatus {
+  ACTIVE = 'ACTIVE',
+  PARTIALLY_REVERSED = 'PARTIALLY_REVERSED',
+  REVERSED = 'REVERSED',
+}
+
+export enum RefundStatus {
+  COMPLETED = 'COMPLETED',
+  PENDING = 'PENDING',
+  FAILED = 'FAILED',
+}
+
+export enum CreditEntryType {
+  CREDIT_FROM_OVERPAYMENT = 'CREDIT_FROM_OVERPAYMENT',
+  CREDIT_ADJUSTMENT = 'CREDIT_ADJUSTMENT',
+  CREDIT_APPLIED = 'CREDIT_APPLIED',
+  CREDIT_REFUND = 'CREDIT_REFUND',
+  CREDIT_REVERSAL = 'CREDIT_REVERSAL',
+}
+
 export const HTTP_HEADERS = {
   CORRELATION_ID: 'x-correlation-id',
   REQUEST_ID: 'x-request-id',
@@ -136,6 +194,18 @@ export enum Permission {
   MEMBER_SUBSCRIPTION_RENEW = 'member_subscription.renew',
   MEMBER_SUBSCRIPTION_FREEZE = 'member_subscription.freeze',
   MEMBER_SUBSCRIPTION_CANCEL = 'member_subscription.cancel',
+
+  // Stage 2.6: Billing, Invoices & Payments Permissions
+  INVOICE_READ = 'invoice.read',
+  INVOICE_CREATE = 'invoice.create',
+  INVOICE_VOID = 'invoice.void',
+  PAYMENT_READ = 'payment.read',
+  PAYMENT_RECORD = 'payment.record',
+  PAYMENT_REFUND = 'payment.refund',
+  PAYMENT_ALLOCATION_MANAGE = 'payment_allocation.manage',
+  MEMBER_CREDIT_READ = 'member_credit.read',
+  MEMBER_CREDIT_MANAGE = 'member_credit.manage',
+  FINANCIAL_REPORT_READ = 'financial_report.read',
 
   ORGANIZATION_MEMBERSHIPS_READ = 'organization.memberships.read',
   ORGANIZATION_MEMBERSHIPS_MANAGE = 'organization.memberships.manage',
@@ -189,6 +259,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_SUBSCRIPTION_RENEW,
     Permission.MEMBER_SUBSCRIPTION_FREEZE,
     Permission.MEMBER_SUBSCRIPTION_CANCEL,
+    Permission.INVOICE_READ,
+    Permission.INVOICE_CREATE,
+    Permission.INVOICE_VOID,
+    Permission.PAYMENT_READ,
+    Permission.PAYMENT_RECORD,
+    Permission.PAYMENT_REFUND,
+    Permission.PAYMENT_ALLOCATION_MANAGE,
+    Permission.MEMBER_CREDIT_READ,
+    Permission.MEMBER_CREDIT_MANAGE,
+    Permission.FINANCIAL_REPORT_READ,
   ],
   [UserRole.GYM_ADMIN]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -224,6 +304,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_SUBSCRIPTION_RENEW,
     Permission.MEMBER_SUBSCRIPTION_FREEZE,
     Permission.MEMBER_SUBSCRIPTION_CANCEL,
+    Permission.INVOICE_READ,
+    Permission.INVOICE_CREATE,
+    Permission.INVOICE_VOID,
+    Permission.PAYMENT_READ,
+    Permission.PAYMENT_RECORD,
+    Permission.PAYMENT_REFUND,
+    Permission.PAYMENT_ALLOCATION_MANAGE,
+    Permission.MEMBER_CREDIT_READ,
+    Permission.MEMBER_CREDIT_MANAGE,
+    Permission.FINANCIAL_REPORT_READ,
   ],
   [UserRole.RECEPTIONIST]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -247,6 +337,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_SUBSCRIPTION_ASSIGN,
     Permission.MEMBER_SUBSCRIPTION_RENEW,
     Permission.MEMBER_SUBSCRIPTION_FREEZE,
+    Permission.INVOICE_READ,
+    Permission.INVOICE_CREATE,
+    Permission.PAYMENT_READ,
+    Permission.PAYMENT_RECORD,
+    Permission.MEMBER_CREDIT_READ,
   ],
   [UserRole.TRAINER]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -579,5 +674,289 @@ export interface MembershipDetailData extends MemberMembershipData {
   freezes?: MembershipFreezeData[];
   history?: MembershipHistoryData[];
   plan?: MembershipPlanData;
+}
+
+// Stage 2.6: Billing, Invoices & Payments Interfaces
+export interface InvoiceSnapshotSupplier {
+  legalName: string;
+  tradeName?: string;
+  branchName: string;
+  addressLine1?: string;
+  city?: string;
+  state: string;
+  stateCode: string;
+  postalCode?: string;
+  gstin?: string;
+  pan?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface InvoiceSnapshotCustomer {
+  memberId: string;
+  memberNumber: string;
+  name: string;
+  email?: string;
+  phone: string;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  stateCode?: string;
+  postalCode?: string;
+  recipientGstin?: string;
+}
+
+export interface InvoiceSnapshotTax {
+  taxMode: 'EXCLUSIVE' | 'INCLUSIVE';
+  isInterState: boolean;
+  placeOfSupply: string;
+  cgstRate: number;
+  sgstRate: number;
+  igstRate: number;
+}
+
+export interface InvoiceItemData {
+  id: string;
+  organizationId: string;
+  invoiceId: string;
+  itemType: InvoiceItemType;
+  description: string;
+  sacHsnCode?: string | null;
+  quantity: number;
+  unitPrice: number;
+  discountAmount: number;
+  taxableAmount: number;
+  taxRate: number;
+  cgstRate: number;
+  sgstRate: number;
+  igstRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  membershipId?: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceData {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  memberId: string;
+  invoiceNumber: string;
+  financialYear: string;
+  sequenceNumber: number;
+  issueDate: string;
+  dueDate: string;
+  currency: string;
+  subtotal: number;
+  discountAmount: number;
+  discountReason?: string | null;
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  totalTaxAmount: number;
+  totalAmount: number;
+  allocatedAmount: number;
+  paidAmount?: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  supplierSnapshot: InvoiceSnapshotSupplier;
+  customerSnapshot: InvoiceSnapshotCustomer;
+  taxSnapshot: InvoiceSnapshotTax;
+  placeOfSupply: string;
+  notes?: string | null;
+  terms?: string | null;
+  createdById: string;
+  voidedAt?: string | null;
+  voidReason?: string | null;
+  voidedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  member?: {
+    id: string;
+    memberNumber: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string | null;
+  };
+  branch?: {
+    id: string;
+    name: string;
+    branchCode: string;
+  };
+}
+
+export interface InvoiceDetailData extends InvoiceData {
+  items: InvoiceItemData[];
+  allocations: PaymentAllocationData[];
+}
+
+export interface PaymentAllocationData {
+  id: string;
+  organizationId: string;
+  paymentId: string;
+  invoiceId: string;
+  amount: number;
+  status: AllocationStatus;
+  allocatedAt: string;
+  createdAt: string;
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+    balanceDue: number;
+    status: InvoiceStatus;
+  };
+  reversals?: PaymentAllocationReversalData[];
+}
+
+export interface PaymentAllocationReversalData {
+  id: string;
+  organizationId: string;
+  allocationId: string;
+  refundId?: string | null;
+  amount: number;
+  reason: string;
+  reversedById: string;
+  idempotencyKey?: string | null;
+  createdAt: string;
+}
+
+export interface PaymentData {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  memberId: string;
+  paymentNumber: string;
+  receiptNumber?: string;
+  financialYear: string;
+  sequenceNumber: number;
+  amount: number;
+  currency: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  transactionReference?: string | null;
+  bankName?: string | null;
+  chequeNumber?: string | null;
+  chequeDate?: string | null;
+  paidAt: string;
+  collectedById: string;
+  idempotencyKey?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  member?: {
+    id: string;
+    memberNumber: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  branch?: {
+    id: string;
+    name: string;
+    branchCode: string;
+  };
+}
+
+export interface PaymentDetailData extends PaymentData {
+  allocatedAmount?: number;
+  unallocatedAmount?: number;
+  refundedAmount?: number;
+  allocations: PaymentAllocationData[];
+  refunds: RefundData[];
+}
+
+export interface RefundData {
+  id: string;
+  organizationId: string;
+  paymentId: string;
+  refundNumber: string;
+  financialYear: string;
+  sequenceNumber: number;
+  amount: number;
+  method: PaymentMethod;
+  reason: string;
+  reference?: string | null;
+  status: RefundStatus;
+  initiatedById: string;
+  approvedById?: string | null;
+  idempotencyKey?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reversals?: PaymentAllocationReversalData[];
+}
+
+export interface MemberCreditAccountData {
+  id: string;
+  organizationId: string;
+  memberId: string;
+  currency: string;
+  currentBalance: number;
+  createdAt: string;
+  updatedAt: string;
+  member?: MemberData;
+}
+
+export interface MemberCreditEntryData {
+  id: string;
+  organizationId: string;
+  creditAccountId: string;
+  entryType: CreditEntryType;
+  amount: number;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  description: string;
+  idempotencyKey?: string | null;
+  createdById: string;
+  createdAt: string;
+}
+
+export interface FinancialKpiData {
+  todayCollections: number;
+  mtdCollections: number;
+  totalOutstandingDues: number;
+  activeInvoicesCount: number;
+  paidInvoicesCount: number;
+  overdueInvoicesCount: number;
+}
+
+export interface DuesAgingBucketData {
+  bucket: '0-30' | '31-60' | '60+';
+  amount: number;
+  invoiceCount: number;
+}
+
+export interface OutstandingDuesSummaryData {
+  totalDues: number;
+  agingBuckets: DuesAgingBucketData[];
+  memberDues: Array<{
+    memberId: string;
+    memberName: string;
+    memberNumber: string;
+    phone: string;
+    branchName: string;
+    totalDue: number;
+    oldestDueDate: string;
+    invoiceCount: number;
+  }>;
+}
+
+export interface PaymentMethodDistributionData {
+  method: PaymentMethod;
+  totalAmount: number;
+  count: number;
+  percentage: number;
+}
+
+export interface BranchPerformanceData {
+  branchId: string;
+  branchName: string;
+  branchCode: string;
+  collections: number;
+  dues: number;
+  invoicesCount: number;
 }
 

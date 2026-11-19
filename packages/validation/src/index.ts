@@ -507,5 +507,188 @@ export const subscriptionQuerySchema = z.object({
 
 export type SubscriptionQueryInput = z.infer<typeof subscriptionQuerySchema>;
 
+// Stage 2.6: Billing, Invoices & Payments Schemas
+export const invoiceStatusEnum = z.enum([
+  'DRAFT',
+  'ISSUED',
+  'PARTIALLY_PAID',
+  'PAID',
+  'OVERDUE',
+  'VOID',
+  'REFUNDED',
+]);
+
+export const invoiceItemTypeEnum = z.enum([
+  'MEMBERSHIP',
+  'REGISTRATION_FEE',
+  'PERSONAL_TRAINING',
+  'SERVICE',
+  'MERCHANDISE',
+  'CUSTOM',
+]);
+
+export const paymentMethodEnum = z.enum([
+  'CASH',
+  'UPI',
+  'CARD',
+  'BANK_TRANSFER',
+  'CHEQUE',
+  'MEMBER_CREDIT',
+  'OTHER',
+]);
+
+export const paymentStatusEnum = z.enum([
+  'COMPLETED',
+  'PENDING',
+  'FAILED',
+  'PARTIALLY_REFUNDED',
+  'REFUNDED',
+  'REVERSED',
+]);
+
+export const creditEntryTypeEnum = z.enum([
+  'CREDIT_FROM_OVERPAYMENT',
+  'CREDIT_ADJUSTMENT',
+  'CREDIT_APPLIED',
+  'CREDIT_REFUND',
+  'CREDIT_REVERSAL',
+]);
+
+export const createInvoiceItemSchema = z.object({
+  itemType: invoiceItemTypeEnum.default('MEMBERSHIP'),
+  description: z.string().min(1, 'Description is required').max(255),
+  sacHsnCode: z.string().max(20).optional().default('999723'),
+  quantity: z.coerce.number().int().positive().default(1),
+  unitPrice: z.coerce.number().min(0, 'Unit price cannot be negative'),
+  discountAmount: z.coerce.number().min(0).default(0),
+  taxRate: z.coerce.number().min(0).max(100).default(18),
+  membershipId: z.string().uuid().optional(),
+});
+
+export type CreateInvoiceItemInput = z.infer<typeof createInvoiceItemSchema>;
+
+export const createInvoiceSchema = z.object({
+  branchId: z.string().uuid('Valid Branch ID is required'),
+  memberId: z.string().uuid('Valid Member ID is required'),
+  issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  placeOfSupply: z.string().length(2, 'Place of supply state code must be 2 digits').optional(),
+  discountAmount: z.coerce.number().min(0).default(0),
+  discountReason: z.string().max(255).optional(),
+  taxMode: z.enum(['EXCLUSIVE', 'INCLUSIVE']).default('EXCLUSIVE'),
+  notes: z.string().optional(),
+  terms: z.string().optional(),
+  idempotencyKey: z.string().max(200).optional(),
+  items: z.array(createInvoiceItemSchema).min(1, 'At least one line item is required'),
+});
+
+export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
+
+export const voidInvoiceSchema = z.object({
+  reason: z.string().min(3, 'Reason must be at least 3 characters').max(255),
+});
+
+export type VoidInvoiceInput = z.infer<typeof voidInvoiceSchema>;
+
+export const paymentAllocationInputSchema = z.object({
+  invoiceId: z.string().uuid('Valid Invoice ID is required'),
+  amount: z.coerce.number().positive('Allocation amount must be greater than zero'),
+});
+
+export type PaymentAllocationInput = z.infer<typeof paymentAllocationInputSchema>;
+
+export const recordPaymentSchema = z.object({
+  branchId: z.string().uuid('Valid Branch ID is required'),
+  memberId: z.string().uuid('Valid Member ID is required'),
+  amount: z.coerce.number().positive('Payment amount must be greater than zero'),
+  method: paymentMethodEnum,
+  transactionReference: z.string().max(100).optional(),
+  bankName: z.string().max(100).optional(),
+  chequeNumber: z.string().max(50).optional(),
+  chequeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  paidAt: z.string().optional(),
+  notes: z.string().optional(),
+  idempotencyKey: z.string().max(200).optional(),
+  allocations: z.array(paymentAllocationInputSchema).optional().default([]),
+  retainExcessAsCredit: z.boolean().default(true),
+});
+
+export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+
+export const refundAllocationInputSchema = z.object({
+  allocationId: z.string().uuid('Valid Allocation ID is required'),
+  amount: z.coerce.number().positive('Reversal amount must be greater than zero'),
+});
+
+export type RefundAllocationInput = z.infer<typeof refundAllocationInputSchema>;
+
+export const processRefundSchema = z.object({
+  amount: z.coerce.number().positive('Refund amount must be greater than zero'),
+  method: paymentMethodEnum.optional(),
+  reason: z.string().min(3, 'Reason must be at least 3 characters').max(255),
+  reference: z.string().max(100).optional(),
+  idempotencyKey: z.string().max(200).optional(),
+  reversals: z.array(refundAllocationInputSchema).optional(),
+});
+
+export type ProcessRefundInput = z.infer<typeof processRefundSchema>;
+
+export const depositCreditSchema = z.object({
+  memberId: z.string().uuid().optional(),
+  amount: z.coerce.number().positive('Deposit amount must be greater than zero'),
+  description: z.string().min(3, 'Description must be at least 3 characters').max(255),
+  referenceType: z.string().max(50).optional(),
+  referenceId: z.string().uuid().optional(),
+});
+
+export type DepositCreditInput = z.infer<typeof depositCreditSchema>;
+
+export const applyCreditSchema = z.object({
+  invoiceId: z.string().uuid('Valid Invoice ID is required'),
+  amount: z.coerce.number().positive('Applied credit amount must be greater than zero'),
+});
+
+export type ApplyCreditInput = z.infer<typeof applyCreditSchema>;
+
+export const invoiceQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  status: invoiceStatusEnum.optional(),
+  branchId: z.string().uuid().optional().or(z.literal('')),
+  memberId: z.string().uuid().optional().or(z.literal('')),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  sortBy: z.enum(['createdAt', 'dueDate', 'totalAmount', 'balanceDue', 'status']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type InvoiceQueryInput = z.infer<typeof invoiceQuerySchema>;
+
+export const paymentQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  method: paymentMethodEnum.optional(),
+  status: paymentStatusEnum.optional(),
+  branchId: z.string().uuid().optional().or(z.literal('')),
+  memberId: z.string().uuid().optional().or(z.literal('')),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  sortBy: z.enum(['paidAt', 'amount', 'status', 'createdAt']).default('paidAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type PaymentQueryInput = z.infer<typeof paymentQuerySchema>;
+
+export const duesQuerySchema = z.object({
+  branchId: z.string().uuid().optional().or(z.literal('')),
+  agingBucket: z.enum(['ALL', '0-30', '31-60', '60+']).default('ALL'),
+  search: z.string().optional(),
+});
+
+export type DuesQueryInput = z.infer<typeof duesQuerySchema>;
+
+
 
 

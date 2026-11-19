@@ -62,6 +62,11 @@ async function bootstrap() {
     connection: redisConnection,
   });
 
+  // Billing Event Queue for publishing financial outbox items
+  const billingQueue = new Queue(QUEUES.BILLING, {
+    connection: redisConnection,
+  });
+
   // BullMQ Worker for Notifications
   const notificationWorker = new Worker(
     QUEUES.NOTIFICATIONS,
@@ -98,6 +103,24 @@ async function bootstrap() {
     },
   );
 
+  // BullMQ Worker for Billing & Payments
+  const billingWorker = new Worker(
+    QUEUES.BILLING,
+    async (job: Job) => {
+      log("INFO", `Processing financial billing event [${job.name}] id=${job.id}`, {
+        jobId: job.id,
+        name: job.name,
+        data: job.data,
+      });
+      return { processed: true, completedAt: new Date().toISOString() };
+    },
+    {
+      connection: redisConnection,
+      concurrency:
+        env.WORKER_CONCURRENCY || APP_CONFIG.DEFAULT_WORKER_CONCURRENCY,
+    },
+  );
+
   notificationWorker.on("completed", (job) => {
     log("INFO", `Job completed: id=${job?.id} name=${job?.name}`);
   });
@@ -118,7 +141,17 @@ async function bootstrap() {
     });
   });
 
-  log("INFO", `Worker active and listening on queues: ${QUEUES.NOTIFICATIONS}, ${QUEUES.MEMBERSHIPS}`);
+  billingWorker.on("completed", (job) => {
+    log("INFO", `Billing job completed: id=${job?.id} name=${job?.name}`);
+  });
+
+  billingWorker.on("failed", (job, err) => {
+    log("ERROR", `Billing job failed: id=${job?.id} name=${job?.name}`, {
+      error: err.message,
+    });
+  });
+
+  log("INFO", `Worker active and listening on queues: ${QUEUES.NOTIFICATIONS}, ${QUEUES.MEMBERSHIPS}, ${QUEUES.BILLING}`);
 
   // Outbox Dispatcher loop (polls PENDING membership_outbox_events)
   let isDispatching = false;
@@ -236,18 +269,132 @@ async function bootstrap() {
     }
   };
 
+  // Billing Outbox Dispatcher loop (polls PENDING billing_outbox_events)
+  let isDispatchingBilling = false;
+  const dispatchBillingOutboxEvents = async () => {
+    if (isDispatchingBilling) return;
+    isDispatchingBilling = true;
+    try {
+      const pendingEvents = await prisma.billingOutboxEvent.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        take: 50,
+      });
+
+      for (const event of pendingEvents) {
+        try {
+          await billingQueue.add(event.eventType, event.payload as object, {
+            jobId: event.idempotencyKey,
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          });
+
+          await prisma.billingOutboxEvent.update({
+            where: { id: event.id },
+            data: {
+              status: "PUBLISHED",
+              processedAt: new Date(),
+            },
+          });
+          log("INFO", `Dispatched billing outbox event ${event.eventType} (${event.id})`);
+        } catch (dispatchErr) {
+          const errMsg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
+          await prisma.billingOutboxEvent.update({
+            where: { id: event.id },
+            data: {
+              retryCount: { increment: 1 },
+              lastError: errMsg,
+              status: event.retryCount >= 5 ? "FAILED" : "PENDING",
+            },
+          });
+        }
+      }
+    } catch (err) {
+      log("ERROR", "Billing outbox dispatcher error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      isDispatchingBilling = false;
+    }
+  };
+
+  // Overdue Invoice Processor (periodic check for past-due invoices)
+  let isCheckingDues = false;
+  const processOverdueInvoices = async () => {
+    if (isCheckingDues) return;
+    isCheckingDues = true;
+    try {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+
+      const overdueInvoices = await prisma.invoice.findMany({
+        where: {
+          status: { in: ["ISSUED", "PARTIALLY_PAID"] },
+          dueDate: { lt: today },
+          balanceDue: { gt: 0 },
+        },
+        select: { id: true, organizationId: true, memberId: true, invoiceNumber: true, balanceDue: true, dueDate: true },
+        take: 100,
+      });
+
+      for (const inv of overdueInvoices) {
+        try {
+          await prisma.invoice.update({
+            where: { id: inv.id },
+            data: { status: "OVERDUE" },
+          });
+
+          const dateStr = inv.dueDate.toISOString().slice(0, 10);
+          await prisma.billingOutboxEvent.create({
+            data: {
+              organizationId: inv.organizationId,
+              aggregateId: inv.id,
+              eventType: "billing.dues.reminder_triggered",
+              idempotencyKey: `outbox_overdue_${inv.id}_${dateStr}`,
+              payload: {
+                invoiceId: inv.id,
+                invoiceNumber: inv.invoiceNumber,
+                memberId: inv.memberId,
+                balanceDue: Number(inv.balanceDue),
+                status: "OVERDUE",
+              },
+              status: "PENDING",
+            },
+          });
+          log("INFO", `Marked invoice ${inv.invoiceNumber} as OVERDUE for member ${inv.memberId}`);
+        } catch (invErr) {
+          log("ERROR", `Failed to mark invoice ${inv.id} as overdue`, {
+            error: invErr instanceof Error ? invErr.message : String(invErr),
+          });
+        }
+      }
+    } catch (err) {
+      log("ERROR", "Overdue invoice processor error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      isCheckingDues = false;
+    }
+  };
+
   const outboxInterval = setInterval(dispatchOutboxEvents, 5000);
+  const billingOutboxInterval = setInterval(dispatchBillingOutboxEvents, 5000);
   const expiryInterval = setInterval(processExpiredMemberships, 60000);
+  const overdueInterval = setInterval(processOverdueInvoices, 60000);
 
   // Graceful Shutdown
   const shutdown = async (signal: string) => {
     log("INFO", `Received ${signal}. Gracefully stopping worker...`);
     clearInterval(outboxInterval);
+    clearInterval(billingOutboxInterval);
     clearInterval(expiryInterval);
+    clearInterval(overdueInterval);
     try {
       await notificationWorker.close();
       await membershipWorker.close();
+      await billingWorker.close();
       await membershipQueue.close();
+      await billingQueue.close();
       await redisConnection.quit();
       await prisma.$disconnect();
       log("INFO", "Worker, Redis, and Prisma connections closed successfully");

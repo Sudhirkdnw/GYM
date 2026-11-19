@@ -13,6 +13,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { BranchesModule } from './branches/branches.module';
 import { MembersModule } from './members/members.module';
 import { MembershipsModule } from './memberships/memberships.module';
+import { BillingModule } from './billing/billing.module';
 import { CsrfProtectionGuard } from './common/auth/csrf-protection.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
@@ -34,6 +35,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     BranchesModule,
     MembersModule,
     MembershipsModule,
+    BillingModule,
     HealthModule,
   ],
   providers: [

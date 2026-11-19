@@ -123,6 +123,78 @@ enum OutboxStatus {
   @@map("outbox_status")
 }
 
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+  REFUNDED
+
+  @@map("invoice_status")
+}
+
+enum InvoiceItemType {
+  MEMBERSHIP
+  REGISTRATION_FEE
+  PERSONAL_TRAINING
+  SERVICE
+  MERCHANDISE
+  CUSTOM
+
+  @@map("invoice_item_type")
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  MEMBER_CREDIT
+  OTHER
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  COMPLETED
+  PENDING
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  REVERSED
+
+  @@map("payment_status")
+}
+
+enum AllocationStatus {
+  ACTIVE
+  PARTIALLY_REVERSED
+  REVERSED
+
+  @@map("allocation_status")
+}
+
+enum RefundStatus {
+  COMPLETED
+  PENDING
+  FAILED
+
+  @@map("refund_status")
+}
+
+enum CreditEntryType {
+  CREDIT_FROM_OVERPAYMENT
+  CREDIT_ADJUSTMENT
+  CREDIT_APPLIED
+  CREDIT_REFUND
+  CREDIT_REVERSAL
+
+  @@map("credit_entry_type")
+}
+
 /// Organization represents an isolated Gym Tenant in GymOS
 model Organization {
   id                      String                    @id @default(uuid()) @map("id") @db.Uuid
@@ -160,6 +232,16 @@ model Organization {
   membershipFreezes       MembershipFreeze[]
   membershipHistories     MembershipHistory[]
   membershipOutboxEvents  MembershipOutboxEvent[]
+  invoices                Invoice[]
+  invoiceItems            InvoiceItem[]
+  payments                Payment[]
+  paymentAllocations      PaymentAllocation[]
+  paymentAllocationReversals PaymentAllocationReversal[]
+  refunds                 Refund[]
+  billingOutboxEvents     BillingOutboxEvent[]
+  billingSequences        OrganizationBillingSequence[]
+  memberCreditAccounts    MemberCreditAccount[]
+  memberCreditEntries     MemberCreditEntry[]
 
   @@map("organizations")
 }
@@ -241,6 +323,8 @@ model Branch {
   transfersTo      MemberTransfer[]        @relation("TransferToBranch")
   planBranches     MembershipPlanBranch[]
   homeMemberships  MemberMembership[]
+  invoices         Invoice[]
+  payments         Payment[]
 
   @@unique([organizationId, slug], name: "unique_org_branch_slug")
   @@unique([organizationId, branchCode], name: "unique_org_branch_code")
@@ -387,6 +471,9 @@ model Member {
   user                         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   transfers                    MemberTransfer[]
   memberships                  MemberMembership[]
+  invoices                     Invoice[]
+  payments                     Payment[]
+  creditAccounts               MemberCreditAccount[]
 
   @@unique([organizationId, memberNumber], name: "unique_org_member_number")
   @@index([organizationId], map: "idx_members_org_id")
@@ -539,6 +626,7 @@ model MemberMembership {
   homeBranch            Branch            @relation(fields: [homeBranchId], references: [id], onDelete: Restrict)
   freezes               MembershipFreeze[]
   history               MembershipHistory[]
+  invoiceItems          InvoiceItem[]
 
   @@index([organizationId], map: "idx_member_memberships_org")
   @@index([organizationId, memberId], map: "idx_member_memberships_member")
@@ -616,5 +704,300 @@ model MembershipOutboxEvent {
   @@index([organizationId, status], map: "idx_outbox_org_status")
   @@index([status, createdAt], map: "idx_outbox_status_created")
   @@map("membership_outbox_events")
+}
+
+/// Invoice represents a tax invoice issued by the gym business to a member
+model Invoice {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  branchId              String            @map("branch_id") @db.Uuid
+  memberId              String            @map("member_id") @db.Uuid
+  
+  invoiceNumber         String            @map("invoice_number") @db.VarChar(50)
+  financialYear         String            @map("financial_year") @db.VarChar(10)
+  sequenceNumber        Int               @map("sequence_number")
+  
+  issueDate             DateTime          @map("issue_date") @db.Date
+  dueDate               DateTime          @map("due_date") @db.Date
+  currency              String            @default("INR") @map("currency") @db.VarChar(10)
+  
+  subtotal              Decimal           @map("subtotal") @db.Decimal(10, 2)
+  discountAmount        Decimal           @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  discountReason        String?           @map("discount_reason") @db.VarChar(255)
+  taxableAmount         Decimal           @map("taxable_amount") @db.Decimal(10, 2)
+  
+  cgstAmount            Decimal           @default(0.00) @map("cgst_amount") @db.Decimal(10, 2)
+  sgstAmount            Decimal           @default(0.00) @map("sgst_amount") @db.Decimal(10, 2)
+  igstAmount            Decimal           @default(0.00) @map("igst_amount") @db.Decimal(10, 2)
+  cessAmount            Decimal           @default(0.00) @map("cess_amount") @db.Decimal(10, 2)
+  totalTaxAmount        Decimal           @default(0.00) @map("total_tax_amount") @db.Decimal(10, 2)
+  
+  totalAmount           Decimal           @map("total_amount") @db.Decimal(10, 2)
+  allocatedAmount       Decimal           @default(0.00) @map("allocated_amount") @db.Decimal(10, 2)
+  balanceDue            Decimal           @map("balance_due") @db.Decimal(10, 2)
+  
+  status                InvoiceStatus     @default(ISSUED) @map("status")
+  
+  supplierSnapshot      Json              @map("supplier_snapshot")
+  customerSnapshot      Json              @map("customer_snapshot")
+  taxSnapshot           Json              @map("tax_snapshot")
+  placeOfSupply         String            @map("place_of_supply") @db.VarChar(2)
+  
+  notes                 String?           @map("notes") @db.Text
+  terms                 String?           @map("terms") @db.Text
+  createdById           String            @map("created_by_id") @db.Uuid
+  
+  voidedAt              DateTime?         @map("voided_at") @db.Timestamptz
+  voidReason            String?           @map("void_reason") @db.VarChar(255)
+  voidedById            String?           @map("voided_by_id") @db.Uuid
+  
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  member                Member            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  items                 InvoiceItem[]
+  allocations           PaymentAllocation[]
+
+  @@unique([organizationId, invoiceNumber], name: "unique_org_invoice_number")
+  @@index([organizationId], map: "idx_invoices_org")
+  @@index([organizationId, branchId], map: "idx_invoices_branch")
+  @@index([organizationId, memberId], map: "idx_invoices_member")
+  @@index([organizationId, status], map: "idx_invoices_status")
+  @@index([organizationId, dueDate], map: "idx_invoices_due_date")
+  @@map("invoices")
+}
+
+/// InvoiceItem records itemized line items on a gym invoice
+model InvoiceItem {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  invoiceId             String            @map("invoice_id") @db.Uuid
+  
+  itemType              InvoiceItemType   @default(MEMBERSHIP) @map("item_type")
+  description           String            @map("description") @db.VarChar(255)
+  sacHsnCode            String?           @default("999723") @map("sac_hsn_code") @db.VarChar(20)
+  quantity              Int               @default(1) @map("quantity")
+  unitPrice             Decimal           @map("unit_price") @db.Decimal(10, 2)
+  discountAmount        Decimal           @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  taxableAmount         Decimal           @map("taxable_amount") @db.Decimal(10, 2)
+  
+  taxRate               Decimal           @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  cgstRate              Decimal           @default(0.00) @map("cgst_rate") @db.Decimal(5, 2)
+  sgstRate              Decimal           @default(0.00) @map("sgst_rate") @db.Decimal(5, 2)
+  igstRate              Decimal           @default(0.00) @map("igst_rate") @db.Decimal(5, 2)
+  taxAmount             Decimal           @default(0.00) @map("tax_amount") @db.Decimal(10, 2)
+  totalAmount           Decimal           @map("total_amount") @db.Decimal(10, 2)
+  
+  membershipId          String?           @map("membership_id") @db.Uuid
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice               Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  membership            MemberMembership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, invoiceId], map: "idx_invoice_items_invoice")
+  @@map("invoice_items")
+}
+
+/// Payment records funds collected from a gym member
+model Payment {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  branchId              String            @map("branch_id") @db.Uuid
+  memberId              String            @map("member_id") @db.Uuid
+  
+  paymentNumber         String            @map("payment_number") @db.VarChar(50)
+  financialYear         String            @map("financial_year") @db.VarChar(10)
+  sequenceNumber        Int               @map("sequence_number")
+  
+  amount                Decimal           @map("amount") @db.Decimal(10, 2)
+  currency              String            @default("INR") @map("currency") @db.VarChar(10)
+  method                PaymentMethod     @map("method")
+  status                PaymentStatus     @default(COMPLETED) @map("status")
+  
+  transactionReference  String?           @map("transaction_reference") @db.VarChar(100)
+  bankName              String?           @map("bank_name") @db.VarChar(100)
+  chequeNumber          String?           @map("cheque_number") @db.VarChar(50)
+  chequeDate            DateTime?         @map("cheque_date") @db.Date
+  
+  paidAt                DateTime          @default(now()) @map("paid_at") @db.Timestamptz
+  collectedById         String            @map("collected_by_id") @db.Uuid
+  idempotencyKey        String?           @unique @map("idempotency_key") @db.VarChar(200)
+  notes                 String?           @map("notes") @db.Text
+  
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  member                Member            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  allocations           PaymentAllocation[]
+  refunds               Refund[]
+
+  @@unique([organizationId, paymentNumber], name: "unique_org_payment_number")
+  @@index([organizationId], map: "idx_payments_org")
+  @@index([organizationId, branchId], map: "idx_payments_branch")
+  @@index([organizationId, memberId], map: "idx_payments_member")
+  @@index([organizationId, method], map: "idx_payments_method")
+  @@map("payments")
+}
+
+/// PaymentAllocation links a Payment to an Invoice for full or partial settlement
+model PaymentAllocation {
+  id                    String                      @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                      @map("organization_id") @db.Uuid
+  paymentId             String                      @map("payment_id") @db.Uuid
+  invoiceId             String                      @map("invoice_id") @db.Uuid
+  
+  amount                Decimal                     @map("amount") @db.Decimal(10, 2)
+  status                AllocationStatus            @default(ACTIVE) @map("status")
+  allocatedAt           DateTime                    @default(now()) @map("allocated_at") @db.Timestamptz
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payment               Payment                     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  invoice               Invoice                     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  reversals             PaymentAllocationReversal[]
+
+  @@index([organizationId, paymentId], map: "idx_allocations_payment")
+  @@index([organizationId, invoiceId], map: "idx_allocations_invoice")
+  @@map("payment_allocations")
+}
+
+/// PaymentAllocationReversal records partial or full reversal of a payment allocation during refunds
+model PaymentAllocationReversal {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  allocationId          String            @map("allocation_id") @db.Uuid
+  refundId              String?           @map("refund_id") @db.Uuid
+  
+  amount                Decimal           @map("amount") @db.Decimal(10, 2)
+  reason                String            @map("reason") @db.VarChar(255)
+  reversedById          String            @map("reversed_by_id") @db.Uuid
+  idempotencyKey        String?           @unique @map("idempotency_key") @db.VarChar(200)
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  allocation            PaymentAllocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  refund                Refund?           @relation(fields: [refundId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, allocationId], map: "idx_reversals_allocation")
+  @@index([organizationId, refundId], map: "idx_reversals_refund")
+  @@map("payment_allocation_reversals")
+}
+
+/// Refund records financial disbursements to members for returned or disputed payments
+model Refund {
+  id                    String                      @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                      @map("organization_id") @db.Uuid
+  paymentId             String                      @map("payment_id") @db.Uuid
+  
+  refundNumber          String                      @map("refund_number") @db.VarChar(50)
+  financialYear         String                      @map("financial_year") @db.VarChar(10)
+  sequenceNumber        Int                         @map("sequence_number")
+  
+  amount                Decimal                     @map("amount") @db.Decimal(10, 2)
+  method                PaymentMethod               @map("method")
+  reason                String                      @map("reason") @db.VarChar(255)
+  reference             String?                     @map("reference") @db.VarChar(100)
+  status                RefundStatus                @default(COMPLETED) @map("status")
+  
+  initiatedById         String                      @map("initiated_by_id") @db.Uuid
+  approvedById          String?                     @map("approved_by_id") @db.Uuid
+  idempotencyKey        String?                     @unique @map("idempotency_key") @db.VarChar(200)
+  
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payment               Payment                     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  reversals             PaymentAllocationReversal[]
+
+  @@unique([organizationId, refundNumber], name: "unique_org_refund_number")
+  @@index([organizationId, paymentId], map: "idx_refunds_payment")
+  @@map("refunds")
+}
+
+/// BillingOutboxEvent implements the Transactional Outbox Pattern for billing lifecycle events
+model BillingOutboxEvent {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  aggregateId           String            @map("aggregate_id") @db.VarChar(100)
+  eventType             String            @map("event_type") @db.VarChar(100)
+  payload               Json              @map("payload")
+  status                OutboxStatus      @default(PENDING) @map("status")
+  retryCount            Int               @default(0) @map("retry_count")
+  lastError             String?           @map("last_error") @db.Text
+  processedAt           DateTime?         @map("processed_at") @db.Timestamptz
+  idempotencyKey        String            @unique @map("idempotency_key") @db.VarChar(200)
+
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status], map: "idx_billing_outbox_org_status")
+  @@index([status, createdAt], map: "idx_billing_outbox_status_created")
+  @@map("billing_outbox_events")
+}
+
+/// OrganizationBillingSequence provides atomic sequential numbering per financial year
+model OrganizationBillingSequence {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  sequenceType          String            @map("sequence_type") @db.VarChar(30)
+  financialYear         String            @map("financial_year") @db.VarChar(10)
+  lastNumber            Int               @default(0) @map("last_number")
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, sequenceType, financialYear], name: "unique_org_seq_type_fy")
+  @@map("org_billing_sequences")
+}
+
+/// MemberCreditAccount tracks member wallet balance for advance deposits and overpayments
+model MemberCreditAccount {
+  id                    String                @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                @map("organization_id") @db.Uuid
+  memberId              String                @map("member_id") @db.Uuid
+  currency              String                @default("INR") @map("currency") @db.VarChar(10)
+  currentBalance        Decimal               @default(0.00) @map("current_balance") @db.Decimal(10, 2)
+  
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member                Member                @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  entries               MemberCreditEntry[]
+
+  @@unique([organizationId, memberId, currency], name: "unique_org_member_currency_credit")
+  @@index([organizationId], map: "idx_credit_accounts_org")
+  @@map("member_credit_accounts")
+}
+
+/// MemberCreditEntry is an append-only audit ledger entry for member credit mutations
+model MemberCreditEntry {
+  id                    String                @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                @map("organization_id") @db.Uuid
+  creditAccountId       String                @map("credit_account_id") @db.Uuid
+  
+  entryType             CreditEntryType       @map("entry_type")
+  amount                Decimal               @map("amount") @db.Decimal(10, 2)
+  referenceType         String?               @map("reference_type") @db.VarChar(50)
+  referenceId           String?               @map("reference_id") @db.Uuid
+  description           String                @map("description") @db.VarChar(255)
+  
+  idempotencyKey        String?               @unique @map("idempotency_key") @db.VarChar(200)
+  createdById           String                @map("created_by_id") @db.Uuid
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  account               MemberCreditAccount   @relation(fields: [creditAccountId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, creditAccountId], map: "idx_credit_entries_account")
+  @@map("member_credit_entries")
 }
 
