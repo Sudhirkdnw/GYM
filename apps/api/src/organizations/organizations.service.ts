@@ -10,8 +10,16 @@ import { AppLoggerService } from '../logging/app-logger.service';
 import {
   UpdateOrganizationProfileInput,
   UpdateOrganizationSettingsInput,
+  CreateOrganizationInput,
 } from './dto/organization.dto';
-import { OrganizationProfile, BranchStatus, TenantStatus, UserRole } from '@gymos/shared-types';
+import {
+  OrganizationProfile,
+  BranchStatus,
+  TenantStatus,
+  UserRole,
+  UserStatus,
+} from '@gymos/shared-types';
+import { PasswordHasherService } from '../auth/password-hasher.service';
 
 const RESERVED_SLUGS = new Set([
   'api',
@@ -38,6 +46,7 @@ export class OrganizationsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly logger: AppLoggerService,
+    private readonly passwordHasher: PasswordHasherService,
   ) {}
 
   /**
@@ -279,6 +288,145 @@ export class OrganizationsService {
       });
 
       return updated;
+    });
+  }
+
+  /**
+   * SuperAdmin: Provisions a new Organization, Admin User, and primary Branch.
+   */
+  async createOrganization(
+    dto: CreateOrganizationInput,
+    actorUserId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const rawSlug =
+      dto.slug ||
+      dto.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+    if (RESERVED_SLUGS.has(rawSlug)) {
+      throw new BadRequestException(`Organization slug '${rawSlug}' is a reserved system keyword`);
+    }
+
+    let finalSlug = rawSlug || 'gym';
+
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      // 1. Check slug uniqueness
+      const existingSlug = await tx.organization.findUnique({
+        where: { slug: finalSlug },
+      });
+      if (existingSlug) {
+        finalSlug = `${finalSlug}-${Date.now().toString().slice(-4)}`;
+      }
+
+      // 2. Create organization
+      const org = await tx.organization.create({
+        data: {
+          name: dto.name.trim(),
+          slug: finalSlug,
+          legalName: dto.legalName,
+          businessEmail: dto.businessEmail,
+          businessPhone: dto.businessPhone,
+          website: dto.website,
+          city: dto.city,
+          state: dto.state,
+          country: dto.country,
+          timezone: dto.timezone || 'UTC',
+          currency: dto.currency ? dto.currency.toUpperCase() : 'INR',
+          status: TenantStatus.ACTIVE,
+        },
+      });
+
+      // 3. Find or create admin user
+      const normalizedAdminEmail = dto.adminEmail.toLowerCase().trim();
+      let adminUser = await tx.user.findUnique({
+        where: { email: normalizedAdminEmail },
+      });
+
+      if (!adminUser) {
+        const passwordHash = await this.passwordHasher.hashPassword(
+          dto.adminPassword || 'Password@123',
+        );
+        adminUser = await tx.user.create({
+          data: {
+            email: normalizedAdminEmail,
+            passwordHash,
+            firstName: dto.adminFirstName.trim(),
+            lastName: dto.adminLastName.trim(),
+            status: UserStatus.ACTIVE,
+            emailVerified: true,
+            emailVerifiedAt: new Date(),
+          },
+        });
+      }
+
+      // 4. Assign GYM_OWNER role
+      const membership = await tx.organizationUser.create({
+        data: {
+          organizationId: org.id,
+          userId: adminUser.id,
+          role: UserRole.GYM_OWNER,
+        },
+      });
+
+      // 5. Create default primary branch
+      const branchName = dto.initialBranchName || `${org.name} Main Branch`;
+      const branchCode =
+        dto.initialBranchCode ||
+        `${finalSlug.slice(0, 3).toUpperCase()}-01`;
+
+      const branch = await tx.branch.create({
+        data: {
+          organizationId: org.id,
+          name: branchName,
+          slug: `${finalSlug}-main`,
+          branchCode,
+          city: dto.city,
+          state: dto.state,
+          country: dto.country,
+          timezone: dto.timezone || 'UTC',
+          status: BranchStatus.ACTIVE,
+        },
+      });
+
+      // 6. Audit log
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: org.id,
+        userId: actorUserId,
+        action: 'PLATFORM_ORGANIZATION_CREATED',
+        entity: 'Organization',
+        entityId: org.id,
+        metadata: {
+          organizationName: org.name,
+          slug: org.slug,
+          adminEmail: adminUser.email,
+          membershipId: membership.id,
+          branchId: branch.id,
+        },
+        ipAddress,
+        userAgent,
+      });
+
+      this.logger.log(
+        `SuperAdmin ${actorUserId} provisioned new Organization ${org.id} (${org.name}) with Admin ${adminUser.email}`,
+        'OrganizationsService',
+      );
+
+      return {
+        organization: org,
+        adminUser: {
+          id: adminUser.id,
+          email: adminUser.email,
+          firstName: adminUser.firstName,
+          lastName: adminUser.lastName,
+          role: UserRole.GYM_OWNER,
+        },
+        branch,
+      };
     });
   }
 }

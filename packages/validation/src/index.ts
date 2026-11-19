@@ -248,3 +248,34 @@ export const selectBranchSchema = z.object({
 });
 
 export type SelectBranchInput = z.infer<typeof selectBranchSchema>;
+
+/**
+ * SuperAdmin Organization Provisioning Schema
+ */
+export const createOrganizationSchema = z.object({
+  name: z.string().min(2, 'Organization name must be at least 2 characters').max(255),
+  slug: z
+    .string()
+    .min(2, 'Slug must be at least 2 characters')
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug must only contain lowercase alphanumeric characters and hyphens')
+    .optional(),
+  legalName: z.string().max(255).optional().nullable(),
+  businessEmail: z.string().email('Invalid business email').optional().nullable(),
+  businessPhone: z.string().max(50).optional().nullable(),
+  website: z.string().url('Invalid website URL').max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  timezone: z.string().max(50).optional().default('UTC'),
+  currency: z.string().max(10).optional().default('INR'),
+  adminEmail: z.string().email('Invalid admin email address'),
+  adminFirstName: z.string().min(1, 'Admin first name is required').max(100),
+  adminLastName: z.string().min(1, 'Admin last name is required').max(100),
+  adminPassword: z.string().min(8, 'Password must be at least 8 characters').optional().default('Password@123'),
+  initialBranchName: z.string().min(2).max(255).optional(),
+  initialBranchCode: z.string().min(2).max(50).optional(),
+});
+
+export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
+

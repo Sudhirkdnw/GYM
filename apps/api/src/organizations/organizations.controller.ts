@@ -1,10 +1,13 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Body,
   UseGuards,
   Req,
+  HttpCode,
+  HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -21,12 +24,33 @@ import {
   UpdateOrganizationProfileInput,
   updateOrganizationSettingsSchema,
   UpdateOrganizationSettingsInput,
+  createOrganizationSchema,
+  CreateOrganizationInput,
 } from './dto/organization.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions(Permission.PLATFORM_ORGANIZATIONS_MANAGE)
+  async createOrganization(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body(new ZodValidationPipe(createOrganizationSchema))
+    dto: CreateOrganizationInput,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.organizationsService.createOrganization(
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
 
   @Get('current')
   @RequirePermissions(Permission.ORGANIZATION_PROFILE_READ)

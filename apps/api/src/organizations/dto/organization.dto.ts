@@ -3,7 +3,17 @@ import {
   UpdateOrganizationProfileInput,
   updateOrganizationSettingsSchema,
   UpdateOrganizationSettingsInput,
+  createOrganizationSchema,
+  CreateOrganizationInput,
 } from '@gymos/validation';
 
-export type { UpdateOrganizationProfileInput, UpdateOrganizationSettingsInput };
-export { updateOrganizationProfileSchema, updateOrganizationSettingsSchema };
+export type {
+  UpdateOrganizationProfileInput,
+  UpdateOrganizationSettingsInput,
+  CreateOrganizationInput,
+};
+export {
+  updateOrganizationProfileSchema,
+  updateOrganizationSettingsSchema,
+  createOrganizationSchema,
+};
