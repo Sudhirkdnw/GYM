@@ -5,6 +5,7 @@ import { Dumbbell, LogOut, Building2, User, Users } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { BranchSelector } from "./BranchSelector";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Navbar() {
   const { user, organization, isAuthenticated, logout } = useAuth();
@@ -70,6 +71,9 @@ export function Navbar() {
                 <LogOut className="h-3.5 w-3.5" />
                 Sign Out
               </Button>
+
+              <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+              <ThemeToggle />
             </div>
           ) : (
             <>
@@ -83,6 +87,9 @@ export function Navbar() {
                   Get Started
                 </Button>
               </Link>
+
+              <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
+              <ThemeToggle />
             </>
           )}
         </nav>
