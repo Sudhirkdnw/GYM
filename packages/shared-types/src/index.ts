@@ -39,6 +39,20 @@ export enum UserStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
+export enum MemberStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
+}
+
 export const HTTP_HEADERS = {
   CORRELATION_ID: 'x-correlation-id',
   REQUEST_ID: 'x-request-id',
@@ -65,6 +79,15 @@ export enum Permission {
   ORGANIZATION_BRANCH_STAFF_MANAGE = 'organization.branch_staff.manage',
   ORGANIZATION_MEMBERS_READ = 'organization.members.read',
   ORGANIZATION_MEMBERS_MANAGE = 'organization.members.manage',
+
+  // Stage 2.4: Granular Member Management Permissions
+  MEMBER_READ = 'member.read',
+  MEMBER_CREATE = 'member.create',
+  MEMBER_UPDATE = 'member.update',
+  MEMBER_STATUS_MANAGE = 'member.status.manage',
+  MEMBER_TRANSFER = 'member.transfer',
+  MEMBER_ARCHIVE = 'member.archive',
+
   ORGANIZATION_MEMBERSHIPS_READ = 'organization.memberships.read',
   ORGANIZATION_MEMBERSHIPS_MANAGE = 'organization.memberships.manage',
   ORGANIZATION_ATTENDANCE_READ = 'organization.attendance.read',
@@ -94,6 +117,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_BRANCH_STAFF_MANAGE,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
+    Permission.MEMBER_READ,
+    Permission.MEMBER_CREATE,
+    Permission.MEMBER_UPDATE,
+    Permission.MEMBER_STATUS_MANAGE,
+    Permission.MEMBER_TRANSFER,
+    Permission.MEMBER_ARCHIVE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
     Permission.ORGANIZATION_MEMBERSHIPS_MANAGE,
     Permission.ORGANIZATION_ATTENDANCE_READ,
@@ -117,6 +146,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_BRANCH_STAFF_MANAGE,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
+    Permission.MEMBER_READ,
+    Permission.MEMBER_CREATE,
+    Permission.MEMBER_UPDATE,
+    Permission.MEMBER_STATUS_MANAGE,
+    Permission.MEMBER_TRANSFER,
+    Permission.MEMBER_ARCHIVE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
     Permission.ORGANIZATION_MEMBERSHIPS_MANAGE,
     Permission.ORGANIZATION_ATTENDANCE_READ,
@@ -133,6 +168,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_BRANCH_STAFF_READ,
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.ORGANIZATION_MEMBERS_MANAGE,
+    Permission.MEMBER_READ,
+    Permission.MEMBER_CREATE,
+    Permission.MEMBER_UPDATE,
+    Permission.MEMBER_STATUS_MANAGE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
     Permission.ORGANIZATION_ATTENDANCE_READ,
     Permission.ORGANIZATION_ATTENDANCE_MANAGE,
@@ -145,6 +184,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_DASHBOARD_READ,
     Permission.ORGANIZATION_BRANCHES_READ,
     Permission.ORGANIZATION_MEMBERS_READ,
+    Permission.MEMBER_READ,
     Permission.ORGANIZATION_ATTENDANCE_READ,
     Permission.ORGANIZATION_ATTENDANCE_MANAGE,
     Permission.MEMBER_PROFILE_READ,
@@ -308,3 +348,54 @@ export interface BranchStaffAssignmentData {
     status: BranchStatus;
   };
 }
+
+export interface MemberData {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  branchName?: string;
+  userId?: string | null;
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  preferredName?: string | null;
+  gender?: Gender | null;
+  dateOfBirth?: string | null;
+  email?: string | null;
+  phone: string;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  postalCode?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelationship?: string | null;
+  profilePhotoKey?: string | null;
+  notes?: string | null;
+  status: MemberStatus;
+  joinedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string | null;
+}
+
+export interface MemberTransferData {
+  id: string;
+  organizationId: string;
+  memberId: string;
+  fromBranchId: string;
+  fromBranchName?: string;
+  toBranchId: string;
+  toBranchName?: string;
+  reason?: string | null;
+  transferredBy: string;
+  transferredByName?: string;
+  transferredAt: string;
+}
+
+export interface MemberDetailData extends MemberData {
+  transfers?: MemberTransferData[];
+}
+

@@ -279,3 +279,91 @@ export const createOrganizationSchema = z.object({
 
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 
+/**
+ * Stage 2.4: Member Management Validation Schemas
+ */
+export const memberStatusEnum = z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'ARCHIVED']);
+export type MemberStatusType = z.infer<typeof memberStatusEnum>;
+
+export const genderEnum = z.enum(['MALE', 'FEMALE', 'OTHER', 'PREFER_NOT_TO_SAY']);
+export type GenderType = z.infer<typeof genderEnum>;
+
+export const createMemberSchema = z.object({
+  branchId: z.string().uuid('Invalid branch ID format'),
+  firstName: z.string().min(1, 'First name is required').max(100),
+  lastName: z.string().min(1, 'Last name is required').max(100),
+  preferredName: z.string().max(100).optional().nullable(),
+  gender: genderEnum.optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
+  email: z.string().email('Invalid email address').optional().nullable().or(z.literal('')),
+  phone: z.string().min(5, 'Phone number must be at least 5 digits').max(50),
+  addressLine1: z.string().max(255).optional().nullable(),
+  addressLine2: z.string().max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  emergencyContactName: z.string().max(100).optional().nullable(),
+  emergencyContactPhone: z.string().max(50).optional().nullable(),
+  emergencyContactRelationship: z.string().max(50).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  joinedAt: z.string().optional().nullable(),
+});
+
+export type CreateMemberInput = z.infer<typeof createMemberSchema>;
+
+export const updateMemberSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(100).optional(),
+  lastName: z.string().min(1, 'Last name is required').max(100).optional(),
+  preferredName: z.string().max(100).optional().nullable(),
+  gender: genderEnum.optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
+  email: z.string().email('Invalid email address').optional().nullable().or(z.literal('')),
+  phone: z.string().min(5, 'Phone number must be at least 5 digits').max(50).optional(),
+  addressLine1: z.string().max(255).optional().nullable(),
+  addressLine2: z.string().max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(100).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  emergencyContactName: z.string().max(100).optional().nullable(),
+  emergencyContactPhone: z.string().max(50).optional().nullable(),
+  emergencyContactRelationship: z.string().max(50).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
+export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
+
+export const updateMemberStatusSchema = z.object({
+  status: memberStatusEnum,
+  reason: z.string().max(255).optional().nullable(),
+});
+
+export type UpdateMemberStatusInput = z.infer<typeof updateMemberStatusSchema>;
+
+export const transferMemberSchema = z.object({
+  targetBranchId: z.string().uuid('Invalid target branch ID format'),
+  reason: z.string().max(255).optional().nullable(),
+});
+
+export type TransferMemberInput = z.infer<typeof transferMemberSchema>;
+
+export const archiveMemberSchema = z.object({
+  reason: z.string().max(255).optional().nullable(),
+});
+
+export type ArchiveMemberInput = z.infer<typeof archiveMemberSchema>;
+
+export const memberQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  search: z.string().optional(),
+  branchId: z.string().uuid('Invalid branch ID format').optional().or(z.literal('')),
+  status: memberStatusEnum.optional(),
+  sortBy: z.enum(['createdAt', 'firstName', 'lastName', 'memberNumber', 'joinedAt']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type MemberQueryInput = z.infer<typeof memberQuerySchema>;
+
+

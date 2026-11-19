@@ -53,6 +53,24 @@ enum UserStatus {
   @@map("user_status")
 }
 
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ARCHIVED
+
+  @@map("member_status")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+
+  @@map("gender")
+}
+
 /// Organization represents an isolated Gym Tenant in GymOS
 model Organization {
   id                      String                    @id @default(uuid()) @map("id") @db.Uuid
@@ -81,6 +99,9 @@ model Organization {
   branches                Branch[]
   branchStaffAssignments  BranchStaffAssignment[]
   auditLogs               AuditLog[]
+  members                 Member[]
+  memberTransfers         MemberTransfer[]
+  memberSequence          OrganizationMemberSequence?
 
   @@map("organizations")
 }
@@ -106,6 +127,7 @@ model User {
   refreshTokens           RefreshToken[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  members                 Member[]
 
   @@map("users")
 }
@@ -156,6 +178,9 @@ model Branch {
   // Relations
   organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   staffAssignments BranchStaffAssignment[]
+  members          Member[]
+  transfersFrom    MemberTransfer[]        @relation("TransferFromBranch")
+  transfersTo      MemberTransfer[]        @relation("TransferToBranch")
 
   @@unique([organizationId, slug], name: "unique_org_branch_slug")
   @@unique([organizationId, branchCode], name: "unique_org_branch_code")
@@ -262,3 +287,87 @@ model EmailVerificationToken {
   @@index([userId], map: "idx_email_verification_user_id")
   @@map("email_verification_tokens")
 }
+
+/// Gym Member represents a customer enrolled in a Gym Tenant
+model Member {
+  id                           String          @id @default(uuid()) @map("id") @db.Uuid
+  organizationId               String          @map("organization_id") @db.Uuid
+  branchId                     String          @map("branch_id") @db.Uuid
+  userId                       String?         @map("user_id") @db.Uuid
+  memberNumber                 String          @map("member_number") @db.VarChar(50)
+  firstName                    String          @map("first_name") @db.VarChar(100)
+  lastName                     String          @map("last_name") @db.VarChar(100)
+  preferredName                String?         @map("preferred_name") @db.VarChar(100)
+  gender                       Gender?         @map("gender")
+  dateOfBirth                  DateTime?       @map("date_of_birth") @db.Date
+  email                        String?         @map("email") @db.VarChar(255)
+  phone                        String          @map("phone") @db.VarChar(50)
+  addressLine1                 String?         @map("address_line_1") @db.VarChar(255)
+  addressLine2                 String?         @map("address_line_2") @db.VarChar(255)
+  city                         String?         @map("city") @db.VarChar(100)
+  state                        String?         @map("state") @db.VarChar(100)
+  country                      String?         @map("country") @db.VarChar(100)
+  postalCode                   String?         @map("postal_code") @db.VarChar(20)
+  emergencyContactName         String?         @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone        String?         @map("emergency_contact_phone") @db.VarChar(50)
+  emergencyContactRelationship String?         @map("emergency_contact_relationship") @db.VarChar(50)
+  profilePhotoKey              String?         @map("profile_photo_key") @db.VarChar(500)
+  notes                        String?         @map("notes") @db.Text
+  status                       MemberStatus    @default(ACTIVE) @map("status")
+  joinedAt                     DateTime        @default(now()) @map("joined_at") @db.Timestamptz
+  createdAt                    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                    DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  createdBy                    String?         @map("created_by") @db.Uuid
+  updatedBy                    String?         @map("updated_by") @db.Uuid
+  archivedAt                   DateTime?       @map("archived_at") @db.Timestamptz
+
+  // Relations
+  organization                 Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                       Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  user                         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  transfers                    MemberTransfer[]
+
+  @@unique([organizationId, memberNumber], name: "unique_org_member_number")
+  @@index([organizationId], map: "idx_members_org_id")
+  @@index([branchId], map: "idx_members_branch_id")
+  @@index([status], map: "idx_members_status")
+  @@index([phone], map: "idx_members_phone")
+  @@index([email], map: "idx_members_email")
+  @@index([organizationId, id], map: "idx_members_org_composite")
+  @@map("members")
+}
+
+/// MemberTransfer tracks branch transfer history for members
+model MemberTransfer {
+  id                  String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId      String        @map("organization_id") @db.Uuid
+  memberId            String        @map("member_id") @db.Uuid
+  sourceBranchId      String        @map("source_branch_id") @db.Uuid
+  destinationBranchId String        @map("destination_branch_id") @db.Uuid
+  transferredBy       String        @map("transferred_by") @db.Uuid
+  transferredAt       DateTime      @default(now()) @map("transferred_at") @db.Timestamptz
+  reason              String?       @map("reason") @db.VarChar(255)
+
+  // Relations
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member              Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sourceBranch        Branch        @relation("TransferFromBranch", fields: [sourceBranchId], references: [id], onDelete: Restrict)
+  destinationBranch   Branch        @relation("TransferToBranch", fields: [destinationBranchId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId], map: "idx_member_transfers_org_id")
+  @@index([memberId], map: "idx_member_transfers_member_id")
+  @@index([organizationId, id], map: "idx_member_transfers_org_composite")
+  @@map("member_transfers")
+}
+
+/// OrganizationMemberSequence tracks atomic concurrency-safe member number sequences
+model OrganizationMemberSequence {
+  organizationId      String        @id @map("organization_id") @db.Uuid
+  currentValue        Int           @default(0) @map("current_value")
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_member_sequences")
+}
+

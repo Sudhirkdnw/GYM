@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Dumbbell, LogOut, Building2, User } from "lucide-react";
+import { Dumbbell, LogOut, Building2, User, Users } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { BranchSelector } from "./BranchSelector";
@@ -44,6 +44,15 @@ export function Navbar() {
                   </Link>
 
                   <BranchSelector />
+
+                  <Link
+                    href="/dashboard/members"
+                    className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors"
+                    title="Members Directory"
+                  >
+                    <Users className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Members</span>
+                  </Link>
                 </>
               )}
 

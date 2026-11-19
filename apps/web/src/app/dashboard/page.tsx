@@ -12,6 +12,7 @@ import {
   Mail,
   User,
   ArrowRight,
+  Users,
 } from "lucide-react";
 
 export default function DashboardShellPage() {
@@ -201,6 +202,36 @@ export default function DashboardShellPage() {
               <Link href="/dashboard/branches/new">
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
                   Add New Branch
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Gym Members
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Directory, member registration, branch transfers, and member lifecycle
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/members">
+                <Button size="sm" variant="outline" className="text-xs">
+                  View Members
+                </Button>
+              </Link>
+              <Link href="/dashboard/members/new">
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  Register Member
                 </Button>
               </Link>
             </div>
