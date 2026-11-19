@@ -13,6 +13,7 @@ export const APP_CONFIG = {
 
 export const QUEUES = {
   NOTIFICATIONS: "gymos-notifications",
+  MEMBERSHIPS: "gymos-memberships",
   AUDIT_LOGS: "gymos-audit-logs",
   BILLING: "gymos-billing",
   REPORTS: "gymos-reports",

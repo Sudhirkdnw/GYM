@@ -53,6 +53,46 @@ export enum Gender {
   PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
 }
 
+export enum PlanDurationType {
+  DAYS = 'DAYS',
+  MONTHS = 'MONTHS',
+  YEARS = 'YEARS',
+}
+
+export enum PlanScope {
+  SINGLE_BRANCH = 'SINGLE_BRANCH',
+  MULTI_BRANCH = 'MULTI_BRANCH',
+  ALL_BRANCHES = 'ALL_BRANCHES',
+}
+
+export enum PlanStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum MembershipStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  FROZEN = 'FROZEN',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+  TERMINATED = 'TERMINATED',
+}
+
+export enum FreezeStatus {
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum OutboxStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+}
+
 export const HTTP_HEADERS = {
   CORRELATION_ID: 'x-correlation-id',
   REQUEST_ID: 'x-request-id',
@@ -87,6 +127,15 @@ export enum Permission {
   MEMBER_STATUS_MANAGE = 'member.status.manage',
   MEMBER_TRANSFER = 'member.transfer',
   MEMBER_ARCHIVE = 'member.archive',
+
+  // Stage 2.5: Membership & Subscription Management Permissions
+  MEMBERSHIP_PLAN_READ = 'membership_plan.read',
+  MEMBERSHIP_PLAN_MANAGE = 'membership_plan.manage',
+  MEMBER_SUBSCRIPTION_READ = 'member_subscription.read',
+  MEMBER_SUBSCRIPTION_ASSIGN = 'member_subscription.assign',
+  MEMBER_SUBSCRIPTION_RENEW = 'member_subscription.renew',
+  MEMBER_SUBSCRIPTION_FREEZE = 'member_subscription.freeze',
+  MEMBER_SUBSCRIPTION_CANCEL = 'member_subscription.cancel',
 
   ORGANIZATION_MEMBERSHIPS_READ = 'organization.memberships.read',
   ORGANIZATION_MEMBERSHIPS_MANAGE = 'organization.memberships.manage',
@@ -133,6 +182,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_STAFF_MANAGE,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
+    Permission.MEMBERSHIP_PLAN_READ,
+    Permission.MEMBERSHIP_PLAN_MANAGE,
+    Permission.MEMBER_SUBSCRIPTION_READ,
+    Permission.MEMBER_SUBSCRIPTION_ASSIGN,
+    Permission.MEMBER_SUBSCRIPTION_RENEW,
+    Permission.MEMBER_SUBSCRIPTION_FREEZE,
+    Permission.MEMBER_SUBSCRIPTION_CANCEL,
   ],
   [UserRole.GYM_ADMIN]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -161,6 +217,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_STAFF_READ,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
+    Permission.MEMBERSHIP_PLAN_READ,
+    Permission.MEMBERSHIP_PLAN_MANAGE,
+    Permission.MEMBER_SUBSCRIPTION_READ,
+    Permission.MEMBER_SUBSCRIPTION_ASSIGN,
+    Permission.MEMBER_SUBSCRIPTION_RENEW,
+    Permission.MEMBER_SUBSCRIPTION_FREEZE,
+    Permission.MEMBER_SUBSCRIPTION_CANCEL,
   ],
   [UserRole.RECEPTIONIST]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -179,6 +242,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_PAYMENTS_MANAGE,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
+    Permission.MEMBERSHIP_PLAN_READ,
+    Permission.MEMBER_SUBSCRIPTION_READ,
+    Permission.MEMBER_SUBSCRIPTION_ASSIGN,
+    Permission.MEMBER_SUBSCRIPTION_RENEW,
+    Permission.MEMBER_SUBSCRIPTION_FREEZE,
   ],
   [UserRole.TRAINER]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -189,11 +257,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_ATTENDANCE_MANAGE,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
+    Permission.MEMBERSHIP_PLAN_READ,
+    Permission.MEMBER_SUBSCRIPTION_READ,
   ],
   [UserRole.MEMBER]: [
     Permission.ORGANIZATION_ATTENDANCE_READ,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
+    Permission.MEMBER_SUBSCRIPTION_READ,
   ],
 };
 
@@ -397,5 +468,116 @@ export interface MemberTransferData {
 
 export interface MemberDetailData extends MemberData {
   transfers?: MemberTransferData[];
+}
+
+export interface MembershipPlanData {
+  id: string;
+  organizationId: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  durationType: PlanDurationType;
+  durationValue: number;
+  price: number;
+  registrationFee: number;
+  currency: string;
+  scope: PlanScope;
+  maxFreezeDays: number;
+  maxFreezes: number;
+  gracePeriodDays: number;
+  features?: string[];
+  status: PlanStatus;
+  branchIds?: string[];
+  createdAt: string;
+  updatedAt: string;
+  subscriberCount?: number;
+}
+
+export interface PricingSnapshotData {
+  planId: string;
+  planName: string;
+  planCode: string;
+  durationType: PlanDurationType;
+  durationValue: number;
+  basePrice: number;
+  registrationFee: number;
+  discountAmount: number;
+  discountReason?: string | null;
+  taxAmount: number;
+  taxRate: number;
+  finalPrice: number;
+  currency: string;
+  capturedAt: string;
+}
+
+export interface MemberMembershipData {
+  id: string;
+  organizationId: string;
+  memberId: string;
+  memberName?: string;
+  memberNumber?: string;
+  planId: string;
+  planName?: string;
+  planCode?: string;
+  homeBranchId: string;
+  homeBranchName?: string;
+  startDate: string;
+  endDate: string;
+  originalEndDate: string;
+  basePrice: number;
+  registrationFee: number;
+  discountAmount: number;
+  discountReason?: string | null;
+  taxAmount: number;
+  taxRate: number;
+  finalPrice: number;
+  currency: string;
+  pricingSnapshot: PricingSnapshotData;
+  totalFreezeDaysUsed: number;
+  freezeCount: number;
+  renewalCount: number;
+  previousMembershipId?: string | null;
+  status: MembershipStatus;
+  autoRenew: boolean;
+  notes?: string | null;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
+  cancelledBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MembershipFreezeData {
+  id: string;
+  organizationId: string;
+  membershipId: string;
+  startDate: string;
+  endDate?: string | null;
+  actualThawDate?: string | null;
+  daysFrozen: number;
+  reason?: string | null;
+  status: FreezeStatus;
+  frozenBy: string;
+  thawedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MembershipHistoryData {
+  id: string;
+  organizationId: string;
+  membershipId: string;
+  action: string;
+  actorId?: string | null;
+  previousState?: Record<string, unknown> | null;
+  newState?: Record<string, unknown> | null;
+  reason?: string | null;
+  timestamp: string;
+}
+
+export interface MembershipDetailData extends MemberMembershipData {
+  freezes?: MembershipFreezeData[];
+  history?: MembershipHistoryData[];
+  plan?: MembershipPlanData;
 }
 

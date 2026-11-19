@@ -13,6 +13,7 @@ import {
   User,
   ArrowRight,
   Users,
+  CreditCard,
 } from "lucide-react";
 
 export default function DashboardShellPage() {
@@ -232,6 +233,36 @@ export default function DashboardShellPage() {
               <Link href="/dashboard/members/new">
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
                   Register Member
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Memberships & Subscriptions
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Plans, pricing snapshots, member renewals, and freeze management
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/memberships">
+                <Button size="sm" variant="outline" className="text-xs">
+                  Subscriptions
+                </Button>
+              </Link>
+              <Link href="/dashboard/memberships/plans">
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  Manage Plans
                 </Button>
               </Link>
             </div>

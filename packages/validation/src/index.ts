@@ -366,4 +366,146 @@ export const memberQuerySchema = z.object({
 
 export type MemberQueryInput = z.infer<typeof memberQuerySchema>;
 
+/**
+ * Stage 2.5: Membership Plans & Subscriptions Validation Schemas
+ */
+export const planDurationTypeEnum = z.enum(['DAYS', 'MONTHS', 'YEARS']);
+export type PlanDurationTypeValue = z.infer<typeof planDurationTypeEnum>;
+
+export const planScopeEnum = z.enum(['SINGLE_BRANCH', 'MULTI_BRANCH', 'ALL_BRANCHES']);
+export type PlanScopeValue = z.infer<typeof planScopeEnum>;
+
+export const planStatusEnum = z.enum(['ACTIVE', 'INACTIVE', 'ARCHIVED']);
+export type PlanStatusValue = z.infer<typeof planStatusEnum>;
+
+export const membershipStatusEnum = z.enum(['PENDING', 'ACTIVE', 'FROZEN', 'EXPIRED', 'CANCELLED', 'TERMINATED']);
+export type MembershipStatusValue = z.infer<typeof membershipStatusEnum>;
+
+export const freezeStatusEnum = z.enum(['ACTIVE', 'COMPLETED', 'CANCELLED']);
+export type FreezeStatusValue = z.infer<typeof freezeStatusEnum>;
+
+export const createMembershipPlanSchema = z.object({
+  name: z.string().min(2, 'Plan name must be at least 2 characters').max(150),
+  code: z
+    .string()
+    .min(2, 'Plan code must be at least 2 characters')
+    .max(50)
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Plan code must be alphanumeric with dashes or underscores')
+    .transform((val) => val.toUpperCase().trim()),
+  description: z.string().max(1000).optional().nullable(),
+  durationType: planDurationTypeEnum.default('MONTHS'),
+  durationValue: z.coerce.number().int().positive('Duration value must be greater than 0'),
+  price: z.coerce.number().nonnegative('Price cannot be negative'),
+  registrationFee: z.coerce.number().nonnegative().default(0),
+  currency: z.string().max(10).default('INR'),
+  scope: planScopeEnum.default('SINGLE_BRANCH'),
+  branchIds: z.array(z.string().uuid()).optional(),
+  maxFreezeDays: z.coerce.number().int().nonnegative().default(0),
+  maxFreezes: z.coerce.number().int().nonnegative().default(0),
+  gracePeriodDays: z.coerce.number().int().nonnegative().default(0),
+  features: z.array(z.string()).optional().default([]),
+});
+
+export type CreateMembershipPlanInput = z.infer<typeof createMembershipPlanSchema>;
+
+export const updateMembershipPlanSchema = z.object({
+  name: z.string().min(2).max(150).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  durationType: planDurationTypeEnum.optional(),
+  durationValue: z.coerce.number().int().positive().optional(),
+  price: z.coerce.number().nonnegative().optional(),
+  registrationFee: z.coerce.number().nonnegative().optional(),
+  currency: z.string().max(10).optional(),
+  scope: planScopeEnum.optional(),
+  branchIds: z.array(z.string().uuid()).optional(),
+  maxFreezeDays: z.coerce.number().int().nonnegative().optional(),
+  maxFreezes: z.coerce.number().int().nonnegative().optional(),
+  gracePeriodDays: z.coerce.number().int().nonnegative().optional(),
+  features: z.array(z.string()).optional(),
+});
+
+export type UpdateMembershipPlanInput = z.infer<typeof updateMembershipPlanSchema>;
+
+export const updatePlanStatusSchema = z.object({
+  status: planStatusEnum,
+});
+
+export type UpdatePlanStatusInput = z.infer<typeof updatePlanStatusSchema>;
+
+export const assignMembershipSchema = z.object({
+  memberId: z.string().uuid('Invalid member ID format'),
+  planId: z.string().uuid('Invalid plan ID format'),
+  homeBranchId: z.string().uuid('Invalid branch ID format'),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format').optional(),
+  discountAmount: z.coerce.number().nonnegative().default(0),
+  discountReason: z.string().max(255).optional().nullable(),
+  taxRate: z.coerce.number().nonnegative().max(100).default(0),
+  notes: z.string().max(1000).optional().nullable(),
+  autoRenew: z.boolean().default(false),
+});
+
+export type AssignMembershipInput = z.infer<typeof assignMembershipSchema>;
+
+export const renewMembershipSchema = z.object({
+  planId: z.string().uuid('Invalid plan ID format').optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format').optional(),
+  discountAmount: z.coerce.number().nonnegative().default(0),
+  discountReason: z.string().max(255).optional().nullable(),
+  taxRate: z.coerce.number().nonnegative().max(100).default(0),
+  notes: z.string().max(1000).optional().nullable(),
+  autoRenew: z.boolean().optional(),
+});
+
+export type RenewMembershipInput = z.infer<typeof renewMembershipSchema>;
+
+export const freezeMembershipSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional().nullable(),
+  reason: z.string().max(255).optional().nullable(),
+});
+
+export type FreezeMembershipInput = z.infer<typeof freezeMembershipSchema>;
+
+export const thawMembershipSchema = z.object({
+  thawDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Thaw date must be in YYYY-MM-DD format').optional(),
+  reason: z.string().max(255).optional().nullable(),
+});
+
+export type ThawMembershipInput = z.infer<typeof thawMembershipSchema>;
+
+export const cancelMembershipSchema = z.object({
+  reason: z.string().min(2, 'Cancellation reason is required').max(255),
+});
+
+export type CancelMembershipInput = z.infer<typeof cancelMembershipSchema>;
+
+export const planQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  status: planStatusEnum.optional(),
+  scope: planScopeEnum.optional(),
+  branchId: z.string().uuid('Invalid branch ID').optional().or(z.literal('')),
+  search: z.string().optional(),
+  sortBy: z.enum(['createdAt', 'name', 'price', 'durationValue']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type PlanQueryInput = z.infer<typeof planQuerySchema>;
+
+export const subscriptionQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  status: membershipStatusEnum.optional(),
+  memberId: z.string().uuid().optional().or(z.literal('')),
+  planId: z.string().uuid().optional().or(z.literal('')),
+  branchId: z.string().uuid().optional().or(z.literal('')),
+  search: z.string().optional(),
+  expiringInDays: z.coerce.number().int().positive().optional(),
+  sortBy: z.enum(['createdAt', 'startDate', 'endDate', 'finalPrice', 'status']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type SubscriptionQueryInput = z.infer<typeof subscriptionQuerySchema>;
+
+
 

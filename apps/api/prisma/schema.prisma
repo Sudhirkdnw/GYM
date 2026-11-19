@@ -71,6 +71,58 @@ enum Gender {
   @@map("gender")
 }
 
+enum PlanDurationType {
+  DAYS
+  MONTHS
+  YEARS
+
+  @@map("plan_duration_type")
+}
+
+enum PlanScope {
+  SINGLE_BRANCH
+  MULTI_BRANCH
+  ALL_BRANCHES
+
+  @@map("plan_scope")
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("plan_status")
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+  TERMINATED
+
+  @@map("membership_status")
+}
+
+enum FreezeStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("freeze_status")
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
 /// Organization represents an isolated Gym Tenant in GymOS
 model Organization {
   id                      String                    @id @default(uuid()) @map("id") @db.Uuid
@@ -102,6 +154,12 @@ model Organization {
   members                 Member[]
   memberTransfers         MemberTransfer[]
   memberSequence          OrganizationMemberSequence?
+  membershipPlans         MembershipPlan[]
+  membershipPlanBranches  MembershipPlanBranch[]
+  memberSubscriptions     MemberMembership[]
+  membershipFreezes       MembershipFreeze[]
+  membershipHistories     MembershipHistory[]
+  membershipOutboxEvents  MembershipOutboxEvent[]
 
   @@map("organizations")
 }
@@ -181,6 +239,8 @@ model Branch {
   members          Member[]
   transfersFrom    MemberTransfer[]        @relation("TransferFromBranch")
   transfersTo      MemberTransfer[]        @relation("TransferToBranch")
+  planBranches     MembershipPlanBranch[]
+  homeMemberships  MemberMembership[]
 
   @@unique([organizationId, slug], name: "unique_org_branch_slug")
   @@unique([organizationId, branchCode], name: "unique_org_branch_code")
@@ -326,6 +386,7 @@ model Member {
   branch                       Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
   user                         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   transfers                    MemberTransfer[]
+  memberships                  MemberMembership[]
 
   @@unique([organizationId, memberNumber], name: "unique_org_member_number")
   @@index([organizationId], map: "idx_members_org_id")
@@ -369,5 +430,191 @@ model OrganizationMemberSequence {
   organization        Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("organization_member_sequences")
+}
+
+/// MembershipPlan defines membership packages and passes offered by an organization
+model MembershipPlan {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  name                  String            @map("name") @db.VarChar(150)
+  code                  String            @map("code") @db.VarChar(50)
+  description           String?           @map("description") @db.VarChar(1000)
+
+  // Duration & Pricing
+  durationType          PlanDurationType  @default(MONTHS) @map("duration_type")
+  durationValue         Int               @map("duration_value")
+  price                 Decimal           @map("price") @db.Decimal(10, 2)
+  registrationFee       Decimal           @default(0.00) @map("registration_fee") @db.Decimal(10, 2)
+  currency              String            @default("INR") @map("currency") @db.VarChar(10)
+
+  // Scope & Policies
+  scope                 PlanScope         @default(SINGLE_BRANCH) @map("scope")
+  maxFreezeDays         Int               @default(0) @map("max_freeze_days")
+  maxFreezes            Int               @default(0) @map("max_freezes")
+  gracePeriodDays       Int               @default(0) @map("grace_period_days")
+
+  // Perks / Features
+  features              Json?             @default("[]") @map("features")
+
+  status                PlanStatus        @default(ACTIVE) @map("status")
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchScopes          MembershipPlanBranch[]
+  subscriptions         MemberMembership[]
+
+  @@unique([organizationId, code], name: "unique_org_plan_code")
+  @@index([organizationId], map: "idx_membership_plans_org")
+  @@index([organizationId, status], map: "idx_membership_plans_org_status")
+  @@map("membership_plans")
+}
+
+/// MembershipPlanBranch defines branch scoping for multi-branch membership plans
+model MembershipPlanBranch {
+  id                String          @id @default(uuid()) @map("id") @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  planId            String          @map("plan_id") @db.Uuid
+  branchId          String          @map("branch_id") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan              MembershipPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  branch            Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, branchId], name: "unique_plan_branch")
+  @@index([organizationId, branchId], map: "idx_plan_branches_org_branch")
+  @@map("membership_plan_branches")
+}
+
+/// MemberMembership is the active/historical subscription linking a Member to a MembershipPlan
+model MemberMembership {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  memberId              String            @map("member_id") @db.Uuid
+  planId                String            @map("plan_id") @db.Uuid
+  homeBranchId          String            @map("home_branch_id") @db.Uuid
+
+  // Schedule & Boundaries
+  startDate             DateTime          @map("start_date") @db.Date
+  endDate               DateTime          @map("end_date") @db.Date
+  originalEndDate       DateTime          @map("original_end_date") @db.Date
+
+  // Purchase-time Pricing & Snapshot (Immutable historical snapshot)
+  basePrice             Decimal           @map("base_price") @db.Decimal(10, 2)
+  registrationFee       Decimal           @default(0.00) @map("registration_fee") @db.Decimal(10, 2)
+  discountAmount        Decimal           @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  discountReason        String?           @map("discount_reason") @db.VarChar(255)
+  taxAmount             Decimal           @default(0.00) @map("tax_amount") @db.Decimal(10, 2)
+  taxRate               Decimal           @default(0.00) @map("tax_rate") @db.Decimal(5, 2)
+  finalPrice            Decimal           @map("final_price") @db.Decimal(10, 2)
+  currency              String            @default("INR") @map("currency") @db.VarChar(10)
+  pricingSnapshot       Json              @map("pricing_snapshot")
+
+  // Freeze Tracking
+  totalFreezeDaysUsed   Int               @default(0) @map("total_freeze_days_used")
+  freezeCount           Int               @default(0) @map("freeze_count")
+
+  // Renewal & Chaining
+  renewalCount          Int               @default(0) @map("renewal_count")
+  previousMembershipId  String?           @map("previous_membership_id") @db.Uuid
+
+  status                MembershipStatus  @default(ACTIVE) @map("status")
+  autoRenew             Boolean           @default(false) @map("auto_renew")
+  notes                 String?           @map("notes") @db.Text
+
+  // Cancellation
+  cancelledAt           DateTime?         @map("cancelled_at") @db.Timestamptz
+  cancellationReason    String?           @map("cancellation_reason") @db.VarChar(255)
+  cancelledBy           String?           @map("cancelled_by") @db.Uuid
+
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member                Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan                  MembershipPlan    @relation(fields: [planId], references: [id], onDelete: Restrict)
+  homeBranch            Branch            @relation(fields: [homeBranchId], references: [id], onDelete: Restrict)
+  freezes               MembershipFreeze[]
+  history               MembershipHistory[]
+
+  @@index([organizationId], map: "idx_member_memberships_org")
+  @@index([organizationId, memberId], map: "idx_member_memberships_member")
+  @@index([organizationId, status], map: "idx_member_memberships_status")
+  @@index([organizationId, endDate], map: "idx_member_memberships_end_date")
+  @@index([organizationId, homeBranchId], map: "idx_member_memberships_branch")
+  @@map("member_memberships")
+}
+
+/// MembershipFreeze records individual freeze / pause requests
+model MembershipFreeze {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  membershipId          String            @map("membership_id") @db.Uuid
+
+  startDate             DateTime          @map("start_date") @db.Date
+  endDate               DateTime?         @map("end_date") @db.Date
+  actualThawDate        DateTime?         @map("actual_thaw_date") @db.Date
+  daysFrozen            Int               @default(0) @map("days_frozen")
+
+  reason                String?           @map("reason") @db.VarChar(255)
+  status                FreezeStatus      @default(ACTIVE) @map("status")
+
+  frozenBy              String            @map("frozen_by") @db.Uuid
+  thawedBy              String?           @map("thawed_by") @db.Uuid
+
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership            MemberMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], map: "idx_membership_freezes_org")
+  @@index([membershipId], map: "idx_membership_freezes_membership")
+  @@map("membership_freezes")
+}
+
+/// MembershipHistory provides an immutable append-only audit trail of subscription transitions
+model MembershipHistory {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  membershipId          String            @map("membership_id") @db.Uuid
+  action                String            @map("action") @db.VarChar(50)
+  actorId               String?           @map("actor_id") @db.Uuid
+  previousState         Json?             @map("previous_state")
+  newState              Json?             @map("new_state")
+  reason                String?           @map("reason") @db.VarChar(255)
+  timestamp             DateTime          @default(now()) @map("timestamp") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership            MemberMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, membershipId], map: "idx_membership_history_membership")
+  @@map("membership_history")
+}
+
+/// MembershipOutboxEvent implements the Transactional Outbox Pattern for reliable automation event dispatch
+model MembershipOutboxEvent {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  aggregateId           String            @map("aggregate_id") @db.VarChar(100)
+  eventType             String            @map("event_type") @db.VarChar(100)
+  payload               Json              @map("payload")
+  status                OutboxStatus      @default(PENDING) @map("status")
+  retryCount            Int               @default(0) @map("retry_count")
+  lastError             String?           @map("last_error") @db.Text
+  processedAt           DateTime?         @map("processed_at") @db.Timestamptz
+  idempotencyKey        String            @unique @map("idempotency_key") @db.VarChar(200)
+
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status], map: "idx_outbox_org_status")
+  @@index([status, createdAt], map: "idx_outbox_status_created")
+  @@map("membership_outbox_events")
 }
 

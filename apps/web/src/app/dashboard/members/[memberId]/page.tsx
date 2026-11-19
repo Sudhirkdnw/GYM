@@ -8,6 +8,8 @@ import { apiClient } from "@/lib/api-client";
 import {
   MemberDetailData,
   MemberStatus,
+  MemberMembershipData,
+  MembershipStatus,
   Permission,
 } from "@gymos/shared-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +26,9 @@ import {
   AlertTriangle,
   History,
   HeartPulse,
+  CreditCard,
+  CheckCircle2,
+  PauseCircle,
 } from "lucide-react";
 
 export default function MemberProfilePage() {
@@ -53,13 +58,20 @@ export default function MemberProfilePage() {
   const [archiveReason, setArchiveReason] = useState("");
   const [archiveLoading, setArchiveLoading] = useState(false);
 
+  // Subscriptions State
+  const [subscriptions, setSubscriptions] = useState<MemberMembershipData[]>([]);
+
   const fetchMember = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await apiClient<MemberDetailData>(`/members/${memberId}`);
-      setMember(res);
-      setNewStatus(res.status);
+      const [memberRes, subsRes] = await Promise.all([
+        apiClient<MemberDetailData>(`/members/${memberId}`),
+        apiClient<MemberMembershipData[]>(`/memberships/members/${memberId}`).catch(() => []),
+      ]);
+      setMember(memberRes);
+      setNewStatus(memberRes.status);
+      setSubscriptions(subsRes || []);
     } catch (err: unknown) {
       setError((err as Error).message || "Failed to load member profile");
     } finally {
@@ -293,6 +305,84 @@ export default function MemberProfilePage() {
         </div>
       </div>
 
+      {/* Active Membership Hero Banner */}
+      {(() => {
+        const activeSub = subscriptions.find(
+          (s) => s.status === MembershipStatus.ACTIVE || s.status === MembershipStatus.FROZEN
+        );
+
+        if (activeSub) {
+          const endDate = new Date(activeSub.endDate);
+          const today = new Date();
+          const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+          return (
+            <div className="mb-6 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/40 dark:from-emerald-950/40 dark:via-zinc-900 dark:to-emerald-950/20 p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
+                      Current Subscription
+                    </span>
+                    {activeSub.status === MembershipStatus.FROZEN ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-950 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                        <PauseCircle className="h-3 w-3" /> Frozen (Paused)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" /> Active Pass
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                    {activeSub.planName}
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>
+                      Validity: <strong className="text-zinc-800 dark:text-zinc-200">{activeSub.startDate}</strong> to{" "}
+                      <strong className="text-zinc-800 dark:text-zinc-200">{activeSub.endDate}</strong>
+                    </span>
+                    <span>
+                      Remaining:{" "}
+                      <strong className={daysLeft <= 7 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400"}>
+                        {daysLeft > 0 ? `${daysLeft} days` : "Expiring today"}
+                      </strong>
+                    </span>
+                    <span>
+                      Paid: <strong>₹{activeSub.finalPrice.toLocaleString("en-IN")}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link href="/dashboard/memberships">
+                    <Button size="sm" variant="outline" className="text-xs gap-1">
+                      <CreditCard className="h-3.5 w-3.5" /> Manage in Subscriptions
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="mb-6 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-zinc-500">
+              <CreditCard className="h-4 w-4 text-zinc-400" />
+              <span>No active membership subscription currently on file for this member.</span>
+            </div>
+            <Link href="/dashboard/memberships">
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                Assign Membership Plan
+              </Button>
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* Grid of Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Contact & Personal Information */}
@@ -446,6 +536,67 @@ export default function MemberProfilePage() {
                       </td>
                       <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 italic">
                         {t.reason || "None specified"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Membership Passes & History */}
+      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mt-6">
+        <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-emerald-600" />
+            Membership Subscriptions ({subscriptions.length})
+          </CardTitle>
+          <Link href="/dashboard/memberships">
+            <Button variant="ghost" size="sm" className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">
+              Manage Subscriptions →
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          {subscriptions.length === 0 ? (
+            <div className="p-6 text-center text-xs text-zinc-500">
+              No historical membership subscriptions recorded for this member.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-zinc-50 dark:bg-zinc-900/60 uppercase tracking-wider text-zinc-500 border-b border-zinc-200 dark:border-zinc-800">
+                  <tr>
+                    <th className="px-4 py-2.5">Plan</th>
+                    <th className="px-4 py-2.5">Branch</th>
+                    <th className="px-4 py-2.5">Start Date</th>
+                    <th className="px-4 py-2.5">End Date</th>
+                    <th className="px-4 py-2.5">Final Price</th>
+                    <th className="px-4 py-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {subscriptions.map((s) => (
+                    <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
+                      <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
+                        {s.planName} ({s.planCode})
+                      </td>
+                      <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400">
+                        {s.homeBranchName || "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-zinc-500">{s.startDate}</td>
+                      <td className="px-4 py-2.5 text-zinc-700 dark:text-zinc-300 font-medium">
+                        {s.endDate}
+                      </td>
+                      <td className="px-4 py-2.5 font-semibold text-zinc-900 dark:text-zinc-100">
+                        ₹{s.finalPrice.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="font-semibold text-[11px] uppercase tracking-wider">
+                          {s.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
