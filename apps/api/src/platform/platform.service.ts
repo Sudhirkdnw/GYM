@@ -481,4 +481,80 @@ export class PlatformService {
 
     return this.entitlementService.getEffectiveEntitlements(orgId);
   }
+
+  /**
+   * Permanently delete an organization and cleanly cascade all tenant data.
+   */
+  async deleteOrganization(orgId: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const org = await tx.organization.findUnique({ where: { id: orgId } });
+      if (!org) {
+        throw new NotFoundException(`Organization with ID ${orgId} not found`);
+      }
+
+      // Delete dependent records in reverse dependency order
+      await tx.attendanceRecord.deleteMany({ where: { organizationId: orgId } });
+      await tx.attendanceSettings.deleteMany({ where: { organizationId: orgId } });
+      await tx.attendanceOutboxEvent.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberAccessPass.deleteMany({ where: { organizationId: orgId } });
+      await tx.refund.deleteMany({ where: { organizationId: orgId } });
+      await tx.paymentAllocationReversal.deleteMany({ where: { organizationId: orgId } });
+      await tx.paymentAllocation.deleteMany({ where: { organizationId: orgId } });
+      await tx.payment.deleteMany({ where: { organizationId: orgId } });
+      await tx.invoiceItem.deleteMany({ where: { organizationId: orgId } });
+      await tx.invoice.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberCreditEntry.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberCreditAccount.deleteMany({ where: { organizationId: orgId } });
+      await tx.billingOutboxEvent.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationBillingSequence.deleteMany({ where: { organizationId: orgId } });
+      await tx.membershipFreeze.deleteMany({ where: { organizationId: orgId } });
+      await tx.membershipHistory.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberMembership.deleteMany({ where: { organizationId: orgId } });
+      await tx.membershipOutboxEvent.deleteMany({ where: { organizationId: orgId } });
+      await tx.membershipPlanBranch.deleteMany({ where: { organizationId: orgId } });
+      await tx.membershipPlan.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberTransfer.deleteMany({ where: { organizationId: orgId } });
+      await tx.member.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationMemberSequence.deleteMany({ where: { organizationId: orgId } });
+      await tx.branchStaffAssignment.deleteMany({ where: { organizationId: orgId } });
+      await tx.branch.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationUser.deleteMany({ where: { organizationId: orgId } });
+      await tx.auditLog.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationSubscription.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationEntitlementOverride.deleteMany({ where: { organizationId: orgId } });
+      await tx.organizationUsageRecord.deleteMany({ where: { organizationId: orgId } });
+      await tx.entitlementChangeLog.deleteMany({ where: { organizationId: orgId } });
+
+      await tx.organization.delete({ where: { id: orgId } });
+
+      await this.entitlementService.invalidateCache(orgId);
+
+      return { success: true, deletedId: orgId, name: org.name };
+    });
+  }
+
+  /**
+   * Bulk delete multiple organizations.
+   */
+  async bulkDeleteOrganizations(orgIds: string[]) {
+    if (!orgIds || orgIds.length === 0) {
+      throw new BadRequestException('At least one organization ID must be provided');
+    }
+
+    const results = [];
+    for (const id of orgIds) {
+      try {
+        const res = await this.deleteOrganization(id);
+        results.push(res);
+      } catch (err: unknown) {
+        results.push({ success: false, id, error: (err as Error).message });
+      }
+    }
+
+    return {
+      totalRequested: orgIds.length,
+      deletedCount: results.filter((r) => r.success).length,
+      results,
+    };
+  }
 }

@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -117,5 +118,21 @@ export class PlatformController {
     @CurrentUser() user: AuthenticatedUserContext,
   ) {
     return this.platformService.assignSubscriptionPlan(id, body, user.id);
+  }
+
+  /**
+   * Delete a single gym organization permanently.
+   */
+  @Delete('organizations/:id')
+  async deleteOrganization(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platformService.deleteOrganization(id);
+  }
+
+  /**
+   * Bulk delete multiple gym organizations.
+   */
+  @Post('organizations/bulk-delete')
+  async bulkDeleteOrganizations(@Body('ids') ids: string[]) {
+    return this.platformService.bulkDeleteOrganizations(ids);
   }
 }
