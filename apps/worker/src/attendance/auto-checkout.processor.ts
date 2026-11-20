@@ -186,8 +186,8 @@ export class AutoCheckoutProcessor {
             },
           });
 
-          // Cache branch-specific settings to avoid duplicate DB roundtrips
-          const branchSettingsMap = new Map<string, any>();
+          type AttendanceSettingsRecord = Awaited<ReturnType<typeof tx.attendanceSettings.findFirst>>;
+          const branchSettingsMap = new Map<string, AttendanceSettingsRecord>();
 
           for (const session of activeSessions) {
             const branch = session.branch;

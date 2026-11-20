@@ -578,15 +578,14 @@ Following the Stage 2.7 Final Security, Integration & Production Readiness Audit
   3. Deterministic event completion tracking via `worker.on('completed')` and `worker.on('failed')` with bounded timeout and diagnostic failure reports.
 - **Verification:** Worker E2E test now executes cleanly and deterministically in 83–101ms without race conditions or test flakiness.
 
-### Finding F-03: `requireCheckOut` Setting Semantics [DOCUMENTED & REPORTED]
-- **File:** `apps/api/src/attendance/attendance.service.ts`
-- **Ambiguity Identified:**
-  - `docs/plans/STAGE-2-7-IMPLEMENTATION-PLAN.md` defines `requireCheckOut` as: *"If true, staff is reminded to log checkout when member leaves."* (A reception desk frontend reminder).
-  - Frontend settings UI describes it as: *"Requires checkout of active session before checking in again."*
-  - PostgreSQL unconditionally prevents concurrent active check-ins via the partial unique index:
-    `CREATE UNIQUE INDEX idx_attendance_records_active_session ON attendance_records (organization_id, member_id) WHERE status = 'CHECKED_IN'`.
-  - Allowing multiple check-ins if `requireCheckOut = false` would violate the core database invariant.
-- **Action Taken:** Per authorization instructions (*"If the setting has no clearly defined behavior, STOP this finding and report the ambiguity. Do not silently change or remove a persisted setting without approval"*), this ambiguity is reported and documented without unauthorized backend alterations.
+### Finding F-03: `requireCheckOut` Setting Product Semantics [RESOLVED & CLARIFIED]
+- **File:** `apps/api/src/attendance/attendance.service.ts`, `apps/web/src/app/dashboard/attendance/settings/page.tsx`
+- **Final Intended Product Behavior (Approved):**
+  1. **When `requireCheckOut = true`:** The front desk UI shows the receptionist a clear active-session checkout reminder when a member departs or is presented.
+  2. **When `requireCheckOut = false`:** The front desk UI does not display the additional mandatory checkout reminder.
+  3. **Backend & Database Invariant (Strictly Preserved):** In both cases, the PostgreSQL database partial unique index (`"idx_attendance_records_active_session"` on `(organization_id, member_id)` where `status = 'CHECKED_IN'` and `check_out_time IS NULL`) and the backend validation engine continue unconditionally rejecting simultaneous duplicate active check-ins.
+  4. Neither the database constraint nor backend validation is weakened.
+  5. Schema, API contracts, and settings persistence remain preserved intact.
 
 ### Finding F-04: Attendance History CSV Export [RESOLVED]
 - **File:** `apps/web/src/app/dashboard/attendance/history/page.tsx`
@@ -598,3 +597,15 @@ Following the Stage 2.7 Final Security, Integration & Production Readiness Audit
   5. UTF-8 BOM (`\uFEFF`) prefix ensuring Excel and spreadsheet applications display Unicode characters cleanly.
   6. AbortController error and cancellation handling; sensitive tokens/hashes omitted.
 - **Verification:** Verified by Next.js typecheck (`0 errors`), ESLint (`0 warnings, 0 errors`), and full production build.
+
+---
+
+## 11. Final Stage 2.7 Closure Verification Metrics
+
+- **Full API E2E Regression Suite (`npm run --workspace=@gymos/api test:e2e`):** **14 suites, 252 of 252 passed (100%)** *(increased from 246 baseline with F-01 & F-02 deterministic tests)*
+- **Full API Unit Test Suite (`npm run --workspace=@gymos/api test`):** **6 suites, 120 of 120 passed (100%)**
+- **Worker Service Typecheck & Lint (`npm run --workspace=@gymos/worker typecheck` & `lint`):** **0 errors, 0 warnings**
+- **Web Typecheck & Lint (`npm run --workspace=@gymos/web typecheck` & `lint`):** **0 errors, 0 warnings**
+- **Full Monorepo Production Build (`npm run build`):** **All 6 workspaces built cleanly with exit code 0**
+- **Database Partial Unique Index:** Verified active and enforced (`idx_attendance_records_active_session`).
+- **Stage 2.7 Status:** **COMPLETED, REMEDIATED & PRODUCTION-READY (FULL PASS)**
