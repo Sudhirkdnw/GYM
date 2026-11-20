@@ -13,8 +13,6 @@ import {
   Permission,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Plus,
   ArrowLeft,
@@ -27,6 +25,11 @@ import {
   ToggleLeft,
   ToggleRight,
   Filter,
+  Search,
+  X,
+  Loader2,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 
 export default function MembershipPlansPage() {
@@ -187,20 +190,20 @@ export default function MembershipPlansPage() {
     switch (sc) {
       case PlanScope.ALL_BRANCHES:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 text-[10px] font-semibold">
             <Building2 className="h-3 w-3" /> All Branches
           </span>
         );
       case PlanScope.MULTI_BRANCH:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-0.5 text-[10px] font-semibold">
             <Layers className="h-3 w-3" /> Multi-Branch
           </span>
         );
       case PlanScope.SINGLE_BRANCH:
       default:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground border border-border px-2 py-0.5 text-[10px] font-semibold">
             Single Branch
           </span>
         );
@@ -208,55 +211,60 @@ export default function MembershipPlansPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6">
+    <div className="space-y-6 animate-fadeIn pb-16">
       {/* Top Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500 mb-1">
-            <Link
-              href="/dashboard/memberships"
-              className="hover:text-zinc-800 dark:hover:text-zinc-300 flex items-center gap-1"
-            >
-              <ArrowLeft className="h-3 w-3" /> Back to Subscriptions
-            </Link>
+      <div>
+        <Link
+          href="/dashboard/memberships"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-2"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Subscriptions
+        </Link>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-primary" />
+                Membership Plans & Packages
+              </h1>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {plans.length} Packages
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Configure packages, durations, pricing snapshots, freeze policies, and branch privileges.
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            Membership Plans
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Configure packages, durations, pricing snapshots, and branch scopes.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
-            <Button
-              onClick={() => {
-                resetForm();
-                setShowModal(true);
-              }}
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-            >
-              <Plus className="h-4 w-4" /> Create Plan
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
+              <button
+                onClick={() => {
+                  resetForm();
+                  setShowModal(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+              >
+                <Plus className="h-4 w-4" /> Create Plan
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Filters bar */}
-      <Card className="mb-6 border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <Filter className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Filter className="h-3.5 w-3.5 text-primary" />
               <span>Filters:</span>
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="rounded-xl border border-border bg-background/50 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -266,7 +274,7 @@ export default function MembershipPlansPage() {
             <select
               value={scopeFilter}
               onChange={(e) => setScopeFilter(e.target.value)}
-              className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="rounded-xl border border-border bg-background/50 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
               <option value="ALL">All Scopes</option>
               <option value="SINGLE_BRANCH">Single Branch</option>
@@ -275,129 +283,130 @@ export default function MembershipPlansPage() {
             </select>
           </div>
 
-          <div className="w-full sm:w-64">
+          <div className="w-full sm:w-64 relative">
+            <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search plan name or code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-xl border border-border bg-background/50 pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Plans List */}
       {loading ? (
-        <div className="py-16 text-center text-sm text-zinc-500">Loading plans...</div>
+        <div className="py-20 text-center text-xs text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+          Loading membership plans...
+        </div>
       ) : error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-500">
           {error}
         </div>
       ) : plans.length === 0 ? (
-        <Card className="border-zinc-200 dark:border-zinc-800 text-center py-16">
-          <CardContent className="space-y-3">
-            <Shield className="mx-auto h-10 w-10 text-zinc-400" />
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              No membership plans found
-            </h3>
-            <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-              Create your gym&apos;s first membership package with custom duration, pricing, and freeze rules.
-            </p>
-            {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
-              <Button
-                onClick={() => {
-                  resetForm();
-                  setShowModal(true);
-                }}
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white mt-2"
-              >
-                Create First Plan
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-16 text-center shadow-sm">
+          <Shield className="mx-auto h-12 w-12 text-muted-foreground/40 mb-3" />
+          <h3 className="text-base font-bold text-foreground">
+            No membership plans found
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+            Create your gym&apos;s first membership package with custom duration, pricing, and freeze rules.
+          </p>
+          {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
+            <button
+              onClick={() => {
+                resetForm();
+                setShowModal(true);
+              }}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Create First Plan
+            </button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((p) => (
-            <Card
+            <div
               key={p.id}
-              className={`border transition-all duration-200 shadow-sm relative overflow-hidden ${
+              className={`rounded-2xl border transition-all duration-200 shadow-sm relative overflow-hidden backdrop-blur-xl flex flex-col justify-between ${
                 p.status === PlanStatus.ACTIVE
-                  ? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-                  : "border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/40 opacity-75"
+                  ? "border-border/60 bg-card/60 hover:border-primary/40 hover:shadow-md"
+                  : "border-border/40 bg-card/30 opacity-75"
               }`}
             >
-              <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800/60 flex flex-row items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                      {p.name}
-                    </CardTitle>
-                  </div>
-                  <span className="font-mono text-[11px] font-semibold text-zinc-500 uppercase">
-                    CODE: {p.code}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {getScopeBadge(p.scope)}
-                  {p.status === PlanStatus.ACTIVE ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                      <CheckCircle2 className="h-3 w-3" /> Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                      <XCircle className="h-3 w-3" /> Inactive
-                    </span>
-                  )}
-                </div>
-              </CardHeader>
-
-              <CardContent className="pt-4 space-y-4">
-                {/* Price & Duration */}
-                <div className="flex items-baseline justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800/60">
+              <div className="p-5 pb-4 border-b border-border/40">
+                <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
-                    <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    <h3 className="text-base font-bold text-foreground">
+                      {p.name}
+                    </h3>
+                    <span className="font-mono text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      {p.code}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {getScopeBadge(p.scope)}
+                    {p.status === PlanStatus.ACTIVE ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-500">
+                        <CheckCircle2 className="h-3 w-3" /> Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        <XCircle className="h-3 w-3" /> Inactive
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price & Duration */}
+                <div className="flex items-baseline justify-between pt-2">
+                  <div>
+                    <span className="text-2xl font-bold font-mono tracking-tight text-foreground">
                       ₹{p.price.toLocaleString("en-IN")}
                     </span>
-                    <span className="text-xs text-zinc-500 ml-1">
+                    <span className="text-xs text-muted-foreground ml-1">
                       / {formatDuration(p.durationType, p.durationValue)}
                     </span>
                   </div>
                   {p.registrationFee > 0 && (
-                    <span className="text-[11px] text-zinc-500">
+                    <span className="text-[11px] text-muted-foreground font-mono">
                       +₹{p.registrationFee.toLocaleString("en-IN")} reg fee
                     </span>
                   )}
                 </div>
+              </div>
 
+              <div className="p-5 space-y-4 flex-1">
                 {/* Description */}
                 {p.description && (
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {p.description}
                   </p>
                 )}
 
                 {/* Policies */}
-                <div className="grid grid-cols-2 gap-2 text-[11px] bg-zinc-50 dark:bg-zinc-800/50 p-2.5 rounded-md">
+                <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/20 border border-border/60 p-3 rounded-xl">
                   <div>
-                    <span className="text-zinc-500">Freezes:</span>{" "}
-                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                    <span className="text-muted-foreground block text-[10px]">Max Freezes:</span>
+                    <span className="font-semibold text-foreground">
                       {p.maxFreezes > 0 ? `${p.maxFreezes}x (max ${p.maxFreezeDays}d)` : "None"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500">Grace Period:</span>{" "}
-                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                    <span className="text-muted-foreground block text-[10px]">Grace Period:</span>
+                    <span className="font-semibold text-foreground">
                       {p.gracePeriodDays} days
                     </span>
                   </div>
                   {p.subscriberCount !== undefined && (
-                    <div className="col-span-2 pt-1 border-t border-zinc-200/50 dark:border-zinc-700/50">
-                      <span className="text-zinc-500">Subscribers:</span>{" "}
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {p.subscriberCount} active
+                    <div className="col-span-2 pt-2 border-t border-border/40">
+                      <span className="text-muted-foreground text-[10px]">Active Members:</span>{" "}
+                      <span className="font-bold text-emerald-500">
+                        {p.subscriberCount} enrolled
                       </span>
                     </div>
                   )}
@@ -405,80 +414,80 @@ export default function MembershipPlansPage() {
 
                 {/* Features */}
                 {p.features && p.features.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
                       Included Perks
                     </span>
-                    <ul className="text-xs space-y-1 text-zinc-600 dark:text-zinc-300">
+                    <ul className="text-xs space-y-1 text-foreground">
                       {p.features.slice(0, 3).map((feat, idx) => (
-                        <li key={idx} className="flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-emerald-500 shrink-0" />
+                        <li key={idx} className="flex items-center gap-2">
+                          <Sparkles className="h-3 w-3 text-primary shrink-0" />
                           <span className="truncate">{feat}</span>
                         </li>
                       ))}
                       {p.features.length > 3 && (
-                        <li className="text-[11px] text-zinc-400 italic">
+                        <li className="text-[11px] text-muted-foreground italic pl-5">
                           +{p.features.length - 3} more perks
                         </li>
                       )}
                     </ul>
                   </div>
                 )}
+              </div>
 
-                {/* Card footer actions */}
-                {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
-                  <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800/60">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleStatus(p)}
-                      className="text-xs gap-1 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
-                    >
-                      {p.status === PlanStatus.ACTIVE ? (
-                        <>
-                          <ToggleRight className="h-4 w-4 text-emerald-600" /> Deactivate
-                        </>
-                      ) : (
-                        <>
-                          <ToggleLeft className="h-4 w-4 text-zinc-400" /> Activate
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              {/* Card footer actions */}
+              {hasPermission(Permission.MEMBERSHIP_PLAN_MANAGE) && (
+                <div className="p-4 border-t border-border/40 bg-muted/10 flex items-center justify-end">
+                  <button
+                    onClick={() => handleToggleStatus(p)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {p.status === PlanStatus.ACTIVE ? (
+                      <>
+                        <ToggleRight className="h-4 w-4 text-emerald-500" /> Deactivate
+                      </>
+                    ) : (
+                      <>
+                        <ToggleLeft className="h-4 w-4 text-muted-foreground" /> Activate
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
 
       {/* Create Plan Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-border/80 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
                 Create Membership Plan
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {formError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {formError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{formError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreatePlan} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Plan Name *
+                  <label className="block font-semibold text-foreground mb-1.5">
+                    Plan Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -486,12 +495,12 @@ export default function MembershipPlansPage() {
                     placeholder="e.g. Premium Annual"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Plan Code *
+                  <label className="block font-semibold text-foreground mb-1.5">
+                    Plan Code <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -499,13 +508,13 @@ export default function MembershipPlansPage() {
                     placeholder="e.g. ANN-PREM"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground uppercase focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Description
                 </label>
                 <textarea
@@ -513,20 +522,20 @@ export default function MembershipPlansPage() {
                   placeholder="Summary of plan coverage and perks..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
 
               {/* Duration and Pricing */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Duration Type
                   </label>
                   <select
                     value={durationType}
                     onChange={(e) => setDurationType(e.target.value as PlanDurationType)}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-foreground"
                   >
                     <option value={PlanDurationType.DAYS}>Days</option>
                     <option value={PlanDurationType.MONTHS}>Months</option>
@@ -535,7 +544,7 @@ export default function MembershipPlansPage() {
                 </div>
 
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Duration Value
                   </label>
                   <input
@@ -543,25 +552,25 @@ export default function MembershipPlansPage() {
                     min={1}
                     value={durationValue}
                     onChange={(e) => setDurationValue(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-foreground font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Price (₹) *
+                  <label className="block font-semibold text-foreground mb-1.5">
+                    Price (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     min={0}
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-foreground font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Reg. Fee (₹)
                   </label>
                   <input
@@ -569,18 +578,18 @@ export default function MembershipPlansPage() {
                     min={0}
                     value={registrationFee}
                     onChange={(e) => setRegistrationFee(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-foreground font-mono"
                   />
                 </div>
               </div>
 
               {/* Branch Scope */}
               <div className="space-y-2">
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300">
+                <label className="block font-semibold text-foreground">
                   Branch Scope
                 </label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name="scope"
@@ -590,7 +599,7 @@ export default function MembershipPlansPage() {
                     />
                     <span>Single Branch</span>
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name="scope"
@@ -600,7 +609,7 @@ export default function MembershipPlansPage() {
                     />
                     <span>Multi Branch</span>
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name="scope"
@@ -613,15 +622,15 @@ export default function MembershipPlansPage() {
                 </div>
 
                 {scope !== PlanScope.ALL_BRANCHES && branches && branches.length > 0 && (
-                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                    <span className="text-[11px] text-zinc-500 mb-1 block">
+                  <div className="pt-2 border-t border-border/40">
+                    <span className="text-[11px] text-muted-foreground mb-1.5 block">
                       Select Permitted Branches:
                     </span>
                     <div className="grid grid-cols-2 gap-2 max-h-28 overflow-y-auto p-1">
                       {branches.map((b) => (
                         <label
                           key={b.id}
-                          className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -645,7 +654,7 @@ export default function MembershipPlansPage() {
               {/* Freezes & Grace Period */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Max Freezes
                   </label>
                   <input
@@ -653,11 +662,11 @@ export default function MembershipPlansPage() {
                     min={0}
                     value={maxFreezes}
                     onChange={(e) => setMaxFreezes(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-foreground font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Max Freeze Days
                   </label>
                   <input
@@ -665,11 +674,11 @@ export default function MembershipPlansPage() {
                     min={0}
                     value={maxFreezeDays}
                     onChange={(e) => setMaxFreezeDays(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-foreground font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Grace Period (Days)
                   </label>
                   <input
@@ -677,14 +686,14 @@ export default function MembershipPlansPage() {
                     min={0}
                     value={gracePeriodDays}
                     onChange={(e) => setGracePeriodDays(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3 py-2 text-foreground font-mono"
                   />
                 </div>
               </div>
 
               {/* Features */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Features / Included Perks (comma-separated)
                 </label>
                 <input
@@ -692,27 +701,25 @@ export default function MembershipPlansPage() {
                   placeholder="Gym Floor, Steam Bath, Personal Locker"
                   value={featuresInput}
                   onChange={(e) => setFeaturesInput(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={submitting}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {submitting ? "Creating..." : "Save Plan"}
-                </Button>
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save Plan"}
+                </button>
               </div>
             </form>
           </div>

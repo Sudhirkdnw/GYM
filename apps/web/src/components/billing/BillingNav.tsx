@@ -15,19 +15,19 @@ export function BillingNav() {
 
   const links = [
     {
-      name: "Overview",
+      name: "Financial Overview",
       href: "/dashboard/billing",
       icon: BarChart3,
       exact: true,
     },
     {
-      name: "Invoices",
+      name: "Invoices Ledger",
       href: "/dashboard/billing/invoices",
       icon: FileText,
       exact: false,
     },
     {
-      name: "Payments",
+      name: "Payment Receipts",
       href: "/dashboard/billing/payments",
       icon: CreditCard,
       exact: false,
@@ -47,7 +47,7 @@ export function BillingNav() {
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-6">
+    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-card/60 border border-border/60 backdrop-blur-xl w-fit overflow-x-auto max-w-full shadow-sm">
       {links.map((link) => {
         const Icon = link.icon;
         const isActive = link.exact
@@ -58,13 +58,13 @@ export function BillingNav() {
           <Link
             key={link.href}
             href={link.href}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
               isActive
-                ? "bg-emerald-600 text-white shadow-sm font-semibold"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
             }`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-3.5 w-3.5" />
             <span>{link.name}</span>
           </Link>
         );

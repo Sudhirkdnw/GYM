@@ -1,96 +1,99 @@
 import Link from "next/link";
-import { ShieldCheck, Layers, Cpu, Database } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { ShieldCheck, Layers, ArrowRight, Activity, Users, CreditCard } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <div className="container mx-auto px-4 py-16 sm:px-6 sm:py-24">
-      <div className="mx-auto max-w-3xl text-center">
-        <div className="mb-4 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-          Stage 1 Foundation Operational
+    <div className="relative overflow-hidden py-16 sm:py-24">
+      {/* Background glow effects */}
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-violet-600/20 to-indigo-600/20 blur-[120px] pointer-events-none rounded-full" />
+
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3.5 py-1 text-xs font-semibold text-violet-600 dark:text-violet-300">
+            <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+            Enterprise Gym Automation SaaS
+          </div>
+
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-900 dark:text-white">
+            Next-Gen Gym Operations{" "}
+            <span className="bg-gradient-to-r from-violet-600 to-indigo-500 bg-clip-text text-transparent">
+              Engineered for Scale
+            </span>
+          </h1>
+
+          <p className="mt-6 text-base sm:text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+            GymOS delivers unified multi-tenant facility management, dynamic QR front-desk check-ins, automated billing, and audit-grade financial ledgers for modern gym enterprises.
+          </p>
+
+          <div className="mt-10 flex items-center justify-center gap-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/25 transition-all"
+            >
+              Enter Dashboard
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/health"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-semibold border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 shadow-sm transition-colors"
+            >
+              <Activity className="w-4 h-4 text-emerald-500" />
+              System Status
+            </Link>
+          </div>
         </div>
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-zinc-900 dark:text-zinc-50">
-          Gym Management & Automation{" "}
-          <span className="text-emerald-600">Reimagined</span>
-        </h1>
-        <p className="mt-6 text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-          GymOS is a multi-tenant SaaS built for gym owners, staff, and fitness
-          enterprises. Engineered as a high-performance modular monolith with
-          tenant-scoped isolation.
-        </p>
-        <div className="mt-10 flex items-center justify-center gap-x-6">
-          <Link href="/dashboard">
-            <Button size="lg">Enter Dashboard</Button>
-          </Link>
-          <Link href="/health">
-            <Button variant="outline" size="lg">
-              Inspect System Health
-            </Button>
-          </Link>
-        </div>
-      </div>
 
-      <div className="mx-auto mt-20 max-w-5xl">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <Layers className="h-8 w-8 text-emerald-600 mb-2" />
-              <CardTitle className="text-lg">Modular Monolith</CardTitle>
-              <CardDescription>
-                Clean domain boundaries with shared type contracts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs text-zinc-500">
-              Structured modules for CRM, attendance, and billing ready for
-              Stage 2.
-            </CardContent>
-          </Card>
+        {/* Feature Cards Grid */}
+        <div className="mx-auto mt-20 max-w-5xl">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center mb-3">
+                <Layers className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                Modular Monolith
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Isolated NestJS domain boundaries with shared type contracts and zero circular dependencies.
+              </p>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <Database className="h-8 w-8 text-emerald-600 mb-2" />
-              <CardTitle className="text-lg">PostgreSQL & Prisma</CardTitle>
-              <CardDescription>
-                PostgreSQL connection and multi-tenant schema.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs text-zinc-500">
-              PostgreSQL 18 database with decimal precision money types.
-            </CardContent>
-          </Card>
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-3">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                PostgreSQL RLS
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Multi-tenant row-level security with ENABLE + FORCE policies guaranteeing strict tenant isolation.
+              </p>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <Cpu className="h-8 w-8 text-emerald-600 mb-2" />
-              <CardTitle className="text-lg">Redis & BullMQ</CardTitle>
-              <CardDescription>
-                Decoupled async job processing foundation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs text-zinc-500">
-              Gracefully managed background queue worker architecture.
-            </CardContent>
-          </Card>
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-3">
+                <Users className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                Dynamic QR Attendance
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Rotating digital passcodes with cryptographic HMAC signatures and anti-passback cooldowns.
+              </p>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <ShieldCheck className="h-8 w-8 text-emerald-600 mb-2" />
-              <CardTitle className="text-lg">Multi-Tenancy</CardTitle>
-              <CardDescription>
-                Strict tenant-scoped isolation architecture.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs text-zinc-500">
-              Tenant context resolution and PostgreSQL RLS design conventions.
-            </CardContent>
-          </Card>
+            <div className="p-5 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">
+                Billing & Credits
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                GST compliant invoicing, aging receivables tracking, and immutable prepaid credit wallets.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

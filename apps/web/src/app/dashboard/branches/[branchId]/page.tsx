@@ -6,8 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { apiClient } from "@/lib/api-client";
 import { BranchData, BranchStatus, Permission } from "@gymos/shared-types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Building2,
   MapPin,
@@ -22,6 +21,9 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  RotateCcw,
+  Shield,
+  X,
 } from "lucide-react";
 
 export default function BranchDetailsPage() {
@@ -82,7 +84,7 @@ export default function BranchDetailsPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push("/login");
+      router.push("/auth/login");
       return;
     }
     if (organization && branchId) {
@@ -112,149 +114,153 @@ export default function BranchDetailsPage() {
       });
 
       setBranch(updated);
-      setSaveMessage({ type: "success", text: "Branch details updated successfully!" });
       setIsEditing(false);
+      setSaveMessage({ type: "success", text: "Branch details updated successfully!" });
       await refreshBranches();
     } catch (err: unknown) {
-      setSaveMessage({ type: "error", text: (err as Error).message || "Failed to update branch" });
+      setSaveMessage({ type: "error", text: (err as Error).message || "Failed to save branch" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (authLoading || loading) {
+  const canEdit = organization?.permissions?.includes(Permission.ORGANIZATION_BRANCHES_CREATE);
+
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center text-sm text-zinc-500">
-        Loading branch details...
+      <div className="py-20 text-center text-slate-400">
+        <RotateCcw className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-500" />
+        <p className="text-xs">Loading facility details...</p>
       </div>
     );
   }
 
   if (error || !branch) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="p-8 text-center text-rose-500 max-w-xl mx-auto">
+        <AlertCircle className="w-10 h-10 mx-auto mb-2 text-rose-500" />
+        <h3 className="text-base font-semibold">Unable to Load Branch</h3>
+        <p className="text-xs text-slate-400 mt-1">{error || "Branch not found"}</p>
         <Link
           href="/dashboard/branches"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 mb-4"
+          className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300"
         >
-          <ArrowLeft className="h-3 w-3" /> Back to Branches
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Branches
         </Link>
-        <div className="p-4 rounded-lg bg-red-50 text-red-800 text-sm">
-          {error || "Branch not found"}
-        </div>
       </div>
     );
   }
 
-  const canUpdate = organization?.permissions.includes(Permission.ORGANIZATION_BRANCHES_UPDATE);
-
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6 max-w-4xl">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 pb-12 max-w-6xl mx-auto">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <Link
             href="/dashboard/branches"
-            className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 mb-2 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white mb-2 transition-colors"
           >
-            <ArrowLeft className="h-3 w-3" /> Back to Branches
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Branches
           </Link>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               {branch.name}
             </h1>
-            <span
-              className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                branch.status === BranchStatus.ACTIVE
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                  : branch.status === BranchStatus.INACTIVE
-                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                  : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
-              }`}
-            >
-              {branch.status}
+            <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-medium bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
+              {branch.branchCode}
             </span>
+            {branch.status === BranchStatus.ACTIVE ? (
+              <Badge variant="success">Active</Badge>
+            ) : branch.status === BranchStatus.INACTIVE ? (
+              <Badge variant="warning">Inactive</Badge>
+            ) : (
+              <Badge variant="destructive">Closed</Badge>
+            )}
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
-            Branch Code: <span className="font-mono font-medium">{branch.branchCode}</span> • Slug: <span className="font-mono">{branch.slug}</span>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Registered on {new Date(branch.createdAt).toLocaleDateString("en-IN")} • Slug: {branch.slug}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href={`/dashboard/branches/${branch.id}/staff`}>
-            <Button size="sm" variant="outline" className="gap-2 text-xs">
-              <Users className="h-3.5 w-3.5" />
-              Manage Staff ({branch.staffCount || 0})
-            </Button>
+          <Link
+            href={`/dashboard/branches/${branch.id}/staff`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
+          >
+            <Users className="w-3.5 h-3.5 text-violet-500" />
+            Manage Staff ({branch.staffCount || 0})
           </Link>
-          {canUpdate && branch.status !== BranchStatus.CLOSED && (
-            <Button
-              size="sm"
-              variant={isEditing ? "ghost" : "default"}
-              onClick={() => setIsEditing(!isEditing)}
-              className="gap-2 text-xs"
+
+          {canEdit && !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm transition-colors"
             >
-              <Edit className="h-3.5 w-3.5" />
-              {isEditing ? "Cancel Editing" : "Edit Branch"}
-            </Button>
+              <Edit className="w-3.5 h-3.5" />
+              Edit Facility
+            </button>
           )}
         </div>
       </div>
 
       {saveMessage && (
         <div
-          className={`mb-6 p-4 rounded-lg text-sm flex items-center gap-2 ${
+          className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border shadow-sm ${
             saveMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+              : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800"
           }`}
         >
           {saveMessage.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           ) : (
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           )}
           <span>{saveMessage.text}</span>
         </div>
       )}
 
       {isEditing ? (
+        /* Edit Form */
         <form onSubmit={handleSave} className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Edit Branch Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Branch Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value={editForm.name}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Branch Code *
-                  </label>
-                  <input
-                    type="text"
-                    name="branchCode"
-                    required
-                    value={editForm.branchCode}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm font-mono uppercase rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-4">
+            <div className="border-b border-slate-100 dark:border-white/[0.06] pb-3">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Modify Facility Details
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Branch Name *
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={editForm.name}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Branch Code *
+                </label>
+                <input
+                  type="text"
+                  name="branchCode"
+                  required
+                  value={editForm.branchCode}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white font-mono uppercase focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Description
                 </label>
                 <textarea
@@ -262,164 +268,205 @@ export default function BranchDetailsPage() {
                   rows={2}
                   value={editForm.description}
                   onChange={handleEditChange}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={editForm.email}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={editForm.phone}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Address Line 1
-                  </label>
-                  <input
-                    type="text"
-                    name="addressLine1"
-                    value={editForm.addressLine1}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={editForm.city}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={editForm.email}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isSaving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Address Line 1
+                </label>
+                <input
+                  type="text"
+                  name="addressLine1"
+                  value={editForm.addressLine1}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  City
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={editForm.city}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  State
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={editForm.state}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Postal Code
+                </label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={editForm.postalCode}
+                  onChange={handleEditChange}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-zinc-200 dark:border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-emerald-600" />
-                Branch Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div>
-                <span className="text-xs font-medium text-zinc-500 block">Description</span>
-                <p className="text-zinc-700 dark:text-zinc-300 text-xs mt-1">
-                  {branch.description || "No description configured."}
-                </p>
+        /* Readonly Overview Grid */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Location & Contact */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-4">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                Facility Location & Contact
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-400 block mb-1">Postal Address</span>
+                  <div className="flex items-start gap-2 text-slate-800 dark:text-slate-200">
+                    <MapPin className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                    <div>
+                      {branch.addressLine1 || "No street address configured"}
+                      {branch.addressLine2 && <div>{branch.addressLine2}</div>}
+                      {(branch.city || branch.state || branch.postalCode) && (
+                        <div>
+                          {branch.city} {branch.state} {branch.postalCode}
+                        </div>
+                      )}
+                      <div>{branch.country}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-slate-400 block mb-1">Phone Number</span>
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                      <Phone className="w-4 h-4 text-violet-500 shrink-0" />
+                      <span>{branch.phone || "Not configured"}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block mb-1">Email Address</span>
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                      <Mail className="w-4 h-4 text-violet-500 shrink-0" />
+                      <span>{branch.email || "Not configured"}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-                  <Clock className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>Timezone: <strong>{branch.timezone}</strong></span>
+              {branch.description && (
+                <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] text-xs">
+                  <span className="text-slate-400 block mb-1">About Facility</span>
+                  <p className="text-slate-700 dark:text-slate-300">{branch.description}</p>
                 </div>
-                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-                  <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>Added: {new Date(branch.createdAt).toLocaleDateString()}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Right Rail: Operations & Metadata */}
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm space-y-4">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white border-b border-slate-100 dark:border-white/[0.06] pb-3">
+                Operations & Timezone
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> Timezone
+                  </span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {branch.timezone}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-                  <Users className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>
-                    Staff Assigned: <strong>{branch.staffCount || 0}</strong>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" /> Staff Assigned
+                  </span>
+                  <span className="font-semibold text-slate-900 dark:text-white">
+                    {branch.staffCount || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" /> Created Date
+                  </span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {new Date(branch.createdAt).toLocaleDateString("en-IN")}
                   </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-zinc-200 dark:border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-emerald-600" />
-                Contact & Address
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <Mail className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>{branch.email || "No branch email"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <Phone className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>{branch.phone || "No branch phone"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
-                  <Globe className="h-3.5 w-3.5 text-zinc-400" />
-                  <span>{branch.website || "No branch website"}</span>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <span className="text-xs font-medium text-zinc-500 block mb-1">
-                  Physical Location
-                </span>
-                <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {[
-                    branch.addressLine1,
-                    branch.addressLine2,
-                    branch.city,
-                    branch.state,
-                    branch.postalCode,
-                    branch.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "No address configured for this branch."}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>

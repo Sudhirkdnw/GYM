@@ -6,19 +6,20 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { apiClient } from "@/lib/api-client";
 import { MemberData, PaginatedResult, MemberStatus, Permission } from "@gymos/shared-types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Users,
-  Plus,
+  UserPlus,
   Search,
   Building2,
   Phone,
   Mail,
   ChevronLeft,
   ChevronRight,
-  ArrowLeft,
   Edit,
+  Eye,
+  SlidersHorizontal,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 
 export default function MembersDirectoryPage() {
@@ -36,7 +37,7 @@ export default function MembersDirectoryPage() {
     try {
       setLoading(true);
       setError(null);
-      let query = `/members?page=${page}&limit=10`;
+      let query = `/members?page=${page}&limit=12`;
       if (search.trim()) {
         query += `&search=${encodeURIComponent(search.trim())}`;
       }
@@ -70,31 +71,32 @@ export default function MembersDirectoryPage() {
     switch (status) {
       case MemberStatus.ACTIVE:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Active
           </span>
         );
       case MemberStatus.INACTIVE:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-500 border border-border">
             Inactive
           </span>
         );
       case MemberStatus.SUSPENDED:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             Suspended
           </span>
         );
       case MemberStatus.ARCHIVED:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
             Archived
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
             {status}
           </span>
         );
@@ -106,42 +108,50 @@ export default function MembersDirectoryPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6">
+    <div className="space-y-6 animate-fadeIn pb-12">
       {/* Top Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/dashboard"
-              className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 flex items-center gap-1"
-            >
-              <ArrowLeft className="h-3 w-3" /> Dashboard
-            </Link>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              Member Directory
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {data?.meta?.total ?? 0} Members
+            </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Users className="h-6 w-6 text-emerald-600" />
-            Gym Members
-          </h1>
-          <p className="text-xs text-zinc-500">
-            Directory of registered gym members across branches
+          <p className="text-xs text-muted-foreground mt-1">
+            Manage gym members, profiles, emergency contacts, and active memberships across branches.
           </p>
         </div>
 
-        {hasPermission(Permission.MEMBER_CREATE) && (
-          <Link href="/dashboard/members/new">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm">
-              <Plus className="h-4 w-4" />
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => fetchMembers()}
+            className="p-2 rounded-xl border border-border bg-card hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh list"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`} />
+          </button>
+
+          {hasPermission(Permission.MEMBER_CREATE) && (
+            <Link
+              href="/dashboard/members/new"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+            >
+              <UserPlus className="h-4 w-4" />
               Register Member
-            </Button>
-          </Link>
-        )}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <Card className="mb-6 border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by name, phone, email, or member number..."
@@ -150,11 +160,11 @@ export default function MembersDirectoryPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2">
             {/* Status Filter */}
             <select
               value={statusFilter}
@@ -162,7 +172,7 @@ export default function MembersDirectoryPage() {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-700 dark:text-zinc-300"
+              className="px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -179,7 +189,7 @@ export default function MembersDirectoryPage() {
                   setBranchFilter(e.target.value);
                   setPage(1);
                 }}
-                className="px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-700 dark:text-zinc-300"
+                className="px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               >
                 <option value="ALL">All Branches</option>
                 {branches.map((b) => (
@@ -190,114 +200,139 @@ export default function MembersDirectoryPage() {
               </select>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Error state */}
       {error && (
-        <div className="mb-6 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 p-4 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-500">
           {error}
         </div>
       )}
 
       {/* Members Table */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-500">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-border/60 bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
               <tr>
+                <th className="px-4 py-3">Member</th>
                 <th className="px-4 py-3">Member #</th>
-                <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Branch</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Joined</th>
+                <th className="px-4 py-3">Joined Date</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-border/40">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
-                    Loading members...
+                  <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+                    <p className="font-semibold text-foreground text-xs">Loading member directory...</p>
                   </td>
                 </tr>
               ) : !data || data.items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
+                  <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <Users className="h-8 w-8 text-zinc-400" />
-                      <p className="font-medium">No members found</p>
-                      <p className="text-xs text-zinc-400">
+                      <Users className="h-10 w-10 text-muted-foreground/40" />
+                      <p className="font-semibold text-foreground text-sm">No members found</p>
+                      <p className="text-xs text-muted-foreground">
                         {search || statusFilter !== "ALL" || branchFilter !== "ALL"
-                          ? "Try adjusting your search filters"
-                          : "Register your first gym member to get started"}
+                          ? "Try adjusting your search filters or selected branch"
+                          : "Register your first gym member to begin tracking attendance and memberships"}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                data.items.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors"
-                  >
-                    <td className="px-4 py-3 font-mono font-semibold text-xs text-zinc-900 dark:text-zinc-100">
-                      {m.memberNumber}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
-                      <Link
-                        href={`/dashboard/members/${m.id}`}
-                        className="hover:text-emerald-600 dark:hover:text-emerald-400"
-                      >
-                        {m.firstName} {m.lastName}
-                      </Link>
-                      {m.preferredName && (
-                        <span className="text-xs text-zinc-400 block">
-                          &quot;{m.preferredName}&quot;
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-zinc-400" />
-                        <span>{m.phone}</span>
-                      </div>
-                      {m.email && (
-                        <div className="flex items-center gap-1 text-zinc-400 mt-0.5">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate max-w-[150px]">{m.email}</span>
+                data.items.map((m) => {
+                  const initials = `${m.firstName[0] || ""}${m.lastName[0] || ""}`.toUpperCase();
+                  return (
+                    <tr
+                      key={m.id}
+                      className="hover:bg-accent/40 transition-colors group"
+                    >
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 border border-primary/20 flex items-center justify-center font-bold text-primary text-xs shrink-0">
+                            {initials || "MB"}
+                          </div>
+                          <div>
+                            <Link
+                              href={`/dashboard/members/${m.id}`}
+                              className="font-bold text-foreground hover:text-primary transition-colors block"
+                            >
+                              {m.firstName} {m.lastName}
+                            </Link>
+                            {m.preferredName && (
+                              <span className="text-[11px] text-muted-foreground block">
+                                &quot;{m.preferredName}&quot;
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
-                      <div className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3 text-zinc-400" />
-                        <span>{m.branchName || "—"}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{getStatusBadge(m.status)}</td>
-                    <td className="px-4 py-3 text-xs text-zinc-500">
-                      {new Date(m.joinedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link href={`/dashboard/members/${m.id}`}>
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                            View
-                          </Button>
-                        </Link>
-                        {hasPermission(Permission.MEMBER_UPDATE) && m.status !== MemberStatus.ARCHIVED && (
-                          <Link href={`/dashboard/members/${m.id}/edit`}>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
+                      </td>
+
+                      <td className="px-4 py-3.5 font-mono text-xs font-semibold text-foreground">
+                        {m.memberNumber}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-xs">
+                        <div className="flex items-center gap-1.5 text-foreground font-medium">
+                          <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>{m.phone}</span>
+                        </div>
+                        {m.email && (
+                          <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] mt-0.5">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[150px]">{m.email}</span>
+                          </div>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-foreground">{m.branchName || "—"}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3.5">{getStatusBadge(m.status)}</td>
+
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground">
+                        {new Date(m.joinedAt).toLocaleDateString([], {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/dashboard/members/${m.id}`}
+                            className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                            title="View Profile"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                          {hasPermission(Permission.MEMBER_UPDATE) && m.status !== MemberStatus.ARCHIVED && (
+                            <Link
+                              href={`/dashboard/members/${m.id}/edit`}
+                              className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                              title="Edit Member"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -305,38 +340,36 @@ export default function MembersDirectoryPage() {
 
         {/* Pagination footer */}
         {data && data.meta.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800 px-4 py-3 text-xs text-zinc-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground bg-muted/20">
             <div>
-              Showing {(data.meta.page - 1) * data.meta.limit + 1} to{" "}
-              {Math.min(data.meta.page * data.meta.limit, data.meta.total)} of{" "}
-              {data.meta.total} members
+              Showing <span className="font-semibold text-foreground">{(data.meta.page - 1) * data.meta.limit + 1}</span> to{" "}
+              <span className="font-semibold text-foreground">
+                {Math.min(data.meta.page * data.meta.limit, data.meta.total)}
+              </span>{" "}
+              of <span className="font-semibold text-foreground">{data.meta.total}</span> members
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 disabled={!data.meta.hasPreviousPage}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-7 px-2 text-xs gap-1"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
               >
                 <ChevronLeft className="h-3.5 w-3.5" /> Previous
-              </Button>
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+              </button>
+              <span className="px-2 font-medium">
                 Page {data.meta.page} of {data.meta.totalPages}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 disabled={!data.meta.hasNextPage}
                 onClick={() => setPage((p) => p + 1)}
-                className="h-7 px-2 text-xs gap-1"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
               >
                 Next <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
+              </button>
             </div>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

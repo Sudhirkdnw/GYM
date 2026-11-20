@@ -10,8 +10,6 @@ import {
   MemberData,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { BillingNav } from "@/components/billing/BillingNav";
 import {
   Search,
@@ -22,6 +20,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Filter,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 
 export default function InvoicesPage() {
@@ -265,36 +269,42 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
+    <div className="space-y-6 animate-fadeIn pb-16">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Invoices Management
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Create, issue, void, and print GST tax invoices for gym members
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <FileText className="h-6 w-6 text-primary" />
+              Tax Invoices Ledger
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {totalCount} Invoices
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Issue, void, and print GST tax invoices with itemized SAC code lines and CGST/SGST/IGST breakdown.
           </p>
         </div>
 
-        <Button
+        <button
           onClick={() => {
             setCreateBranchId(branches[0]?.id || "");
             setShowCreateModal(true);
           }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all self-start sm:self-auto"
         >
-          <Plus className="h-4 w-4 mr-1.5" />
+          <Plus className="h-4 w-4" />
           Create Invoice
-        </Button>
+        </button>
       </div>
 
       {/* Navigation Sub-menu */}
       <BillingNav />
 
       {/* Filters Bar */}
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm mb-6">
-        <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
             {["ALL", "ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE", "VOID"].map((status) => (
@@ -304,10 +314,10 @@ export default function InvoicesPage() {
                   setStatusFilter(status);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   statusFilter === status
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
                 {status.replace("_", " ")}
@@ -324,7 +334,7 @@ export default function InvoicesPage() {
                   setBranchFilter(e.target.value);
                   setPage(1);
                 }}
-                className="px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-1.5 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Branches</option>
                 {branches.map((b) => (
@@ -336,7 +346,7 @@ export default function InvoicesPage() {
             )}
 
             <div className="relative flex-1 md:w-64">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search invoice #, member..."
@@ -345,174 +355,164 @@ export default function InvoicesPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Invoices Table */}
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-        <CardContent className="p-0">
-          {error && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs border-b border-rose-200 dark:border-rose-900">
-              {error}
-            </div>
-          )}
-          {loading ? (
-            <div className="py-16 text-center text-sm text-zinc-500">
-              Loading invoices...
-            </div>
-          ) : invoices.length === 0 ? (
-            <div className="py-16 text-center">
-              <FileText className="h-10 w-10 text-zinc-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">No invoices found</p>
-              <p className="text-xs text-zinc-500 mt-1">Try adjusting filters or create a new invoice</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 bg-zinc-50 dark:bg-zinc-900/80">
-                  <tr>
-                    <th className="py-3 px-4 font-medium">Invoice #</th>
-                    <th className="py-3 px-4 font-medium">Member</th>
-                    <th className="py-3 px-4 font-medium">Branch</th>
-                    <th className="py-3 px-4 font-medium">Issue Date</th>
-                    <th className="py-3 px-4 font-medium">Due Date</th>
-                    <th className="py-3 px-4 font-medium">Total</th>
-                    <th className="py-3 px-4 font-medium">Balance Due</th>
-                    <th className="py-3 px-4 font-medium">Status</th>
-                    <th className="py-3 px-4 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                        {inv.invoiceNumber}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                          {inv.customerSnapshot?.name || `${inv.member?.firstName} ${inv.member?.lastName}`}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">{inv.member?.phone}</div>
-                      </td>
-                      <td className="py-3 px-4 text-zinc-600 dark:text-zinc-400">
-                        {inv.branch?.name || "Main"}
-                      </td>
-                      <td className="py-3 px-4 text-zinc-500">{inv.issueDate}</td>
-                      <td className="py-3 px-4 text-zinc-500">{inv.dueDate}</td>
-                      <td className="py-3 px-4 font-semibold text-zinc-900 dark:text-zinc-100">
-                        {formatCurrency(inv.totalAmount)}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-amber-600 dark:text-amber-400">
-                        {formatCurrency(inv.balanceDue)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase ${
-                            inv.status === "PAID"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400"
-                              : inv.status === "PARTIALLY_PAID"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
-                              : inv.status === "OVERDUE"
-                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-400"
-                              : inv.status === "VOID"
-                              ? "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-400"
-                          }`}
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
+        {error && (
+          <div className="p-4 bg-red-500/10 text-red-500 text-xs border-b border-red-500/20">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <div className="py-20 text-center text-xs text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+            Loading invoices...
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="py-20 text-center">
+            <FileText className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm font-bold text-foreground">No invoices found</p>
+            <p className="text-xs text-muted-foreground mt-1">Try adjusting filters or create a new invoice</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="border-b border-border/60 bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
+                <tr>
+                  <th className="py-3 px-4">Invoice #</th>
+                  <th className="py-3 px-4">Member</th>
+                  <th className="py-3 px-4">Branch</th>
+                  <th className="py-3 px-4">Issue Date</th>
+                  <th className="py-3 px-4">Due Date</th>
+                  <th className="py-3 px-4">Total</th>
+                  <th className="py-3 px-4">Balance Due</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-accent/40 transition-colors group">
+                    <td className="py-3.5 px-4 font-mono font-bold text-primary">
+                      {inv.invoiceNumber}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-foreground">
+                        {inv.customerSnapshot?.name || `${inv.member?.firstName} ${inv.member?.lastName}`}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">{inv.member?.phone}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">
+                      {inv.branch?.name || "Main"}
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">{inv.issueDate}</td>
+                    <td className="py-3.5 px-4 text-muted-foreground">{inv.dueDate}</td>
+                    <td className="py-3.5 px-4 font-bold font-mono text-foreground">
+                      {formatCurrency(inv.totalAmount)}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold font-mono text-amber-500">
+                      {formatCurrency(inv.balanceDue)}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                          inv.status === "PAID"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : inv.status === "PARTIALLY_PAID"
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : inv.status === "OVERDUE"
+                            ? "bg-red-500/10 text-red-500 border-red-500/20"
+                            : inv.status === "VOID"
+                            ? "bg-muted text-muted-foreground border-border"
+                            : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                        }`}
+                      >
+                        {inv.status}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenPrintModal(inv.id)}
+                          className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          title="Print / View Invoice"
                         >
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenPrintModal(inv.id)}
-                            className="h-7 px-2 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600"
-                            title="Print / View Invoice"
+                          <Printer className="h-3.5 w-3.5" />
+                        </button>
+
+                        {inv.status !== "VOID" && inv.status !== "PAID" && (
+                          <button
+                            onClick={() => handleOpenVoidModal(inv)}
+                            className="p-1.5 rounded-lg border border-border bg-card hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                            title="Void Invoice"
                           >
-                            <Printer className="h-3.5 w-3.5" />
-                          </Button>
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-                          {inv.status !== "VOID" && inv.status !== "PAID" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleOpenVoidModal(inv)}
-                              className="h-7 px-2 text-zinc-600 dark:text-zinc-400 hover:text-rose-600"
-                              title="Void Invoice"
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Pagination Bar */}
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-              <span>
-                Showing {invoices.length} of {totalCount} invoices
+        {/* Pagination Bar */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
+            <span>
+              Showing <span className="font-semibold text-foreground">{invoices.length}</span> of{" "}
+              <span className="font-semibold text-foreground">{totalCount}</span> invoices
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2.5 py-1 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="px-2 font-medium">
+                {page} / {totalPages}
               </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="h-7 px-2"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="px-2 font-medium">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="h-7 px-2"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-2.5 py-1 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
-      {/* =========================================================================
-          MODAL: CREATE INVOICE
-          ========================================================================= */}
+      {/* MODAL: CREATE INVOICE */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-2xl w-full p-6 my-8">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <FileText className="h-5 w-5 text-emerald-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-card rounded-2xl border border-border/80 shadow-2xl max-w-2xl w-full p-6 my-8 animate-scaleIn">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
                 Create Tax Invoice
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="p-3 mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs">
+              <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
                 {modalError}
               </div>
             )}
@@ -520,14 +520,14 @@ export default function InvoicesPage() {
             <form onSubmit={handleCreateInvoiceSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Member *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Member <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={createMemberId}
                     onChange={(e) => setCreateMemberId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     <option value="">Select Member</option>
                     {members.map((m) => (
@@ -539,14 +539,14 @@ export default function InvoicesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Branch *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Branch <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={createBranchId}
                     onChange={(e) => setCreateBranchId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -557,33 +557,33 @@ export default function InvoicesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
                     Issue Date
                   </label>
                   <input
                     type="date"
                     value={createIssueDate}
                     onChange={(e) => setCreateIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
                     Due Date
                   </label>
                   <input
                     type="date"
                     value={createDueDate}
                     onChange={(e) => setCreateDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground"
                   />
                 </div>
               </div>
 
               {/* Tax Mode */}
               <div className="flex items-center gap-4 py-1 text-xs">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">Tax Pricing Mode:</span>
+                <span className="font-semibold text-foreground">Tax Pricing Mode:</span>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="radio"
@@ -591,7 +591,7 @@ export default function InvoicesPage() {
                     value="EXCLUSIVE"
                     checked={createTaxMode === "EXCLUSIVE"}
                     onChange={() => setCreateTaxMode("EXCLUSIVE")}
-                    className="text-emerald-600"
+                    className="text-primary"
                   />
                   <span>Tax Exclusive (Base + GST)</span>
                 </label>
@@ -602,20 +602,20 @@ export default function InvoicesPage() {
                     value="INCLUSIVE"
                     checked={createTaxMode === "INCLUSIVE"}
                     onChange={() => setCreateTaxMode("INCLUSIVE")}
-                    className="text-emerald-600"
+                    className="text-primary"
                   />
                   <span>Tax Inclusive (GST included)</span>
                 </label>
               </div>
 
               {/* Line Items */}
-              <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 space-y-3">
+              <div className="border border-border/60 rounded-xl p-3.5 space-y-3 bg-muted/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Line Items</span>
+                  <span className="text-xs font-bold text-foreground">Line Items</span>
                   <button
                     type="button"
                     onClick={handleAddLineItem}
-                    className="text-xs text-emerald-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold"
                   >
                     <Plus className="h-3 w-3" />
                     Add Item
@@ -623,7 +623,7 @@ export default function InvoicesPage() {
                 </div>
 
                 {lineItems.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-lg text-xs">
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-card p-2 rounded-xl text-xs border border-border/60">
                     <div className="col-span-4">
                       <input
                         type="text"
@@ -631,7 +631,7 @@ export default function InvoicesPage() {
                         required
                         value={item.description}
                         onChange={(e) => handleLineItemChange(idx, "description", e.target.value)}
-                        className="w-full px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                        className="w-full px-2 py-1.5 rounded-lg border border-border bg-background text-foreground"
                       />
                     </div>
                     <div className="col-span-2">
@@ -640,7 +640,7 @@ export default function InvoicesPage() {
                         placeholder="SAC Code"
                         value={item.sacHsnCode}
                         onChange={(e) => handleLineItemChange(idx, "sacHsnCode", e.target.value)}
-                        className="w-full px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                        className="w-full px-2 py-1.5 rounded-lg border border-border bg-background text-foreground font-mono"
                       />
                     </div>
                     <div className="col-span-2">
@@ -652,14 +652,14 @@ export default function InvoicesPage() {
                         required
                         value={item.unitPrice}
                         onChange={(e) => handleLineItemChange(idx, "unitPrice", Number(e.target.value))}
-                        className="w-full px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                        className="w-full px-2 py-1.5 rounded-lg border border-border bg-background text-foreground font-mono"
                       />
                     </div>
                     <div className="col-span-2">
                       <select
                         value={item.taxRate}
                         onChange={(e) => handleLineItemChange(idx, "taxRate", Number(e.target.value))}
-                        className="w-full px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+                        className="w-full px-2 py-1.5 rounded-lg border border-border bg-background text-foreground"
                       >
                         <option value="0">0% (Nil)</option>
                         <option value="5">5% GST</option>
@@ -675,7 +675,7 @@ export default function InvoicesPage() {
                         placeholder="Qty"
                         value={item.quantity}
                         onChange={(e) => handleLineItemChange(idx, "quantity", Number(e.target.value))}
-                        className="w-full px-2 py-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-center"
+                        className="w-full px-2 py-1.5 rounded-lg border border-border bg-background text-foreground text-center font-mono"
                       />
                     </div>
                     <div className="col-span-1 text-center">
@@ -683,7 +683,7 @@ export default function InvoicesPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveLineItem(idx)}
-                          className="text-rose-500 hover:text-rose-700"
+                          className="text-red-500 hover:text-red-700"
                         >
                           <X className="h-4 w-4 mx-auto" />
                         </button>
@@ -696,18 +696,18 @@ export default function InvoicesPage() {
                 {(() => {
                   const { subtotal, tax, total } = calculateCreateTotals();
                   return (
-                    <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 text-right space-y-1 text-xs">
+                    <div className="pt-2 border-t border-border/40 text-right space-y-1 text-xs">
                       <div>
-                        <span className="text-zinc-500">Taxable Amount: </span>
-                        <span className="font-medium text-zinc-900 dark:text-zinc-100">{formatCurrency(subtotal)}</span>
+                        <span className="text-muted-foreground">Taxable Amount: </span>
+                        <span className="font-semibold font-mono text-foreground">{formatCurrency(subtotal)}</span>
                       </div>
                       <div>
-                        <span className="text-zinc-500">Tax (GST): </span>
-                        <span className="font-medium text-zinc-900 dark:text-zinc-100">{formatCurrency(tax)}</span>
+                        <span className="text-muted-foreground">Tax (GST): </span>
+                        <span className="font-semibold font-mono text-foreground">{formatCurrency(tax)}</span>
                       </div>
-                      <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="text-sm font-bold text-emerald-500 pt-1">
                         <span>Total Payable: </span>
-                        <span>{formatCurrency(total)}</span>
+                        <span className="font-mono">{formatCurrency(total)}</span>
                       </div>
                     </div>
                   );
@@ -715,7 +715,7 @@ export default function InvoicesPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
                   Notes / Terms
                 </label>
                 <textarea
@@ -723,103 +723,100 @@ export default function InvoicesPage() {
                   placeholder="Optional payment instructions or terms..."
                   value={createNotes}
                   onChange={(e) => setCreateNotes(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setShowCreateModal(false)}
                   disabled={modalLoading}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   disabled={modalLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Creating..." : "Issue Invoice"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Issue Invoice"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL: PRINT / PREVIEW TAX INVOICE
-          ========================================================================= */}
+      {/* MODAL: PRINT / PREVIEW TAX INVOICE */}
       {showPrintModal && selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-3xl w-full p-6 my-8">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4 print:hidden">
-              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-card rounded-2xl border border-border/80 shadow-2xl max-w-3xl w-full p-6 my-8 animate-scaleIn">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4 print:hidden">
+              <span className="text-sm font-bold text-foreground">
                 Tax Invoice Preview ({selectedInvoice.invoiceNumber})
               </span>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
+                <button
                   onClick={() => window.print()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 text-xs"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Print Invoice
-                </Button>
+                </button>
                 <button
                   onClick={() => setShowPrintModal(false)}
-                  className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
             {/* Printable Tax Invoice Layout */}
-            <div className="p-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-xs space-y-6 text-zinc-800 dark:text-zinc-200">
+            <div className="p-6 bg-white text-zinc-900 border border-zinc-200 rounded-xl text-xs space-y-6 shadow-sm">
               {/* Header: Gym Supplier Details & Invoice Meta */}
-              <div className="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-800 pb-4">
+              <div className="flex items-start justify-between border-b border-zinc-200 pb-4">
                 <div>
-                  <h3 className="text-base font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">
+                  <h3 className="text-base font-bold text-zinc-900 uppercase tracking-tight">
                     {selectedInvoice.supplierSnapshot?.tradeName || selectedInvoice.supplierSnapshot?.legalName}
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                  <p className="text-[11px] text-zinc-600 mt-0.5">
                     {selectedInvoice.supplierSnapshot?.addressLine1}, {selectedInvoice.supplierSnapshot?.city},{" "}
                     {selectedInvoice.supplierSnapshot?.state} - {selectedInvoice.supplierSnapshot?.postalCode}
                   </p>
-                  <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 mt-1">
+                  <p className="text-[11px] font-mono text-zinc-600 mt-1">
                     GSTIN: <span className="font-semibold">{selectedInvoice.supplierSnapshot?.gstin}</span> | State Code:{" "}
                     {selectedInvoice.supplierSnapshot?.stateCode}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <div className="text-base font-bold text-zinc-900 dark:text-zinc-50">TAX INVOICE</div>
-                  <div className="font-mono text-emerald-600 font-semibold">{selectedInvoice.invoiceNumber}</div>
-                  <div className="text-zinc-500 mt-1">Issue Date: {selectedInvoice.issueDate}</div>
-                  <div className="text-zinc-500">Due Date: {selectedInvoice.dueDate}</div>
+                  <div className="text-base font-bold text-zinc-900">TAX INVOICE</div>
+                  <div className="font-mono text-zinc-800 font-bold">{selectedInvoice.invoiceNumber}</div>
+                  <div className="text-zinc-600 mt-1">Issue Date: {selectedInvoice.issueDate}</div>
+                  <div className="text-zinc-600">Due Date: {selectedInvoice.dueDate}</div>
                 </div>
               </div>
 
               {/* Billed To / Recipient Details */}
               <div className="grid grid-cols-2 gap-4 pb-2">
                 <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Billed To (Member):</span>
-                  <div className="font-bold text-zinc-900 dark:text-zinc-100 text-sm mt-0.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Billed To (Member):</span>
+                  <div className="font-bold text-zinc-900 text-sm mt-0.5">
                     {selectedInvoice.customerSnapshot?.name}
                   </div>
-                  <div className="text-zinc-500">Member #: {selectedInvoice.customerSnapshot?.memberNumber}</div>
-                  <div className="text-zinc-500">Phone: {selectedInvoice.customerSnapshot?.phone}</div>
+                  <div className="text-zinc-600">Member #: {selectedInvoice.customerSnapshot?.memberNumber}</div>
+                  <div className="text-zinc-600">Phone: {selectedInvoice.customerSnapshot?.phone}</div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Place of Supply:</span>
-                  <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Place of Supply:</span>
+                  <div className="font-semibold text-zinc-800">
                     State Code: {selectedInvoice.placeOfSupply}
                   </div>
-                  <div className="text-zinc-500">
+                  <div className="text-zinc-600">
                     Supply Type: {selectedInvoice.taxSnapshot?.isInterState ? "Inter-State (IGST)" : "Intra-State (CGST + SGST)"}
                   </div>
                 </div>
@@ -828,7 +825,7 @@ export default function InvoicesPage() {
               {/* Line Items Table */}
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-y border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 text-zinc-500 font-medium">
+                  <tr className="border-y border-zinc-200 bg-zinc-50 text-zinc-600 font-semibold">
                     <th className="py-2 px-3">#</th>
                     <th className="py-2 px-3">Description</th>
                     <th className="py-2 px-3">SAC Code</th>
@@ -839,17 +836,17 @@ export default function InvoicesPage() {
                     <th className="py-2 px-3 text-right">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                <tbody className="divide-y divide-zinc-200">
                   {selectedInvoice.items?.map((item, idx) => (
                     <tr key={item.id}>
-                      <td className="py-2 px-3 text-zinc-400">{idx + 1}</td>
-                      <td className="py-2 px-3 font-medium text-zinc-900 dark:text-zinc-100">{item.description}</td>
-                      <td className="py-2 px-3 font-mono text-zinc-500">{item.sacHsnCode || "999723"}</td>
+                      <td className="py-2 px-3 text-zinc-500">{idx + 1}</td>
+                      <td className="py-2 px-3 font-semibold text-zinc-900">{item.description}</td>
+                      <td className="py-2 px-3 font-mono text-zinc-600">{item.sacHsnCode || "999723"}</td>
                       <td className="py-2 px-3 text-right">{item.quantity}</td>
-                      <td className="py-2 px-3 text-right">{formatCurrency(item.unitPrice)}</td>
-                      <td className="py-2 px-3 text-right">{formatCurrency(item.taxableAmount)}</td>
+                      <td className="py-2 px-3 text-right font-mono">{formatCurrency(item.unitPrice)}</td>
+                      <td className="py-2 px-3 text-right font-mono">{formatCurrency(item.taxableAmount)}</td>
                       <td className="py-2 px-3 text-right">{item.taxRate}%</td>
-                      <td className="py-2 px-3 text-right font-semibold">{formatCurrency(item.totalAmount)}</td>
+                      <td className="py-2 px-3 text-right font-bold font-mono">{formatCurrency(item.totalAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -857,33 +854,33 @@ export default function InvoicesPage() {
 
               {/* Financial Totals & Tax Split Breakdown */}
               <div className="flex justify-end pt-2">
-                <div className="w-64 space-y-1.5 text-right">
-                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                <div className="w-64 space-y-1.5 text-right font-mono text-xs">
+                  <div className="flex justify-between text-zinc-700">
                     <span>Taxable Value:</span>
                     <span>{formatCurrency(selectedInvoice.taxableAmount)}</span>
                   </div>
                   {selectedInvoice.taxSnapshot?.isInterState ? (
-                    <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                    <div className="flex justify-between text-zinc-700">
                       <span>IGST:</span>
                       <span>{formatCurrency(selectedInvoice.igstAmount)}</span>
                     </div>
                   ) : (
                     <>
-                      <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                      <div className="flex justify-between text-zinc-700">
                         <span>CGST (9%):</span>
                         <span>{formatCurrency(selectedInvoice.cgstAmount)}</span>
                       </div>
-                      <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                      <div className="flex justify-between text-zinc-700">
                         <span>SGST (9%):</span>
                         <span>{formatCurrency(selectedInvoice.sgstAmount)}</span>
                       </div>
                     </>
                   )}
-                  <div className="flex justify-between font-bold text-zinc-900 dark:text-zinc-50 pt-1 border-t border-zinc-200 dark:border-zinc-800 text-sm">
+                  <div className="flex justify-between font-bold text-zinc-950 pt-1 border-t border-zinc-200 text-sm">
                     <span>Invoice Total:</span>
                     <span>{formatCurrency(selectedInvoice.totalAmount)}</span>
                   </div>
-                  <div className="flex justify-between text-emerald-600 font-semibold">
+                  <div className="flex justify-between text-emerald-600 font-bold">
                     <span>Amount Paid:</span>
                     <span>{formatCurrency(selectedInvoice.allocatedAmount)}</span>
                   </div>
@@ -895,8 +892,8 @@ export default function InvoicesPage() {
               </div>
 
               {/* Terms & Footer */}
-              <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-500">
-                <p className="font-semibold text-zinc-700 dark:text-zinc-300">Terms & Conditions:</p>
+              <div className="pt-4 border-t border-zinc-200 text-[10px] text-zinc-500">
+                <p className="font-semibold text-zinc-700">Terms & Conditions:</p>
                 <p>1. Fees once paid are non-refundable and non-transferable.</p>
                 <p>2. Gym rules and operating hours must be strictly observed.</p>
                 <p>3. This is an official computer-generated Tax Invoice and requires no physical signature.</p>
@@ -906,30 +903,28 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL: VOID INVOICE
-          ========================================================================= */}
+      {/* MODAL: VOID INVOICE */}
       {showVoidModal && selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-md w-full p-6">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mb-2">
-              <Ban className="h-5 w-5 text-rose-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+            <h2 className="text-base font-bold text-red-500 flex items-center gap-2 mb-2">
+              <Ban className="h-4 w-4" />
               Void Invoice {selectedInvoice.invoiceNumber}
             </h2>
-            <p className="text-xs text-zinc-500 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Voiding cancels the invoice while preserving the audit record. Voided invoice numbers are archived and never reused.
             </p>
 
             {modalError && (
-              <div className="p-3 mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs">
+              <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
                 {modalError}
               </div>
             )}
 
             <form onSubmit={handleVoidSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Reason for Cancellation *
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Reason for Cancellation <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   required
@@ -937,28 +932,26 @@ export default function InvoicesPage() {
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
                   placeholder="e.g. Created with incorrect billing details upon customer request..."
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowVoidModal(false)}
                   disabled={modalLoading}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Voiding..." : "Confirm Void"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Void"}
+                </button>
               </div>
             </form>
           </div>

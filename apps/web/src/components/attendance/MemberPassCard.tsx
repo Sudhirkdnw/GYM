@@ -9,8 +9,6 @@ import {
   PassStatus,
   Permission,
 } from "@gymos/shared-types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   CreditCard,
   KeyRound,
@@ -151,7 +149,6 @@ export function MemberPassCard({
       const res = await apiClient<{ passToken: string; webPassUrl: string }>(
         `/attendance/members/${memberId}/pass/web-link`
       );
-      // Construct public link relative to current origin
       const fullUrl = `${window.location.origin}/pass/${res.passToken}`;
       await navigator.clipboard.writeText(fullUrl);
       setCopiedLink(true);
@@ -224,241 +221,234 @@ export function MemberPassCard({
   if (!canReadAttendance) return null;
 
   return (
-    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mt-6">
-      <CardHeader className="p-4 pb-2 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <KeyRound className="h-4 w-4 text-emerald-600" />
-            Digital Access Pass & Badge Credentials
-          </CardTitle>
-          <CardDescription className="text-xs text-zinc-500">
-            Dynamic QR pass and physical barcode credentials for front-desk access.
-          </CardDescription>
+    <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/40 pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <KeyRound className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">
+              Digital Access Pass & Badge Credentials
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Dynamic rolling QR pass and physical barcode credentials for front-desk access.
+            </p>
+          </div>
         </div>
 
         {pass && (
           <span
-            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+            className={`text-xs font-bold uppercase px-3 py-1 rounded-full border ${
               pass.status === PassStatus.ACTIVE
-                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                 : pass.status === PassStatus.SUSPENDED
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                : "bg-red-500/10 text-red-500 border-red-500/20"
             }`}
           >
             {pass.status}
           </span>
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-4 text-xs">
-        {error && (
-          <div className="mb-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-2.5 text-xs text-red-800 dark:text-red-200 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-            <span>{error}</span>
+      {error && (
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-500 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-8 text-center text-muted-foreground text-xs">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
+          Loading access pass credentials...
+        </div>
+      ) : !pass ? (
+        <div className="py-8 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-muted/50 border border-border flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+            <CreditCard className="h-6 w-6" />
           </div>
-        )}
-
-        {loading ? (
-          <div className="py-6 text-center text-zinc-400">
-            <Loader2 className="h-5 w-5 animate-spin mx-auto mb-1 text-emerald-500" />
-            Loading access pass credentials...
-          </div>
-        ) : !pass ? (
-          <div className="py-6 text-center">
-            <CreditCard className="h-8 w-8 text-zinc-300 dark:text-zinc-600 mx-auto mb-2" />
-            <p className="font-semibold text-zinc-700 dark:text-zinc-300">
-              No digital access pass issued for this member yet.
-            </p>
-            <p className="text-[11px] text-zinc-500 mt-0.5 max-w-sm mx-auto">
-              Issue an access pass to enable dynamic mobile QR token scanning and physical badge passcode generation.
-            </p>
-            {canManagePass && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setNewRawPasscode(null);
-                  setShowIssueModal(true);
-                }}
-                className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
-              >
-                <KeyRound className="h-3.5 w-3.5" /> Issue Member Access Pass
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-3 border border-zinc-100 dark:border-zinc-800">
-              <div>
-                <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 block">
-                  Physical Badge Code
-                </span>
-                <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200 text-xs">
-                  {pass.passCodeMasked || "None Generated"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 block">
-                  Issued Date
-                </span>
-                <span className="text-zinc-800 dark:text-zinc-200">
-                  {new Date(pass.createdAt).toLocaleDateString([], {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 block">
-                  Last Access Recorded
-                </span>
-                <span className="text-zinc-800 dark:text-zinc-200">
-                  {pass.lastScannedAt
-                    ? new Date(pass.lastScannedAt).toLocaleString([], {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Never used"}
-                </span>
-              </div>
+          <p className="font-semibold text-foreground text-sm">
+            No digital access pass issued yet
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            Issue an access pass to enable dynamic mobile QR token scanning and physical badge passcode generation.
+          </p>
+          {canManagePass && (
+            <button
+              onClick={() => {
+                setNewRawPasscode(null);
+                setShowIssueModal(true);
+              }}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
+            >
+              <KeyRound className="h-4 w-4" /> Issue Member Access Pass
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-1">
+                Physical Badge Code
+              </span>
+              <span className="font-mono font-bold text-foreground text-xs tracking-wider">
+                {pass.passCodeMasked || "None Generated"}
+              </span>
             </div>
 
-            {/* Pass Actions Bar */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowQrModal(true)}
-                className="text-xs gap-1.5 h-8"
-              >
-                <Eye className="h-3.5 w-3.5 text-emerald-600" /> View Dynamic QR Pass
-              </Button>
+            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-1">
+                Issued Date
+              </span>
+              <span className="text-xs font-semibold text-foreground">
+                {new Date(pass.createdAt).toLocaleDateString([], {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+            </div>
 
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCopyWebLink}
-                className="text-xs gap-1.5 h-8"
-              >
-                {copiedLink ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-emerald-600" /> Link Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" /> Copy Member Pass Link
-                  </>
-                )}
-              </Button>
+            <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <span className="text-[11px] font-medium text-muted-foreground block mb-1">
+                Last Access Recorded
+              </span>
+              <span className="text-xs font-semibold text-foreground">
+                {pass.lastScannedAt
+                  ? new Date(pass.lastScannedAt).toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Never used"}
+              </span>
+            </div>
+          </div>
 
-              {canManagePass && (
+          {/* Pass Actions Bar */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              onClick={() => setShowQrModal(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
+            >
+              <Eye className="h-3.5 w-3.5" /> View Dynamic QR Pass
+            </button>
+
+            <button
+              onClick={handleCopyWebLink}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent text-foreground transition-colors"
+            >
+              {copiedLink ? (
                 <>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setNewRawPasscode(null);
-                      setShowIssueModal(true);
-                    }}
-                    className="text-xs gap-1.5 text-zinc-600 dark:text-zinc-400 h-8 hover:text-zinc-900"
-                  >
-                    <RotateCw className="h-3.5 w-3.5" /> Rotate Credentials
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowRevokeModal(true)}
-                    className="text-xs gap-1.5 text-red-600 dark:text-red-400 h-8 hover:bg-red-50 dark:hover:bg-red-950/40"
-                  >
-                    <XCircle className="h-3.5 w-3.5" /> Revoke Pass
-                  </Button>
+                  <Check className="h-3.5 w-3.5 text-emerald-500" /> Link Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 text-primary" /> Copy Member Pass Link
                 </>
               )}
-            </div>
+            </button>
+
+            {canManagePass && (
+              <>
+                <button
+                  onClick={() => {
+                    setNewRawPasscode(null);
+                    setShowIssueModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <RotateCw className="h-3.5 w-3.5" /> Rotate Credentials
+                </button>
+
+                <button
+                  onClick={() => setShowRevokeModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-card border border-red-500/20 hover:bg-red-500/10 text-red-500 transition-colors"
+                >
+                  <XCircle className="h-3.5 w-3.5" /> Revoke Pass
+                </button>
+              </>
+            )}
           </div>
-        )}
-      </CardContent>
+        </div>
+      )}
 
       {/* Modal 1: Issue / Rotate Pass Modal */}
       {showIssueModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl animate-in fade-in-50">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleIn relative">
             <button
               onClick={() => setShowIssueModal(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-600"
-              aria-label="Close"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
 
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mb-2">
-              <KeyRound className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2 mb-2">
+              <KeyRound className="h-5 w-5 text-primary" />
               {pass ? "Rotate Access Credentials" : "Issue Member Access Pass"}
             </h3>
 
             {newRawPasscode ? (
               <div className="space-y-4 py-2">
-                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-4 text-center">
-                  <Check className="h-8 w-8 text-emerald-600 mx-auto mb-1" />
-                  <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-200 block">
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
+                  <Check className="h-8 w-8 text-emerald-500 mx-auto mb-1" />
+                  <span className="text-xs font-bold text-emerald-500 block">
                     Access Pass Issued Successfully!
                   </span>
-                  <p className="text-[11px] text-zinc-500 mt-1">
+                  <p className="text-[11px] text-muted-foreground mt-1">
                     Physical Badge Passcode (save or print immediately):
                   </p>
-                  <div className="mt-2 p-2 bg-white dark:bg-zinc-900 rounded border border-emerald-300 dark:border-emerald-700 font-mono font-bold text-base text-zinc-900 dark:text-zinc-100 select-all">
+                  <div className="mt-2 p-2.5 bg-background rounded-xl border border-emerald-500/30 font-mono font-bold text-base text-foreground select-all">
                     {newRawPasscode}
                   </div>
                 </div>
 
-                <div className="rounded bg-amber-50 dark:bg-amber-950/30 p-2.5 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-500 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
                     This raw passcode is hashed with argon2id and will never be shown again. Print it on the member&apos;s physical card or share securely.
                   </span>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="w-full text-xs"
+                  <button
                     onClick={async () => {
                       await navigator.clipboard.writeText(newRawPasscode);
                       setCopiedPasscode(true);
                       setTimeout(() => setCopiedPasscode(false), 2000);
                     }}
+                    className="w-full py-2 rounded-xl border border-border bg-card text-xs font-semibold hover:bg-accent"
                   >
                     {copiedPasscode ? "Passcode Copied!" : "Copy Passcode"}
-                  </Button>
-                  <Button
-                    className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  </button>
+                  <button
                     onClick={() => {
                       setShowIssueModal(false);
                       setNewRawPasscode(null);
                     }}
+                    className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
                   >
                     Done
-                  </Button>
+                  </button>
                 </div>
               </div>
             ) : (
               <div className="space-y-4 py-2">
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Issuing credentials will generate an encrypted HMAC signing secret and rolling dynamic QR token for <strong>{memberName}</strong>.
+                <p className="text-xs text-muted-foreground">
+                  Issuing credentials will generate an encrypted HMAC signing secret and rolling dynamic QR token for <strong className="text-foreground">{memberName}</strong>.
                 </p>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20">
                   <div>
-                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
+                    <span className="text-xs font-semibold text-foreground block">
                       Generate Physical Badge Passcode
                     </span>
-                    <span className="text-[10px] text-zinc-500">
+                    <span className="text-[11px] text-muted-foreground">
                       Creates a 16-character alphanumeric code for physical cards.
                     </span>
                   </div>
@@ -466,31 +456,30 @@ export function MemberPassCard({
                     type="checkbox"
                     checked={generateBadge}
                     onChange={(e) => setGenerateBadge(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                   />
                 </div>
 
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    className="w-full text-xs"
+                  <button
                     onClick={() => setShowIssueModal(false)}
+                    className="w-full py-2 rounded-xl border border-border bg-card text-xs font-semibold hover:bg-accent"
                   >
                     Cancel
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     onClick={handleIssuePass}
                     disabled={isIssuing}
-                    className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-50"
                   >
                     {isIssuing ? (
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex items-center justify-center gap-1.5">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Issuing...
                       </span>
                     ) : (
                       "Confirm & Issue Pass"
                     )}
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
@@ -501,27 +490,26 @@ export function MemberPassCard({
       {/* Modal 2: Revoke Pass Modal */}
       {showRevokeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl animate-in fade-in-50">
+          <div className="bg-card border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleIn relative">
             <button
               onClick={() => setShowRevokeModal(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-600"
-              aria-label="Close"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
 
-            <h3 className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
+            <h3 className="text-base font-bold text-red-500 flex items-center gap-2 mb-2">
               <XCircle className="h-5 w-5" />
               Revoke Member Access Pass
             </h3>
 
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
-              Revoking this pass immediately invalidates all active dynamic QR tokens and physical badges for <strong>{memberName}</strong>.
+            <p className="text-xs text-muted-foreground mb-4">
+              Revoking this pass immediately invalidates all active dynamic QR tokens and physical badges for <strong className="text-foreground">{memberName}</strong>.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Revocation Reason (Required)
                 </label>
                 <input
@@ -529,38 +517,37 @@ export function MemberPassCard({
                   value={revokeReason}
                   onChange={(e) => setRevokeReason(e.target.value)}
                   placeholder="e.g. Card lost, membership cancelled..."
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:ring-2 focus:ring-red-500 focus:outline-none"
                   autoFocus
                 />
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50">
-                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border/60 bg-muted/20">
+                <span className="text-xs font-semibold text-foreground">
                   Issue Replacement Pass Immediately
                 </span>
                 <input
                   type="checkbox"
                   checked={issueReplacement}
                   onChange={(e) => setIssueReplacement(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  className="h-4 w-4 rounded border-border text-red-500 focus:ring-red-500 cursor-pointer"
                 />
               </div>
 
               <div className="flex gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  className="w-full text-xs"
+                <button
                   onClick={() => setShowRevokeModal(false)}
+                  className="w-full py-2 rounded-xl border border-border bg-card text-xs font-semibold hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={handleRevokePass}
                   disabled={!revokeReason.trim() || isRevoking}
-                  className="w-full text-xs bg-red-600 hover:bg-red-700 text-white"
+                  className="w-full py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold disabled:opacity-50"
                 >
                   {isRevoking ? "Revoking..." : "Revoke Pass"}
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -570,53 +557,50 @@ export function MemberPassCard({
       {/* Modal 3: View Live Dynamic QR Code Pass */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl text-center animate-in fade-in-50 zoom-in-95">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center animate-scaleIn relative">
             <button
               onClick={() => setShowQrModal(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-600"
-              aria-label="Close"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full inline-block mb-2">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full inline-block mb-2">
               GymOS Rolling Pass
             </span>
 
-            <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-lg font-bold text-foreground">
               {memberName}
             </h3>
-            <p className="text-xs text-zinc-500 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Front-Desk Check-In Pass
             </p>
 
-            <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-inner flex flex-col items-center justify-center mx-auto w-64 h-64 relative">
-              <canvas ref={canvasRef} className="rounded" />
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-inner flex flex-col items-center justify-center mx-auto w-64 h-64 relative">
+              <canvas ref={canvasRef} className="rounded-lg" />
               {qrLoading && (
-                <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center">
+                  <Loader2 className="h-7 w-7 animate-spin text-primary" />
                 </div>
               )}
             </div>
 
             {/* Circular Rolling Timer */}
-            <div className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-              <Clock className="h-4 w-4 text-emerald-600 animate-pulse" />
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Clock className="h-4 w-4 text-primary animate-pulse" />
               <span>Refreshes in {timeLeft}s</span>
-              <Button
-                size="sm"
-                variant="ghost"
+              <button
                 onClick={fetchQrToken}
                 disabled={qrLoading}
-                className="h-6 px-1.5 text-zinc-400 hover:text-zinc-700"
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
                 title="Force refresh token"
               >
-                <RefreshCw className={`h-3 w-3 ${qrLoading ? "animate-spin" : ""}`} />
-              </Button>
+                <RefreshCw className={`h-3.5 w-3.5 ${qrLoading ? "animate-spin" : ""}`} />
+              </button>
             </div>
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

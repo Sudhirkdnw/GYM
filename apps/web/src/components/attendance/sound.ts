@@ -89,6 +89,10 @@ class SoundService {
       // Suppress
     }
   }
+
+  playError() {
+    this.playRejection();
+  }
 }
 
 export const sound = new SoundService();

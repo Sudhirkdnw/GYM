@@ -9,19 +9,24 @@ import {
   PaymentMethod,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { BillingNav } from "@/components/billing/BillingNav";
+import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Search,
   RotateCcw,
   Clock,
   AlertTriangle,
-  DollarSign,
-  CheckCircle2,
-  X,
   CreditCard,
   Building,
+  CheckCircle2,
+  X,
+  Calendar,
+  Layers,
+  ChevronLeft,
+  ChevronRight,
+  TrendingDown,
 } from "lucide-react";
 
 interface MemberDuesItem {
@@ -143,7 +148,6 @@ export default function OutstandingDuesPage() {
         `billing/invoices?memberId=${member.memberId}&status=ISSUED&limit=50`
       );
       const invoices = res.items || [];
-      // Also get partially paid
       const resPartially = await apiClient<PaginatedResult<InvoiceData>>(
         `billing/invoices?memberId=${member.memberId}&status=PARTIALLY_PAID&limit=50`
       );
@@ -169,7 +173,6 @@ export default function OutstandingDuesPage() {
 
   const handleAmountChange = (newAmount: number) => {
     setPayAmount(newAmount);
-    // Auto-reallocate
     let remaining = newAmount;
     const newAllocations: { [id: string]: number } = {};
     for (const inv of memberInvoices) {
@@ -240,296 +243,295 @@ export default function OutstandingDuesPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Top Breadcrumb & Heading */}
+    <div className="space-y-6 pb-12">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Outstanding Dues & Aging
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Monitor receivables, track overdue member accounts, and collect outstanding balances.
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Monitor receivables, track overdue member accounts, and reconcile aging buckets.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={() => fetchDues()}
-            className="border-zinc-200 dark:border-zinc-800"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
           >
-            <RotateCcw className="w-4 h-4 mr-1.5" />
+            <RotateCcw className="w-3.5 h-3.5" />
             Refresh
-          </Button>
+          </button>
         </div>
       </div>
 
-      {/* Billing Sub-Navigation */}
+      {/* Sub Nav */}
       <BillingNav />
 
       {/* Aging KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm col-span-2 sm:col-span-1 lg:col-span-1">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Total Dues</span>
-              <DollarSign className="w-4 h-4 text-rose-500" />
-            </div>
-            <div className="mt-2 text-xl font-bold text-rose-600 dark:text-rose-400">
-              ₹{(agingSummary?.totalOutstanding || 0).toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">
-              {agingSummary?.affectedMembers || 0} members affected
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Current</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            </div>
-            <div className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              ₹{(agingSummary?.bracketCurrent || 0).toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">Due in 0-30 days</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>31-60 Days</span>
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-            </div>
-            <div className="mt-2 text-lg font-bold text-amber-600 dark:text-amber-400">
-              ₹{(agingSummary?.bracket30 || 0).toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">Grace period</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>61-90 Days</span>
-              <span className="w-2 h-2 rounded-full bg-orange-500" />
-            </div>
-            <div className="mt-2 text-lg font-bold text-orange-600 dark:text-orange-400">
-              ₹{(agingSummary?.bracket60 || 0).toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">Critical overdue</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>90+ Days</span>
-              <span className="w-2 h-2 rounded-full bg-rose-600" />
-            </div>
-            <div className="mt-2 text-lg font-bold text-rose-600 dark:text-rose-400">
-              ₹{(agingSummary?.bracket90Plus || 0).toLocaleString("en-IN")}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">High risk bad debt</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-xs font-medium">
-              <span>Overdue Invoices</span>
-              <Clock className="w-4 h-4 text-zinc-400" />
-            </div>
-            <div className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              {agingSummary?.totalOverdueInvoices || 0}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">Total pending</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters Bar */}
-      <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search member name or phone..."
-                className="w-full pl-9 pr-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-
-            {/* Branch Filter */}
-            <div>
-              <select
-                value={branchFilter}
-                onChange={(e) => {
-                  setBranchFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="">All Branches</option>
-                {branches?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Aging Bracket Filter */}
-            <div>
-              <select
-                value={bracketFilter}
-                onChange={(e) => {
-                  setBracketFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full px-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="ALL">All Aging Brackets</option>
-                <option value="CURRENT">Current (0-30 Days)</option>
-                <option value="1-30">1-30 Days Overdue</option>
-                <option value="31-60">31-60 Days Overdue</option>
-                <option value="61-90">61-90 Days Overdue</option>
-                <option value="90+">90+ Days Overdue</option>
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            <div className="flex items-center">
-              {(search || branchFilter || bracketFilter !== "ALL") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearch("");
-                    setBranchFilter("");
-                    setBracketFilter("ALL");
-                    setPage(1);
-                  }}
-                  className="text-xs text-zinc-500 dark:text-zinc-400"
-                >
-                  <X className="w-3.5 h-3.5 mr-1" />
-                  Clear Filters
-                </Button>
-              )}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        {/* Total Outstanding */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>Total Outstanding</span>
+            <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center">
+              <TrendingDown className="w-4 h-4" />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-rose-600 dark:text-rose-400">
+              ₹{(agingSummary?.totalOutstanding || 0).toLocaleString("en-IN")}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {agingSummary?.affectedMembers || 0} members affected
+            </p>
+          </div>
+        </div>
 
-      {/* Main Table / Member Dues List */}
-      <Card className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        {/* Current (0-30 Days) */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>Current</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
+          </div>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              ₹{(agingSummary?.bracketCurrent || 0).toLocaleString("en-IN")}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">0-30 days period</p>
+          </div>
+        </div>
+
+        {/* 31-60 Days */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>31-60 Days</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />
+          </div>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
+              ₹{(agingSummary?.bracket30 || 0).toLocaleString("en-IN")}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">Grace period</p>
+          </div>
+        </div>
+
+        {/* 61-90 Days */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>61-90 Days</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-sm shadow-orange-500/50" />
+          </div>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-orange-600 dark:text-orange-400">
+              ₹{(agingSummary?.bracket60 || 0).toLocaleString("en-IN")}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">Critical overdue</p>
+          </div>
+        </div>
+
+        {/* 90+ Days */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>90+ Days</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 shadow-sm shadow-rose-600/50" />
+          </div>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-rose-600 dark:text-rose-400">
+              ₹{(agingSummary?.bracket90Plus || 0).toLocaleString("en-IN")}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">High risk balance</p>
+          </div>
+        </div>
+
+        {/* Overdue Invoices */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+            <span>Pending Invoices</span>
+            <Clock className="w-4 h-4 text-slate-400" />
+          </div>
+          <div className="mt-3">
+            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              {agingSummary?.totalOverdueInvoices || 0}
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">Unsettled invoices</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search member name or phone..."
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+
+          <div>
+            <select
+              value={branchFilter}
+              onChange={(e) => {
+                setBranchFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+            >
+              <option value="">All Branches</option>
+              {branches?.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={bracketFilter}
+              onChange={(e) => {
+                setBracketFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+            >
+              <option value="ALL">All Aging Brackets</option>
+              <option value="CURRENT">Current (0-30 Days)</option>
+              <option value="1-30">1-30 Days Overdue</option>
+              <option value="31-60">31-60 Days Overdue</option>
+              <option value="61-90">61-90 Days Overdue</option>
+              <option value="90+">90+ Days Overdue</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-end">
+            {(search || branchFilter || bracketFilter !== "ALL") && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setBranchFilter("");
+                  setBracketFilter("ALL");
+                  setPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Ledger Table */}
+      <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] overflow-hidden shadow-sm">
         {loading ? (
-          <div className="py-20 text-center text-zinc-400">
-            <RotateCcw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-500" />
-            Loading outstanding dues ledger...
+          <div className="py-20 text-center text-slate-400">
+            <RotateCcw className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-500" />
+            <p className="text-xs">Loading outstanding dues ledger...</p>
           </div>
         ) : error ? (
           <div className="p-8 text-center text-rose-500">
             <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
-            {error}
+            <p className="text-sm font-semibold">{error}</p>
           </div>
         ) : membersWithDues.length === 0 ? (
-          <div className="p-12 text-center text-zinc-400">
-            <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-emerald-500" />
-            <h3 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-              No Outstanding Dues Found
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
-              All member accounts are fully settled, or no matching records match the selected filter.
-            </p>
-          </div>
+          <EmptyState
+            icon={CheckCircle2}
+            title="No Outstanding Dues Found"
+            description="All member accounts are fully settled, or no matching records match your filter criteria."
+          />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-xs font-semibold text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800 uppercase tracking-wider">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-white/[0.08] uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="px-4 py-3">Member</th>
-                  <th className="px-4 py-3">Branch</th>
-                  <th className="px-4 py-3 text-right">Outstanding Due</th>
-                  <th className="px-4 py-3 text-center">Unpaid Invoices</th>
-                  <th className="px-4 py-3">Oldest Due Date</th>
-                  <th className="px-4 py-3">Aging Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-5 py-3.5">Member</th>
+                  <th className="px-5 py-3.5">Branch</th>
+                  <th className="px-5 py-3.5 text-right">Outstanding Due</th>
+                  <th className="px-5 py-3.5 text-center">Unpaid Invoices</th>
+                  <th className="px-5 py-3.5">Oldest Due Date</th>
+                  <th className="px-5 py-3.5">Aging Bracket</th>
+                  <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                 {membersWithDues.map((member) => (
                   <tr
                     key={member.memberId}
-                    className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors"
+                    className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {member.firstName} {member.lastName}
-                      </div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {member.memberNumber} • {member.phone}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-violet-600/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                          {member.firstName?.[0]}
+                          {member.lastName?.[0]}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-900 dark:text-white">
+                            {member.firstName} {member.lastName}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {member.memberNumber} • {member.phone}
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">
                       <div className="flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-zinc-400" />
+                        <Building className="w-3.5 h-3.5 text-slate-400" />
                         <span>{member.branchName}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="font-semibold text-rose-600 dark:text-rose-400">
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="font-bold text-rose-600 dark:text-rose-400 text-sm">
                         ₹{Number(member.totalDue).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                    <td className="px-5 py-3.5 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
                         {member.invoiceCount} {member.invoiceCount === 1 ? "invoice" : "invoices"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400 text-xs">
+                    <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300">
                       {member.oldestDueDate ? (
                         <div>
-                          <div>{new Date(member.oldestDueDate).toLocaleDateString("en-IN")}</div>
-                          <div className="text-zinc-400">({member.daysOverdue} days ago)</div>
+                          <div className="font-medium">
+                            {new Date(member.oldestDueDate).toLocaleDateString("en-IN")}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            ({member.daysOverdue} days ago)
+                          </div>
                         </div>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5">
                       {member.bracket === "CURRENT" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                          Current (0-30d)
-                        </span>
+                        <Badge variant="success">Current (0-30d)</Badge>
                       ) : member.bracket === "1-30" || member.bracket === "31-60" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                          {member.bracket} Days Overdue
-                        </span>
+                        <Badge variant="warning">{member.bracket} Days Overdue</Badge>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                          {member.bracket} Days Overdue
-                        </span>
+                        <Badge variant="destructive">{member.bracket} Days Overdue</Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        size="sm"
+                    <td className="px-5 py-3.5 text-right">
+                      <button
                         onClick={() => handleOpenCollectModal(member)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
                       >
-                        <CreditCard className="w-3.5 h-3.5 mr-1" />
+                        <CreditCard className="w-3.5 h-3.5" />
                         Collect
-                      </Button>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -538,291 +540,252 @@ export default function OutstandingDuesPage() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 text-xs">
-            <span className="text-zinc-500 dark:text-zinc-400">
+          <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.01] text-xs">
+            <span className="text-slate-500 dark:text-slate-400">
               Page {page} of {totalPages}
             </span>
-            <div className="flex gap-1">
-              <Button
-                variant="outline"
-                size="sm"
+            <div className="flex items-center gap-1.5">
+              <button
                 disabled={page <= 1}
                 onClick={() => setPage(page - 1)}
-                className="text-xs"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
                 disabled={page >= totalPages}
                 onClick={() => setPage(page + 1)}
-                className="text-xs"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.04] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Next
-              </Button>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* COLLECT PAYMENT MODAL */}
-      {showCollectModal && selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 space-y-4 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
-              <div>
-                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  Collect Member Dues
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {selectedMember.firstName} {selectedMember.lastName} ({selectedMember.memberNumber}) • Total Outstanding: ₹{selectedMember.totalDue.toLocaleString("en-IN")}
-                </p>
+      <Modal
+        isOpen={showCollectModal && !!selectedMember}
+        onClose={() => setShowCollectModal(false)}
+        title="Collect Member Dues"
+        description={`${selectedMember?.firstName} ${selectedMember?.lastName} (${selectedMember?.memberNumber}) • Outstanding: ₹${(selectedMember?.totalDue || 0).toLocaleString("en-IN")}`}
+        maxWidth="xl"
+      >
+        {paymentSuccess ? (
+          <div className="py-8 text-center space-y-2">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <h4 className="text-base font-semibold text-slate-900 dark:text-white">
+              Payment Collected Successfully!
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Invoice dues have been updated and financial balances reconciled.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmitPayment} className="space-y-4">
+            {paymentError && (
+              <div className="p-3 text-xs bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-800">
+                {paymentError}
               </div>
-              <button
-                onClick={() => setShowCollectModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            )}
+
+            {/* Total Payment Amount & Method */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Payment Amount Received (₹) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={payAmount}
+                  onChange={(e) => handleAmountChange(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Payment Method *
+                </label>
+                <select
+                  value={payMethod}
+                  onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  <option value={PaymentMethod.UPI}>UPI / QR Code</option>
+                  <option value={PaymentMethod.CASH}>Cash</option>
+                  <option value={PaymentMethod.CARD}>Credit / Debit Card</option>
+                  <option value={PaymentMethod.BANK_TRANSFER}>Bank Transfer</option>
+                  <option value={PaymentMethod.CHEQUE}>Cheque</option>
+                </select>
+              </div>
             </div>
 
-            {paymentSuccess ? (
-              <div className="py-8 text-center text-emerald-600 space-y-2">
-                <CheckCircle2 className="w-12 h-12 mx-auto" />
-                <h4 className="text-base font-semibold">Payment Collected Successfully!</h4>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Invoice dues updated and financial ledger reconciled.
-                </p>
+            {/* Method Specific Fields */}
+            {payMethod === PaymentMethod.UPI && (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  UPI Transaction ID / Ref
+                </label>
+                <input
+                  type="text"
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  placeholder="e.g. 423985729182"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
               </div>
-            ) : (
-              <form onSubmit={handleSubmitPayment} className="space-y-4">
-                {paymentError && (
-                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded text-rose-700 dark:text-rose-400 text-xs flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>{paymentError}</span>
-                  </div>
-                )}
+            )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      Payment Amount (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="1"
-                      required
-                      value={payAmount || ""}
-                      onChange={(e) => handleAmountChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      Payment Method *
-                    </label>
-                    <select
-                      value={payMethod}
-                      onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value={PaymentMethod.UPI}>UPI (GPay / PhonePe / Paytm)</option>
-                      <option value={PaymentMethod.CASH}>Cash</option>
-                      <option value={PaymentMethod.CARD}>Credit / Debit Card</option>
-                      <option value={PaymentMethod.BANK_TRANSFER}>Bank Transfer (NEFT/IMPS)</option>
-                      <option value={PaymentMethod.CHEQUE}>Cheque</option>
-                      <option value={PaymentMethod.MEMBER_CREDIT}>Member Credit Wallet</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Conditional Method Fields */}
-                {payMethod === PaymentMethod.UPI && (
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      UPI UTR / Transaction ID
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 332490184712"
-                      value={payReference}
-                      onChange={(e) => setPayReference(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                    />
-                  </div>
-                )}
-
-                {payMethod === PaymentMethod.BANK_TRANSFER && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                        Bank Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. HDFC Bank"
-                        value={payBankName}
-                        onChange={(e) => setPayBankName(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                        UTR / Transfer Reference
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. N103829471"
-                        value={payReference}
-                        onChange={(e) => setPayReference(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {payMethod === PaymentMethod.CHEQUE && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                        Cheque Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 000124"
-                        value={payChequeNumber}
-                        onChange={(e) => setPayChequeNumber(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                        Bank Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. SBI"
-                        value={payBankName}
-                        onChange={(e) => setPayBankName(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Invoices to Allocate */}
-                <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50 dark:bg-zinc-800/40">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                      Invoice Allocation Breakdown
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Allocated: ₹{totalAllocated.toLocaleString("en-IN")} / ₹{payAmount.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-
-                  {invoicesLoading ? (
-                    <div className="text-center py-4 text-xs text-zinc-400">
-                      Loading invoices...
-                    </div>
-                  ) : memberInvoices.length === 0 ? (
-                    <div className="text-center py-4 text-xs text-zinc-400">
-                      No unpaid invoices found. Any collected amount will be added to member credit.
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {memberInvoices.map((inv) => (
-                        <div
-                          key={inv.id}
-                          className="flex items-center justify-between text-xs bg-white dark:bg-zinc-800 p-2 rounded border border-zinc-200 dark:border-zinc-700"
-                        >
-                          <div>
-                            <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
-                              {inv.invoiceNumber}
-                            </span>
-                            <div className="text-zinc-400 text-[11px]">
-                              Due: ₹{Number(inv.balanceDue).toLocaleString("en-IN")} • Date:{" "}
-                              {new Date(inv.issueDate).toLocaleDateString("en-IN")}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-zinc-400">₹</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max={Number(inv.balanceDue)}
-                              value={allocations[inv.id] ?? 0}
-                              onChange={(e) =>
-                                handleAllocationChange(inv.id, parseFloat(e.target.value) || 0)
-                              }
-                              className="w-24 px-2 py-1 text-right text-xs rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-semibold"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {excessAmount > 0 && (
-                    <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between text-xs">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        Excess / Overpayment: ₹{excessAmount.toLocaleString("en-IN")}
-                      </span>
-                      <label className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={retainExcess}
-                          onChange={(e) => setRetainExcess(e.target.checked)}
-                          className="rounded text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span>Retain in Member Wallet</span>
-                      </label>
-                    </div>
-                  )}
-                </div>
-
+            {payMethod === PaymentMethod.CHEQUE && (
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Internal Note / Remarks
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Cheque Number
                   </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Optional collection note..."
-                    value={payNotes}
-                    onChange={(e) => setPayNotes(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  <input
+                    type="text"
+                    value={payChequeNumber}
+                    onChange={(e) => setPayChequeNumber(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-800">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowCollectModal(false)}
-                    disabled={submittingPayment}
-                    className="text-xs"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={submittingPayment}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs"
-                  >
-                    {submittingPayment ? "Processing..." : `Record ₹${payAmount.toLocaleString("en-IN")} Payment`}
-                  </Button>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={payBankName}
+                    onChange={(e) => setPayBankName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
                 </div>
-              </form>
+              </div>
             )}
-          </div>
-        </div>
-      )}
+
+            {/* Unpaid Invoices Allocation Breakdown */}
+            <div className="border border-slate-200 dark:border-white/[0.08] rounded-xl p-3 bg-slate-50/50 dark:bg-white/[0.02]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-violet-500" />
+                  Invoice Allocations
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Allocated: ₹{totalAllocated.toLocaleString("en-IN")} / ₹{payAmount.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              {invoicesLoading ? (
+                <div className="py-4 text-center text-xs text-slate-400">
+                  Loading member invoices...
+                </div>
+              ) : memberInvoices.length === 0 ? (
+                <p className="text-xs text-slate-400 py-2">No pending invoices found for this member.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {memberInvoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between text-xs bg-white dark:bg-[#131622] p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.06]"
+                    >
+                      <div>
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {inv.invoiceNumber}
+                        </span>
+                        <div className="text-[10px] text-slate-400">
+                          Due: {new Date(inv.dueDate).toLocaleDateString("en-IN")} • Balance: ₹{Number(inv.balanceDue).toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-400">Apply:</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          max={Number(inv.balanceDue)}
+                          min={0}
+                          value={allocations[inv.id] || 0}
+                          onChange={(e) =>
+                            handleAllocationChange(inv.id, parseFloat(e.target.value) || 0)
+                          }
+                          className="w-24 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-right font-semibold"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Excess Amount Notice */}
+              {excessAmount > 0 && (
+                <div className="mt-3 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
+                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                    Excess Amount: ₹{excessAmount.toLocaleString("en-IN")}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={retainExcess}
+                      onChange={(e) => setRetainExcess(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    Retain in Member Credit Wallet
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Internal Remarks / Receipt Notes
+              </label>
+              <textarea
+                rows={2}
+                value={payNotes}
+                onChange={(e) => setPayNotes(e.target.value)}
+                placeholder="Optional notes regarding this payment settlement..."
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500 resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setShowCollectModal(false)}
+                className="px-4 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingPayment}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm disabled:opacity-50 transition-colors"
+              >
+                {submittingPayment ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    Recording...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-3.5 h-3.5" />
+                    Confirm Collection (₹{payAmount.toLocaleString("en-IN")})
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

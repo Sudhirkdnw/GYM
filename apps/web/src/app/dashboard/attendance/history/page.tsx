@@ -14,6 +14,7 @@ import {
 } from "@gymos/shared-types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AttendanceNav } from "@/components/attendance/AttendanceNav";
 import {
   History,
@@ -25,6 +26,7 @@ import {
   AlertCircle,
   ShieldAlert,
   Loader2,
+  Calendar,
 } from "lucide-react";
 
 export default function AttendanceHistoryPage() {
@@ -217,27 +219,27 @@ export default function AttendanceHistoryPage() {
     switch (status) {
       case AttendanceStatus.CHECKED_IN:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+          <Badge variant="success" size="sm">
             CHECKED IN
-          </span>
+          </Badge>
         );
       case AttendanceStatus.CHECKED_OUT:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+          <Badge variant="default" size="sm">
             CHECKED OUT
-          </span>
+          </Badge>
         );
       case AttendanceStatus.AUTO_CHECKED_OUT:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          <Badge variant="warning" size="sm">
             AUTO CHECKOUT
-          </span>
+          </Badge>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+          <Badge variant="outline" size="sm">
             {status}
-          </span>
+          </Badge>
         );
     }
   };

@@ -11,8 +11,8 @@ import {
   UserRole,
   Permission,
 } from "@gymos/shared-types";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Users,
   ArrowLeft,
@@ -20,7 +20,10 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
+  RotateCcw,
   Shield,
+  Mail,
+  Calendar,
 } from "lucide-react";
 
 interface OrgMember {
@@ -74,7 +77,7 @@ export default function BranchStaffManagementPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push("/login");
+      router.push("/auth/login");
       return;
     }
     if (organization && branchId) {
@@ -111,231 +114,230 @@ export default function BranchStaffManagementPage() {
     }
   };
 
-  const handleRemove = async (orgUserId: string) => {
-    const confirmRemove = window.confirm(
-      "Are you sure you want to remove this staff assignment? They will lose branch-scoped operational access.",
+  const handleUnassign = async (assignmentId: string, staffName: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to unassign ${staffName} from this branch?`,
     );
-    if (!confirmRemove) return;
+    if (!confirmed) return;
 
-    setActionLoading(orgUserId);
+    setActionLoading(assignmentId);
     setStatusMessage(null);
 
     try {
-      await apiClient(`/branches/${branchId}/staff/${orgUserId}`, {
+      await apiClient(`/branches/${branchId}/staff/${assignmentId}`, {
         method: "DELETE",
       });
 
       setStatusMessage({
         type: "success",
-        text: "Staff assignment removed successfully.",
+        text: `${staffName} unassigned successfully!`,
       });
       await fetchData();
     } catch (err: unknown) {
       setStatusMessage({
         type: "error",
-        text: (err as Error).message || "Failed to remove staff assignment",
+        text: (err as Error).message || "Failed to unassign staff member",
       });
     } finally {
       setActionLoading(null);
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center text-sm text-zinc-500">
-        Loading staff assignments...
-      </div>
-    );
-  }
-
-  if (error || !branch) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Link
-          href={`/dashboard/branches/${branchId}`}
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 mb-4"
-        >
-          <ArrowLeft className="h-3 w-3" /> Back to Branch
-        </Link>
-        <div className="p-4 rounded-lg bg-red-50 text-red-800 text-sm">
-          {error || "Branch not found"}
-        </div>
-      </div>
-    );
-  }
-
-  const canManageStaff = organization?.permissions.includes(
+  const canManageStaff = organization?.permissions?.includes(
     Permission.ORGANIZATION_BRANCH_STAFF_MANAGE,
   );
 
+  const assignedOrgUserIds = new Set(assignments.map((a) => a.organizationUserId));
+  const availableMembers = members.filter((m) => !assignedOrgUserIds.has(m.id));
+
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6 max-w-4xl">
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/branches/${branchId}`}
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 mb-2 transition-colors"
-        >
-          <ArrowLeft className="h-3 w-3" /> Back to {branch.name}
-        </Link>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Users className="h-6 w-6 text-emerald-600" />
-            Branch Staff Assignments
-          </h1>
+    <div className="space-y-6 pb-12 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <Link
+            href={`/dashboard/branches/${branchId}`}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white mb-2 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to {branch?.name || "Branch"}
+          </Link>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-violet-600/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300 flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+              Branch Staff Deployment
+            </h1>
+            <Badge variant="secondary">{branch?.name}</Badge>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Assign trainers, receptionists, and managers to this branch location.
+          </p>
         </div>
-        <p className="mt-1 text-xs text-zinc-500">
-          Assign trainers, receptionists, or managers to{" "}
-          <strong>{branch.name}</strong> ({branch.branchCode}).
-        </p>
+
+        <button
+          onClick={() => fetchData()}
+          className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] hover:bg-slate-50 dark:hover:bg-white/[0.04] text-slate-700 dark:text-slate-300 transition-colors shadow-sm self-start sm:self-auto"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Refresh
+        </button>
       </div>
 
       {statusMessage && (
         <div
-          className={`mb-6 p-4 rounded-lg text-sm flex items-center gap-2 ${
+          className={`p-3.5 rounded-2xl text-xs flex items-center gap-2 border shadow-sm ${
             statusMessage.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
-              : "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+              : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800"
           }`}
         >
           {statusMessage.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           ) : (
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           )}
           <span>{statusMessage.text}</span>
         </div>
       )}
 
-      {/* Add Staff Assignment Form */}
-      {canManageStaff && branch.status === "ACTIVE" && (
-        <Card className="border-zinc-200 dark:border-zinc-800 mb-8">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-emerald-600" />
-              Assign Team Member to this Branch
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAssign} className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <select
-                  required
-                  value={selectedOrgUserId}
-                  onChange={(e) => setSelectedOrgUserId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">Select an organization staff member...</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.firstName} {m.lastName} ({m.email}) — Role: {m.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={isAssigning || !selectedOrgUserId}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs shrink-0"
-              >
-                {isAssigning ? "Assigning..." : "Assign Staff"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      {/* Assign New Staff Form */}
+      {canManageStaff && (
+        <div className="p-5 rounded-2xl bg-white dark:bg-[#131622] border border-slate-200 dark:border-white/[0.08] shadow-sm">
+          <h3 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider mb-3">
+            Deploy Staff to {branch?.name}
+          </h3>
+
+          <form onSubmit={handleAssign} className="flex flex-col sm:flex-row items-center gap-3">
+            <select
+              value={selectedOrgUserId}
+              onChange={(e) => setSelectedOrgUserId(e.target.value)}
+              className="w-full sm:flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.03] text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+            >
+              <option value="">-- Choose Team Member to Deploy --</option>
+              {availableMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.firstName} {m.lastName} ({m.email}) — {m.role}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              disabled={!selectedOrgUserId || isAssigning}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-md shadow-violet-500/20 disabled:opacity-50 transition-all shrink-0"
+            >
+              {isAssigning ? (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Assign Member
+                </>
+              )}
+            </button>
+          </form>
+        </div>
       )}
 
       {/* Assigned Staff Table */}
-      <Card className="border-zinc-200 dark:border-zinc-800">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center justify-between">
-            <span>Current Branch Staff</span>
-            <span className="text-xs font-normal text-zinc-500">
-              {assignments.filter((a) => a.status === "ACTIVE").length} active staff
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {assignments.length === 0 ? (
-            <div className="p-8 text-center text-xs text-zinc-500">
-              No staff members are assigned to this branch yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-500 border-b border-zinc-200 dark:border-zinc-800">
-                  <tr>
-                    <th className="py-2.5 px-4 font-semibold">Staff Member</th>
-                    <th className="py-2.5 px-4 font-semibold">Org Role</th>
-                    <th className="py-2.5 px-4 font-semibold">Assignment Status</th>
-                    <th className="py-2.5 px-4 font-semibold">Assigned On</th>
-                    {canManageStaff && (
-                      <th className="py-2.5 px-4 font-semibold text-right">Action</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {assignments.map((assignment) => {
-                    const isBusy = actionLoading === assignment.organizationUserId;
-                    const isActive = assignment.status === "ACTIVE";
-                    return (
-                      <tr
-                        key={assignment.id}
-                        className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40"
-                      >
-                        <td className="py-3 px-4 font-medium text-zinc-900 dark:text-zinc-100">
-                          <div>
-                            {assignment.user?.firstName} {assignment.user?.lastName}
+      <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#131622] overflow-hidden shadow-sm">
+        {loading ? (
+          <div className="py-20 text-center text-slate-400">
+            <RotateCcw className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-500" />
+            <p className="text-xs">Loading deployed staff...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-rose-500">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm font-semibold">{error}</p>
+          </div>
+        ) : assignments.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No Staff Assigned Yet"
+            description="Use the assignment selector above to deploy team members to this facility."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-white/[0.02] text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-white/[0.08] uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="px-5 py-3.5">Staff Member</th>
+                  <th className="px-5 py-3.5">Role</th>
+                  <th className="px-5 py-3.5">Assignment Date</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+                {assignments.map((assignment) => {
+                  const staffName = assignment.user
+                    ? `${assignment.user.firstName} ${assignment.user.lastName}`
+                    : "Staff Member";
+                  const isBusy = actionLoading === assignment.id;
+
+                  return (
+                    <tr
+                      key={assignment.id}
+                      className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="px-5 py-3.5 font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-violet-600/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                            {assignment.user?.firstName?.[0] || "U"}
                           </div>
-                          <span className="text-[11px] text-zinc-400 font-normal">
-                            {assignment.user?.email}
+                          <div>
+                            <div className="font-semibold text-slate-900 dark:text-white">
+                              {staffName}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {assignment.user?.email || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-3.5">
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300">
+                          {assignment.user?.role || "STAFF"}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>
+                            {assignment.assignedAt
+                              ? new Date(assignment.assignedAt).toLocaleDateString("en-IN")
+                              : "—"}
                           </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                            <Shield className="h-3 w-3 text-zinc-400" />
-                            {assignment.user?.role}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              isActive
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                            }`}
-                          >
-                            {assignment.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-zinc-500">
-                          {new Date(assignment.assignedAt).toLocaleDateString()}
-                        </td>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-3.5 text-right">
                         {canManageStaff && (
-                          <td className="py-3 px-4 text-right">
-                            {isActive && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={isBusy}
-                                onClick={() => handleRemove(assignment.organizationUserId)}
-                                className="h-7 text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                Remove
-                              </Button>
-                            )}
-                          </td>
+                          <button
+                            disabled={isBusy}
+                            onClick={() => handleUnassign(assignment.id, staffName)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors disabled:opacity-50"
+                            title="Unassign from branch"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Unassign
+                          </button>
                         )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

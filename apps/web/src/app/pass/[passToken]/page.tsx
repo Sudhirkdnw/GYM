@@ -16,6 +16,7 @@ import {
   XCircle,
   Shield,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 
 const API_BASE_URL =
@@ -59,7 +60,11 @@ export default function PublicWebPassPage() {
       const data: PublicPassResponse = json.data || json;
       setPassData(data);
       setDynamicToken(data.dynamicToken);
-      setSecondsRemaining(data.dynamicToken?.refreshIntervalSeconds ? data.dynamicToken.refreshIntervalSeconds * 2 : 90);
+      setSecondsRemaining(
+        data.dynamicToken?.refreshIntervalSeconds
+          ? data.dynamicToken.refreshIntervalSeconds * 2
+          : 90
+      );
     } catch (err: unknown) {
       setError((err as Error).message || "Failed to load mobile pass");
     } finally {
@@ -90,7 +95,11 @@ export default function PublicWebPassPage() {
 
       const tokenData: { dynamicToken: DynamicPassTokenResponse } = json.data || json;
       setDynamicToken(tokenData.dynamicToken);
-      setSecondsRemaining(tokenData.dynamicToken.refreshIntervalSeconds ? tokenData.dynamicToken.refreshIntervalSeconds * 2 : 90);
+      setSecondsRemaining(
+        tokenData.dynamicToken.refreshIntervalSeconds
+          ? tokenData.dynamicToken.refreshIntervalSeconds * 2
+          : 90
+      );
     } catch {
       // Suppress transient background refresh errors if pass is still valid
     } finally {
@@ -107,10 +116,10 @@ export default function PublicWebPassPage() {
   useEffect(() => {
     if (dynamicToken?.token && canvasRef.current) {
       QRCode.toCanvas(canvasRef.current, dynamicToken.token, {
-        width: 250,
+        width: 240,
         margin: 1,
         color: {
-          dark: "#09090b",
+          dark: "#0a0a0f",
           light: "#ffffff",
         },
       }).catch(() => {});
@@ -125,7 +134,6 @@ export default function PublicWebPassPage() {
 
     timerRef.current = setInterval(() => {
       setSecondsRemaining((prev) => {
-        // Auto-refresh when 45 seconds remain
         if (prev === 45) {
           refreshToken();
         }
@@ -143,22 +151,27 @@ export default function PublicWebPassPage() {
   }, [dynamicToken, refreshToken]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-100 to-zinc-200 dark:from-zinc-950 dark:to-zinc-900 flex flex-col items-center justify-center p-4 selection:bg-emerald-500 selection:text-white">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-violet-500 selection:text-white relative overflow-hidden">
+      {/* Background ambient glowing gradients */}
+      <div className="absolute top-1/4 -left-32 w-80 h-80 bg-violet-600/20 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
         {/* Pass Card Container */}
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xl overflow-hidden transition-all">
+        <div className="bg-[#131622] rounded-3xl border border-white/[0.1] shadow-2xl shadow-black/80 overflow-hidden transition-all backdrop-blur-xl">
           {/* Header Bar */}
-          <div className="bg-zinc-950 text-white p-5 text-center relative">
+          <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-5 text-white text-center relative overflow-hidden">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Dumbbell className="h-5 w-5 text-emerald-400" />
+              <Dumbbell className="w-5 h-5 text-violet-200" />
               <span className="font-extrabold tracking-tight text-base">
                 {passData?.member?.firstName
                   ? `${passData.member.firstName}'s Pass`
                   : "GymOS Digital Pass"}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">
-              Digital Member Pass
+            <p className="text-[10px] text-violet-200/80 uppercase tracking-widest font-semibold flex items-center justify-center gap-1.5">
+              <Sparkles className="w-3 h-3" />
+              Official Member Pass
             </p>
           </div>
 
@@ -166,88 +179,88 @@ export default function PublicWebPassPage() {
           <div className="p-6 text-center">
             {loading ? (
               <div className="py-16 space-y-3">
-                <Loader2 className="h-10 w-10 text-emerald-600 animate-spin mx-auto" />
-                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                <Loader2 className="w-10 h-10 text-violet-500 animate-spin mx-auto" />
+                <p className="text-xs font-semibold text-slate-400">
                   Loading secure member credentials...
                 </p>
               </div>
             ) : error ? (
               <div className="py-12 space-y-3">
-                <div className="h-14 w-14 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
-                  <XCircle className="h-8 w-8" />
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/10 flex items-center justify-center mx-auto text-rose-500">
+                  <XCircle className="w-8 h-8" />
                 </div>
-                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h2 className="text-base font-bold text-white">
                   Pass Unavailable
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto">
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
                   {error}
                 </p>
                 <div className="pt-2">
                   <button
                     onClick={fetchPass}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-white text-slate-900 hover:bg-slate-100 transition-colors"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" /> Retry
+                    <RefreshCw className="w-3.5 h-3.5" /> Retry
                   </button>
                 </div>
               </div>
             ) : passData?.pass?.status === PassStatus.REVOKED ? (
               <div className="py-12 space-y-3">
-                <div className="h-14 w-14 rounded-full bg-red-100 dark:bg-red-950/60 flex items-center justify-center mx-auto text-red-600 dark:text-red-400">
-                  <AlertCircle className="h-8 w-8" />
+                <div className="w-14 h-14 rounded-2xl bg-rose-500/10 flex items-center justify-center mx-auto text-rose-500">
+                  <AlertCircle className="w-8 h-8" />
                 </div>
-                <h2 className="text-base font-bold text-red-600 dark:text-red-400">
+                <h2 className="text-base font-bold text-rose-400">
                   Pass Revoked
                 </h2>
-                <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
                   This access pass has been revoked by front-desk staff. Please visit the reception desk to reactivate your credentials.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Member Profile Banner */}
+                {/* Member Profile */}
                 <div>
-                  <h1 className="text-xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                  <h1 className="text-xl font-extrabold text-white tracking-tight">
                     {passData?.member.firstName}
                   </h1>
-                  <span className="text-xs font-mono font-semibold text-zinc-500 dark:text-zinc-400">
-                    ID: {passData?.member.memberNumber}
+                  <span className="text-xs font-mono font-semibold text-slate-400">
+                    MEMBER ID: {passData?.member.memberNumber}
                   </span>
                 </div>
 
-                {/* QR Code Canvas Box */}
-                <div className="relative mx-auto w-64 h-64 bg-white p-3 rounded-2xl border-2 border-zinc-200/90 shadow-inner flex items-center justify-center">
+                {/* QR Code Canvas Box with high contrast */}
+                <div className="relative mx-auto w-64 h-64 bg-white p-3 rounded-2xl border-2 border-white/20 shadow-inner flex items-center justify-center">
                   <canvas ref={canvasRef} className="rounded-lg" />
                   {refreshing && (
-                    <div className="absolute inset-0 bg-white/70 backdrop-blur-xs rounded-2xl flex items-center justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-xs rounded-2xl flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
                     </div>
                   )}
                 </div>
 
                 {/* Security Status Badge & Rolling Countdown */}
-                <div className="flex flex-col items-center gap-1.5 pt-1">
-                  <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold">
-                    <Shield className="h-3 w-3" />
-                    <span>Dynamic Rolling Token</span>
+                <div className="flex flex-col items-center gap-2 pt-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Dynamic Rotating Token</span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                    <Clock className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
-                    <span>Auto-refreshes in {secondsRemaining}s</span>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                    <Clock className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+                    <span>Auto-rotates in <strong className="text-white">{secondsRemaining}s</strong></span>
                     <button
                       onClick={refreshToken}
                       disabled={refreshing}
-                      className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors ml-1"
+                      className="p-1 text-slate-400 hover:text-white transition-colors ml-1"
                       title="Refresh token now"
                     >
-                      <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+                      <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
                     </button>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-zinc-400 dark:text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                  Hold this QR code directly in front of the gym tablet or laptop camera at the front desk.
+                <p className="text-[11px] text-slate-500 pt-3 border-t border-white/[0.06]">
+                  Hold this QR code directly in front of the scanner camera at the reception desk to check in.
                 </p>
               </div>
             )}
@@ -255,9 +268,9 @@ export default function PublicWebPassPage() {
         </div>
 
         {/* Footer info */}
-        <div className="mt-4 text-center text-[11px] text-zinc-400 dark:text-zinc-600 flex items-center justify-center gap-1">
-          <Shield className="h-3 w-3" />
-          <span>GymOS Secure Mobile Pass • Replay-Protected</span>
+        <div className="mt-4 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-violet-400" />
+          <span>GymOS Secure Mobile Pass • Cryptographically Signed</span>
         </div>
       </div>
     </div>

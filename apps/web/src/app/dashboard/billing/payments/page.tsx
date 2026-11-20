@@ -12,8 +12,6 @@ import {
   PaymentMethod,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { BillingNav } from "@/components/billing/BillingNav";
 import {
   Search,
@@ -24,6 +22,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  AlertCircle,
+  Receipt,
+  Building2,
+  Wallet,
 } from "lucide-react";
 
 export default function PaymentsPage() {
@@ -254,19 +259,25 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
+    <div className="space-y-6 animate-fadeIn pb-16">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Payment Transactions Ledger
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Manual payment recording, invoice allocation, receipts, and refund reversals
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <CreditCard className="h-6 w-6 text-primary" />
+              Payment Receipts Ledger
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {totalCount} Receipts
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Manual payment recording, invoice allocation, receipts, and refund reversals.
           </p>
         </div>
 
-        <Button
+        <button
           onClick={() => {
             setPayBranchId(branches[0]?.id || "");
             setPayMemberId("");
@@ -274,19 +285,19 @@ export default function PaymentsPage() {
             setPayReference("");
             setShowRecordModal(true);
           }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all self-start sm:self-auto"
         >
-          <Plus className="h-4 w-4 mr-1.5" />
+          <Plus className="h-4 w-4" />
           Record Payment
-        </Button>
+        </button>
       </div>
 
       {/* Navigation Sub-menu */}
       <BillingNav />
 
       {/* Filter Bar */}
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm mb-6">
-        <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
             {["ALL", "UPI", "CASH", "CARD", "BANK_TRANSFER", "CHEQUE", "MEMBER_CREDIT"].map((method) => (
               <button
@@ -295,10 +306,10 @@ export default function PaymentsPage() {
                   setMethodFilter(method);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
                   methodFilter === method
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
                 {method.replace("_", " ")}
@@ -314,7 +325,7 @@ export default function PaymentsPage() {
                   setBranchFilter(e.target.value);
                   setPage(1);
                 }}
-                className="px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                className="px-3 py-1.5 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Branches</option>
                 {branches.map((b) => (
@@ -326,7 +337,7 @@ export default function PaymentsPage() {
             )}
 
             <div className="relative flex-1 md:w-64">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search receipt #, UTR, member..."
@@ -335,178 +346,168 @@ export default function PaymentsPage() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Payments Table */}
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-        <CardContent className="p-0">
-          {error && (
-            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs border-b border-rose-200 dark:border-rose-900">
-              {error}
-            </div>
-          )}
-          {loading ? (
-            <div className="py-16 text-center text-sm text-zinc-500">
-              Loading payment ledger...
-            </div>
-          ) : payments.length === 0 ? (
-            <div className="py-16 text-center">
-              <CreditCard className="h-10 w-10 text-zinc-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">No payment transactions found</p>
-              <p className="text-xs text-zinc-500 mt-1">Record a new payment to update ledger</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 bg-zinc-50 dark:bg-zinc-900/80">
-                  <tr>
-                    <th className="py-3 px-4 font-medium">Receipt #</th>
-                    <th className="py-3 px-4 font-medium">Member</th>
-                    <th className="py-3 px-4 font-medium">Branch</th>
-                    <th className="py-3 px-4 font-medium">Method</th>
-                    <th className="py-3 px-4 font-medium">Reference</th>
-                    <th className="py-3 px-4 font-medium">Amount</th>
-                    <th className="py-3 px-4 font-medium">Paid At</th>
-                    <th className="py-3 px-4 font-medium">Status</th>
-                    <th className="py-3 px-4 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                  {payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                        {p.paymentNumber}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                          {p.member?.firstName} {p.member?.lastName}
-                        </div>
-                        <div className="text-[10px] text-zinc-500">{p.member?.phone}</div>
-                      </td>
-                      <td className="py-3 px-4 text-zinc-600 dark:text-zinc-400">
-                        {p.branch?.name || "Main"}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          {p.method}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-zinc-500">
-                        {p.transactionReference || p.chequeNumber || "—"}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(p.amount)}
-                      </td>
-                      <td className="py-3 px-4 text-zinc-500">{p.paidAt.slice(0, 10)}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase ${
-                            p.status === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400"
-                              : p.status === "PENDING"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
-                              : p.status === "PARTIALLY_REFUNDED"
-                              ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-400"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-400"
-                          }`}
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
+        {error && (
+          <div className="p-4 bg-red-500/10 text-red-500 text-xs border-b border-red-500/20">
+            {error}
+          </div>
+        )}
+        {loading ? (
+          <div className="py-20 text-center text-xs text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+            Loading payment ledger...
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="py-20 text-center">
+            <CreditCard className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm font-bold text-foreground">No payment transactions found</p>
+            <p className="text-xs text-muted-foreground mt-1">Record a new payment to update ledger</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="border-b border-border/60 bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
+                <tr>
+                  <th className="py-3 px-4">Receipt #</th>
+                  <th className="py-3 px-4">Member</th>
+                  <th className="py-3 px-4">Branch</th>
+                  <th className="py-3 px-4">Method</th>
+                  <th className="py-3 px-4">Reference</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Paid At</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-accent/40 transition-colors group">
+                    <td className="py-3.5 px-4 font-mono font-bold text-primary">
+                      {p.paymentNumber}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-foreground">
+                        {p.member?.firstName} {p.member?.lastName}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">{p.member?.phone}</div>
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground font-medium">
+                      {p.branch?.name || "Main"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border/60">
+                        {p.method}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-muted-foreground text-[11px]">
+                      {p.transactionReference || p.chequeNumber || "—"}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold font-mono text-emerald-500">
+                      {formatCurrency(p.amount)}
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">{p.paidAt.slice(0, 10)}</td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                          p.status === "COMPLETED"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : p.status === "PENDING"
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : p.status === "PARTIALLY_REFUNDED"
+                            ? "bg-purple-500/10 text-purple-500 border-purple-500/20"
+                            : "bg-red-500/10 text-red-500 border-red-500/20"
+                        }`}
+                      >
+                        {p.status.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenDetailModal(p.id)}
+                          className="p-1.5 rounded-lg border border-border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          title="View Receipt"
                         >
-                          {p.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenDetailModal(p.id)}
-                            className="h-7 px-2 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600"
-                            title="View Receipt"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
 
-                          {organization?.role !== "RECEPTIONIST" &&
-                            p.status !== "REFUNDED" &&
-                            p.status !== "FAILED" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenRefundModal(p.id)}
-                                className="h-7 px-2 text-zinc-600 dark:text-zinc-400 hover:text-rose-600"
-                                title="Issue Refund"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                        {organization?.role !== "RECEPTIONIST" &&
+                          p.status !== "REFUNDED" &&
+                          p.status !== "FAILED" && (
+                            <button
+                              onClick={() => handleOpenRefundModal(p.id)}
+                              className="p-1.5 rounded-lg border border-border bg-card hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                              title="Issue Refund"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-              <span>
-                Showing {payments.length} of {totalCount} transactions
+        {/* Pagination Bar */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
+            <span>
+              Showing <span className="font-semibold text-foreground">{payments.length}</span> of{" "}
+              <span className="font-semibold text-foreground">{totalCount}</span> receipts
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-2.5 py-1 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="px-2 font-medium">
+                {page} / {totalPages}
               </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="h-7 px-2"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="px-2 font-medium">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="h-7 px-2"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="px-2.5 py-1 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
-      {/* =========================================================================
-          MODAL: RECORD PAYMENT
-          ========================================================================= */}
+      {/* MODAL: RECORD PAYMENT */}
       {showRecordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-xl w-full p-6 my-8">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-emerald-600" />
-                Record Payment Received
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-card rounded-2xl border border-border/80 shadow-2xl max-w-xl w-full p-6 my-8 animate-scaleIn">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-primary" />
+                Record Member Payment
               </h2>
               <button
                 onClick={() => setShowRecordModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="p-3 mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs">
+              <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
                 {modalError}
               </div>
             )}
@@ -514,14 +515,14 @@ export default function PaymentsPage() {
             <form onSubmit={handleRecordSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Member *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Member <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={payMemberId}
                     onChange={(e) => setPayMemberId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     <option value="">Select Member</option>
                     {members.map((m) => (
@@ -533,14 +534,14 @@ export default function PaymentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Branch *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Branch <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={payBranchId}
                     onChange={(e) => setPayBranchId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -551,8 +552,8 @@ export default function PaymentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Payment Amount (₹) *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Amount Paid (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -561,337 +562,306 @@ export default function PaymentsPage() {
                     required
                     value={payAmount}
                     onChange={(e) => setPayAmount(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Payment Method *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Payment Method <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={payMethod}
                     onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
-                    <option value="UPI">UPI (QR / GooglePay / PhonePe / Paytm)</option>
-                    <option value="CASH">Cash (Front Desk)</option>
-                    <option value="CARD">Credit / Debit Card (POS)</option>
-                    <option value="BANK_TRANSFER">Bank Transfer (NEFT / IMPS)</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="MEMBER_CREDIT">Member Store Credit</option>
+                    <option value={PaymentMethod.UPI}>UPI (GPay / PhonePe / QR)</option>
+                    <option value={PaymentMethod.CASH}>Cash (Front-Desk)</option>
+                    <option value={PaymentMethod.CARD}>Credit / Debit Card (POS)</option>
+                    <option value={PaymentMethod.BANK_TRANSFER}>NEFT / IMPS / RTGS</option>
+                    <option value={PaymentMethod.CHEQUE}>Cheque</option>
+                    <option value={PaymentMethod.MEMBER_CREDIT}>Member Wallet Credit</option>
                   </select>
                 </div>
               </div>
 
-              {/* Offline references */}
-              {payMethod === "UPI" && (
+              {/* Reference and details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    12-Digit UPI UTR / Transaction Reference *
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Transaction Ref / UTR / Auth Code
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. 432109876543"
+                    placeholder="e.g. 402918239012"
                     value={payReference}
                     onChange={(e) => setPayReference(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground font-mono"
                   />
                 </div>
-              )}
 
-              {payMethod === "CARD" && (
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    POS Terminal Approval / Auth Code
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. AUTH-987213"
-                    value={payReference}
-                    onChange={(e) => setPayReference(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono"
-                  />
-                </div>
-              )}
-
-              {payMethod === "CHEQUE" && (
-                <div className="grid grid-cols-2 gap-4">
+                {payMethod === PaymentMethod.CHEQUE && (
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      Cheque # *
+                    <label className="block text-xs font-semibold text-foreground mb-1.5">
+                      Cheque # & Bank
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. 000124"
-                      value={payChequeNumber}
-                      onChange={(e) => setPayChequeNumber(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Cheque #"
+                        value={payChequeNumber}
+                        onChange={(e) => setPayChequeNumber(e.target.value)}
+                        className="w-1/2 px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Bank Name"
+                        value={payBankName}
+                        onChange={(e) => setPayBankName(e.target.value)}
+                        className="w-1/2 px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      Bank Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. HDFC Bank"
-                      value={payBankName}
-                      onChange={(e) => setPayBankName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800"
-                    />
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Invoice Allocation Section */}
+              {/* Unpaid Invoices Allocation */}
               {unpaidInvoices.length > 0 && (
-                <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                    <span>Allocate Payment to Invoices:</span>
-                    <span className="text-[11px] font-normal text-zinc-500">
-                      Unpaid invoices for this member
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                <div className="border border-border/60 rounded-xl p-3.5 space-y-2.5 bg-muted/20">
+                  <span className="text-xs font-bold text-foreground block">
+                    Allocate to Outstanding Invoices
+                  </span>
+                  <div className="space-y-2 max-h-36 overflow-y-auto">
                     {unpaidInvoices.map((inv) => (
                       <div
                         key={inv.id}
-                        className="flex items-center justify-between text-xs p-2 rounded bg-zinc-50 dark:bg-zinc-800/60"
+                        className="flex items-center justify-between p-2 rounded-xl border border-border/60 bg-card text-xs"
                       >
                         <div>
-                          <div className="font-mono font-medium text-emerald-600">{inv.invoiceNumber}</div>
-                          <div className="text-[10px] text-zinc-500">Due: {formatCurrency(inv.balanceDue)}</div>
+                          <span className="font-mono font-bold text-primary">{inv.invoiceNumber}</span>
+                          <span className="text-muted-foreground ml-2">
+                            (Due: {formatCurrency(inv.balanceDue)})
+                          </span>
                         </div>
-
-                        <div className="w-32">
+                        <div className="w-28">
                           <input
                             type="number"
                             min="0"
                             max={inv.balanceDue}
                             step="0.01"
-                            value={allocations[inv.id] || ""}
+                            value={allocations[inv.id] || 0}
                             onChange={(e) =>
                               setAllocations({
                                 ...allocations,
                                 [inv.id]: Number(e.target.value),
                               })
                             }
-                            placeholder="Amount"
-                            className="w-full px-2 py-1 text-xs rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-right font-medium"
+                            className="w-full px-2 py-1 text-right rounded-lg border border-border bg-background text-foreground font-mono"
                           />
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <label className="flex items-center gap-2 pt-1 text-xs text-zinc-600 dark:text-zinc-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={retainExcess}
-                      onChange={(e) => setRetainExcess(e.target.checked)}
-                      className="rounded text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>Retain any surplus payment as Member Store Credit in wallet</span>
-                  </label>
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={retainExcess}
+                        onChange={(e) => setRetainExcess(e.target.checked)}
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span>Store unallocated surplus as Member Wallet Credit</span>
+                    </label>
+                  </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Notes
+                <label className="block text-xs font-semibold text-foreground mb-1.5">
+                  Internal Remarks
                 </label>
                 <textarea
                   rows={2}
+                  placeholder="Optional staff remarks..."
                   value={payNotes}
                   onChange={(e) => setPayNotes(e.target.value)}
-                  placeholder="Optional internal remarks..."
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setShowRecordModal(false)}
                   disabled={modalLoading}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   disabled={modalLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Recording..." : "Record Payment & Issue Receipt"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Record Receipt"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL: PAYMENT DETAIL / RECEIPT
-          ========================================================================= */}
+      {/* MODAL: DETAIL / RECEIPT VIEW */}
       {showDetailModal && selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-lg w-full p-6">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
-              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                Receipt {selectedPayment.paymentNumber}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl border border-border/80 shadow-2xl max-w-lg w-full p-6 animate-scaleIn">
+            <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
+              <span className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-primary" />
+                Payment Receipt ({selectedPayment.paymentNumber})
               </span>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div className="p-4 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Member:</span>
-                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                    {selectedPayment.member?.firstName} {selectedPayment.member?.lastName}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Branch:</span>
-                  <span>{selectedPayment.branch?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Method:</span>
-                  <span className="font-semibold">{selectedPayment.method}</span>
-                </div>
-                {selectedPayment.transactionReference && (
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">Reference:</span>
-                    <span className="font-mono">{selectedPayment.transactionReference}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-700 pt-2 text-sm font-bold">
-                  <span>Amount Received:</span>
-                  <span className="text-emerald-600">{formatCurrency(selectedPayment.amount)}</span>
-                </div>
+            <div className="p-4 bg-muted/20 border border-border/60 rounded-xl space-y-3 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-border/40">
+                <span className="text-muted-foreground">Amount:</span>
+                <span className="font-bold font-mono text-base text-emerald-500">
+                  {formatCurrency(selectedPayment.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Member:</span>
+                <span className="font-semibold text-foreground">
+                  {selectedPayment.member?.firstName} {selectedPayment.member?.lastName}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Method:</span>
+                <span className="font-semibold text-foreground">{selectedPayment.method}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Reference:</span>
+                <span className="font-mono text-foreground">{selectedPayment.transactionReference || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Paid At:</span>
+                <span className="text-foreground">{selectedPayment.paidAt}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="font-bold text-emerald-500">{selectedPayment.status}</span>
               </div>
 
-              {/* Allocations Breakdown */}
-              <div>
-                <h4 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1">Invoice Allocations</h4>
-                {selectedPayment.allocations?.length === 0 ? (
-                  <p className="text-zinc-500">Unapplied / stored as member credit</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {selectedPayment.allocations?.map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex justify-between p-2 rounded bg-zinc-50 dark:bg-zinc-800/60"
-                      >
-                        <span className="font-mono">{a.invoice?.invoiceNumber}</span>
-                        <span className="font-semibold">{formatCurrency(a.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Invoice Allocations */}
+              {selectedPayment.allocations && selectedPayment.allocations.length > 0 && (
+                <div className="pt-2 border-t border-border/40 space-y-1.5">
+                  <span className="font-semibold text-foreground block">Allocated Invoices:</span>
+                  {selectedPayment.allocations.map((a) => (
+                    <div key={a.id} className="flex justify-between text-[11px] text-muted-foreground">
+                      <span className="font-mono">{a.invoice?.invoiceNumber || a.invoiceId}</span>
+                      <span className="font-mono font-medium text-foreground">{formatCurrency(a.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800">
-              <Button onClick={() => setShowDetailModal(false)}>Close</Button>
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL: PROCESS REFUND
-          ========================================================================= */}
+      {/* MODAL: REFUND PAYMENT */}
       {showRefundModal && selectedPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-md w-full p-6">
-            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 mb-2">
-              <RotateCcw className="h-5 w-5 text-rose-600" />
-              Issue Refund for {selectedPayment.paymentNumber}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl border border-red-500/30 shadow-2xl max-w-md w-full p-6 animate-scaleIn">
+            <h2 className="text-base font-bold text-red-500 flex items-center gap-2 mb-2">
+              <RotateCcw className="h-4 w-4" />
+              Issue Refund ({selectedPayment.paymentNumber})
             </h2>
-            <p className="text-xs text-zinc-500 mb-4">
-              Disburses a refund and automatically records allocation reversals to restore invoice balances.
+            <p className="text-xs text-muted-foreground mb-4">
+              Reverse customer payment and adjust invoice allocations automatically.
             </p>
 
             {modalError && (
-              <div className="p-3 mb-4 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 text-xs">
+              <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs">
                 {modalError}
               </div>
             )}
 
-            <form onSubmit={handleRefundSubmit} className="space-y-4">
+            <form onSubmit={handleRefundSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Refund Amount (₹) *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Refund Amount (₹) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  max={selectedPayment.amount}
+                  min="0.01"
                   step="0.01"
                   required
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Reason for Refund *
-                </label>
-                <textarea
-                  required
-                  rows={2}
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  placeholder="e.g. Member relocated; partial refund authorized by manager..."
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Disbursement Bank / UTR Reference
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Refund Reason <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. REF-UPI-492193"
-                  value={refundReference}
-                  onChange={(e) => setRefundReference(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 font-mono"
+                  required
+                  placeholder="e.g. Accidental duplicate payment, customer cancellation"
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
+              <div>
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Bank / UPI Refund Reference
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. REF-8392819"
+                  value={refundReference}
+                  onChange={(e) => setRefundReference(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowRefundModal(false)}
                   disabled={modalLoading}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Processing..." : "Confirm Refund"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Refund"}
+                </button>
               </div>
             </form>
           </div>

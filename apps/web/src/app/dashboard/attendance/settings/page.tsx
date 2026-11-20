@@ -9,8 +9,6 @@ import {
   AttendanceSettingsUpdate,
   Permission,
 } from "@gymos/shared-types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { AttendanceNav } from "@/components/attendance/AttendanceNav";
 import {
   Sliders,
@@ -23,6 +21,8 @@ import {
   RefreshCw,
   ShieldAlert,
   Loader2,
+  Building2,
+  Info,
 } from "lucide-react";
 
 export default function AttendanceSettingsPage() {
@@ -129,10 +129,10 @@ export default function AttendanceSettingsPage() {
   if (!canManage) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
-        <div className="rounded-xl border border-red-200 dark:border-red-800/80 bg-red-50/50 dark:bg-red-950/20 p-8 text-center max-w-md mx-auto my-12">
-          <ShieldAlert className="h-12 w-12 text-red-600 dark:text-red-400 mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Permission Restricted</h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center max-w-md mx-auto my-12">
+          <ShieldAlert className="h-12 w-12 text-red-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-foreground">Permission Restricted</h2>
+          <p className="text-xs text-muted-foreground mt-1">
             Only Gym Owners and Administrators have permission to modify attendance policies and operating hours.
           </p>
         </div>
@@ -141,15 +141,20 @@ export default function AttendanceSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-5xl">
+    <div className="space-y-6 animate-fadeIn pb-12 max-w-5xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            <Sliders className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            Attendance Policy Settings
-          </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Sliders className="h-6 w-6 text-primary" />
+              Attendance Policy Settings
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              Access Rules
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
             Configure front-desk operating hours, anti-passback cooldowns, and overdue dues admission rules.
           </p>
         </div>
@@ -158,22 +163,25 @@ export default function AttendanceSettingsPage() {
       <AttendanceNav />
 
       {/* Scope Selector: Organization Default vs Branch Override */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mb-6">
-        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">
-              Policy Configuration Scope
-            </span>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">
+                Policy Configuration Scope
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
               Select whether you are setting organization-wide defaults or overriding policies for a specific branch.
-            </span>
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <select
               value={targetBranchId}
               onChange={(e) => setTargetBranchId(e.target.value)}
-              className="px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs font-medium focus:ring-1 focus:ring-emerald-500"
+              className="px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
               <option value="">Organization Defaults (All Branches)</option>
               {branches.map((b) => (
@@ -182,234 +190,250 @@ export default function AttendanceSettingsPage() {
                 </option>
               ))}
             </select>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => fetchSettings(targetBranchId || undefined)}
-              className="text-xs h-8"
+              className="p-2 rounded-xl border border-border bg-card hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
               title="Reload settings"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            </Button>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`} />
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Notifications */}
       {successMessage && (
-        <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-3 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span>{successMessage}</span>
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-500 flex items-center gap-2.5">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span className="font-medium">{successMessage}</span>
         </div>
       )}
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-xs text-red-800 dark:text-red-200 flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-          <span>{error}</span>
+        <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-500 flex items-center gap-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="font-medium">{error}</span>
         </div>
       )}
 
       {/* Settings Form */}
       <form onSubmit={handleSave} className="space-y-6">
         {/* Section 1: Operating Hours & Auto-Checkout */}
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-            <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-emerald-600" />
-              Operating Hours & Auto-Checkout Routine
-            </CardTitle>
-            <CardDescription className="text-xs text-zinc-500">
-              Define daily operating windows and max workout durations.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Daily Opening Time (24h format)
-                </label>
-                <input
-                  type="time"
-                  value={operatingHoursStart}
-                  onChange={(e) => setOperatingHoursStart(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs"
-                  required
-                />
-              </div>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Clock className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                Operating Hours & Auto-Checkout Routine
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Define daily gym access windows and maximum auto-checkout session duration.
+              </p>
+            </div>
+          </div>
 
-              <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Daily Closing Time (24h format)
-                </label>
-                <input
-                  type="time"
-                  value={operatingHoursEnd}
-                  onChange={(e) => setOperatingHoursEnd(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs"
-                  required
-                />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Daily Opening Time (24h format)
+              </label>
+              <input
+                type="time"
+                value={operatingHoursStart}
+                onChange={(e) => setOperatingHoursStart(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Auto-Checkout Duration Limit (Hours)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={autoCheckOutHours}
-                  onChange={(e) => setAutoCheckOutHours(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs"
-                  required
-                />
-                <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  Background worker automatically checks out open sessions exceeding this threshold.
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Daily Closing Time (24h format)
+              </label>
+              <input
+                type="time"
+                value={operatingHoursEnd}
+                onChange={(e) => setOperatingHoursEnd(e.target.value)}
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Auto-Checkout Duration Limit (Hours)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={autoCheckOutHours}
+                onChange={(e) => setAutoCheckOutHours(Number(e.target.value))}
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                required
+              />
+              <span className="text-[11px] text-muted-foreground mt-1 block">
+                Background distributed lock worker automatically checks out open sessions exceeding this threshold.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <div className="pr-4">
+                <span className="text-xs font-semibold text-foreground block">
+                  Allow Off-Hours Check-In
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  If disabled, check-ins outside opening hours are automatically rejected.
                 </span>
               </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
-                <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block">
-                    Allow Off-Hours Check-In
-                  </span>
-                  <span className="text-[10px] text-zinc-500">
-                    If disabled, check-ins outside opening hours are automatically rejected.
-                  </span>
-                </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
                   type="checkbox"
                   checked={allowOffHoursCheckIn}
                   onChange={(e) => setAllowOffHoursCheckIn(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  className="sr-only peer"
                 />
-              </div>
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Section 2: Security & Anti-Passback */}
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-            <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-emerald-600" />
-              Anti-Passback & Security Controls
-            </CardTitle>
-            <CardDescription className="text-xs text-zinc-500">
-              Prevent badge sharing and enforce mandatory checkout policies.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Anti-Passback Cooldown Window (Minutes)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  value={cooldownMinutes}
-                  onChange={(e) => setCooldownMinutes(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs"
-                  required
-                />
-                <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  Prevents a second check-in by the same member within this window (0 to disable).
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+              <Shield className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                Anti-Passback & Security Controls
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Prevent credential sharing and enforce mandatory checkout policies.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Anti-Passback Cooldown Window (Minutes)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="120"
+                value={cooldownMinutes}
+                onChange={(e) => setCooldownMinutes(Number(e.target.value))}
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                required
+              />
+              <span className="text-[11px] text-muted-foreground mt-1 block">
+                Prevents a second check-in by the same member within this window (0 to disable).
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <div className="pr-4">
+                <span className="text-xs font-semibold text-foreground block">
+                  Require Mandatory Check-Out Reminder
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Displays checkout prompts for active sessions during receptionist desk workflows.
                 </span>
               </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
-                <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block">
-                    Require Mandatory Check-Out
-                  </span>
-                  <span className="text-[10px] text-zinc-500">
-                    Requires checkout of active session before checking in again.
-                  </span>
-                </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
                   type="checkbox"
                   checked={requireCheckOut}
                   onChange={(e) => setRequireCheckOut(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  className="sr-only peer"
                 />
-              </div>
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Section 3: Financial & Overdue Dues Policy */}
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardHeader className="p-4 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-            <CardTitle className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-emerald-600" />
-              Financial & Overdue Dues Admission Policy
-            </CardTitle>
-            <CardDescription className="text-xs text-zinc-500">
-              Automated admission rules for members with past-due unpaid invoices.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
-                <div>
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200 block">
-                    Allow Check-In with Overdue Dues
-                  </span>
-                  <span className="text-[10px] text-zinc-500">
-                    If disabled, any overdue invoice immediately hard-blocks gym admission.
-                  </span>
-                </div>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                Financial & Overdue Dues Admission Policy
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Automated gatekeeping rules for members with past-due unpaid invoices.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/20">
+              <div className="pr-4">
+                <span className="text-xs font-semibold text-foreground block">
+                  Allow Check-In with Overdue Dues
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  If disabled, any overdue invoice immediately hard-blocks gym admission.
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
                   type="checkbox"
                   checked={allowCheckInWithDues}
                   onChange={(e) => setAllowCheckInWithDues(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  className="sr-only peer"
                 />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Overdue Grace Period (Days)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="30"
-                  value={maxOverdueGraceDays}
-                  disabled={!allowCheckInWithDues}
-                  onChange={(e) => setMaxOverdueGraceDays(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-xs disabled:opacity-50"
-                />
-                <span className="text-[10px] text-zinc-500 mt-0.5 block">
-                  Members with overdue invoices within grace period are admitted with an amber warning banner.
-                </span>
-              </div>
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Overdue Grace Period (Days)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="30"
+                value={maxOverdueGraceDays}
+                disabled={!allowCheckInWithDues}
+                onChange={(e) => setMaxOverdueGraceDays(Number(e.target.value))}
+                className="w-full px-3.5 py-2 rounded-xl border border-border bg-background/50 text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono disabled:opacity-40"
+              />
+              <span className="text-[11px] text-muted-foreground mt-1 block">
+                Members with overdue invoices within grace period are admitted with an amber dues warning.
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Save Button */}
         <div className="flex justify-end gap-3 pt-2">
-          <Button
+          <button
             type="submit"
             disabled={isSaving}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 px-6 shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
           >
             {isSaving ? (
-              <span className="flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving Policies...
-              </span>
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving Policies...
+              </>
             ) : (
-              <span className="flex items-center gap-1.5">
-                <Save className="h-3.5 w-3.5" /> Save Attendance Policies
-              </span>
+              <>
+                <Save className="h-4 w-4" /> Save Attendance Policies
+              </>
             )}
-          </Button>
+          </button>
         </div>
       </form>
     </div>

@@ -13,8 +13,6 @@ import {
   Permission,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Plus,
   Search,
@@ -30,6 +28,14 @@ import {
   Sparkles,
   Info,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X,
+  Calendar,
+  Layers,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
 
 export default function SubscriptionsDirectoryPage() {
@@ -315,37 +321,46 @@ export default function SubscriptionsDirectoryPage() {
     switch (status) {
       case MembershipStatus.ACTIVE:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-            <CheckCircle2 className="h-3 w-3" /> Active
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Active
           </span>
         );
       case MembershipStatus.FROZEN:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
-            <PauseCircle className="h-3 w-3" /> Frozen
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            <PauseCircle className="w-3 h-3 text-blue-500" />
+            Frozen
           </span>
         );
       case MembershipStatus.PENDING:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-            <Clock className="h-3 w-3" /> Pending
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <Clock className="w-3 h-3 text-amber-500" />
+            Pending
           </span>
         );
       case MembershipStatus.EXPIRED:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            <AlertCircle className="h-3 w-3" /> Expired
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
+            <AlertCircle className="w-3 h-3" />
+            Expired
           </span>
         );
       case MembershipStatus.CANCELLED:
       case MembershipStatus.TERMINATED:
         return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-950/60 dark:text-red-300">
-            <Ban className="h-3 w-3" /> {status}
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
+            <Ban className="w-3 h-3" />
+            {status}
           </span>
         );
       default:
-        return <span>{status}</span>;
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -357,108 +372,104 @@ export default function SubscriptionsDirectoryPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6">
+    <div className="space-y-6 animate-fadeIn pb-12">
       {/* Top Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            Subscriptions & Memberships
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <CreditCard className="h-6 w-6 text-primary" />
+              Subscriptions & Memberships
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              {totalCount} Total
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
             Track active passes, manage renewals, handle freeze requests, and inspect immutable pricing snapshots.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/dashboard/memberships/plans">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-              Manage Plans
-            </Button>
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/dashboard/memberships/plans"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent/50 text-foreground transition-colors shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Manage Plans
           </Link>
 
           {hasPermission(Permission.MEMBER_SUBSCRIPTION_ASSIGN) && (
-            <Button
+            <button
               onClick={() => {
                 setModalError(null);
                 setShowAssignModal(true);
               }}
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
             >
-              <Plus className="h-3.5 w-3.5" /> Assign Membership
-            </Button>
+              <Plus className="h-4 w-4" /> Assign Membership
+            </button>
           )}
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500">Active</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {kpiActive}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+            <span>Active Passes</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold text-foreground">
+            {kpiActive}
+          </div>
+        </div>
 
-        <Card
+        <div
           onClick={() => setExpiringFilter(!expiringFilter)}
-          className={`border cursor-pointer transition-colors shadow-sm ${
+          className={`rounded-2xl border p-4 shadow-sm cursor-pointer transition-all ${
             expiringFilter
-              ? "border-amber-400 dark:border-amber-600 bg-amber-50/50 dark:bg-amber-950/20"
-              : "border-zinc-200 dark:border-zinc-800"
+              ? "border-amber-500/40 bg-amber-500/10"
+              : "border-border/60 bg-card/60 backdrop-blur-xl hover:bg-accent/40"
           }`}
         >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                Expiring Soon (&lt;7d)
-              </span>
-              <Clock className="h-4 w-4 text-amber-600" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {subscriptions.filter((s) => s.status === MembershipStatus.ACTIVE && isExpiringSoon(s.endDate)).length}
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex items-center justify-between text-xs font-medium text-amber-500">
+            <span>Expiring Soon (&lt;7d)</span>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold text-foreground">
+            {subscriptions.filter((s) => s.status === MembershipStatus.ACTIVE && isExpiringSoon(s.endDate)).length}
+          </div>
+        </div>
 
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500">Frozen</span>
-              <PauseCircle className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {kpiFrozen}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+            <span>Frozen On Hold</span>
+            <PauseCircle className="h-4 w-4 text-blue-500" />
+          </div>
+          <div className="mt-2 text-2xl font-bold text-foreground">
+            {kpiFrozen}
+          </div>
+        </div>
 
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-500">Total Listed</span>
-              <CreditCard className="h-4 w-4 text-zinc-400" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {totalCount}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+            <span>Total Listed</span>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="mt-2 text-2xl font-bold text-foreground">
+            {totalCount}
+          </div>
+        </div>
       </div>
 
       {/* Filters bar */}
-      <Card className="mb-6 border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <Filter className="h-3.5 w-3.5" />
-              <span>Filter:</span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Filter className="h-3.5 w-3.5 text-primary" />
+              <span>Status:</span>
             </div>
 
             <select
@@ -467,7 +478,7 @@ export default function SubscriptionsDirectoryPage() {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="rounded-xl border border-border bg-background/50 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -478,11 +489,11 @@ export default function SubscriptionsDirectoryPage() {
             </select>
 
             {expiringFilter && (
-              <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-xs px-2.5 py-1 rounded-md">
+              <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs px-3 py-1 rounded-full font-semibold">
                 Expiring in 7 days
                 <button
                   onClick={() => setExpiringFilter(false)}
-                  className="ml-1 text-amber-600 hover:text-amber-800"
+                  className="hover:text-amber-400 font-bold ml-0.5"
                 >
                   ✕
                 </button>
@@ -491,7 +502,7 @@ export default function SubscriptionsDirectoryPage() {
           </div>
 
           <div className="w-full sm:w-72 relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+            <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search member, number, or plan..."
@@ -500,44 +511,47 @@ export default function SubscriptionsDirectoryPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 pl-9 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded-xl border border-border bg-background/50 pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Subscriptions Table */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500">
+            <thead className="bg-muted/40 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold border-b border-border/60">
               <tr>
-                <th className="px-4 py-3 font-medium">Member</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">Branch</th>
-                <th className="px-4 py-3 font-medium">Validity Dates</th>
-                <th className="px-4 py-3 font-medium">Pricing Snapshot</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                <th className="px-4 py-3">Member</th>
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Branch</th>
+                <th className="px-4 py-3">Validity Dates</th>
+                <th className="px-4 py-3">Pricing Snapshot</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <tbody className="divide-y divide-border/40">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
-                    Loading subscriptions...
+                  <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
+                    <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+                    <p className="font-semibold text-foreground text-xs">Loading subscriptions...</p>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-red-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-red-500">
                     {error}
                   </td>
                 </tr>
               ) : subscriptions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
-                    No subscriptions found matching your query.
+                  <td colSpan={7} className="px-4 py-16 text-center text-muted-foreground">
+                    <CreditCard className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="font-semibold text-foreground text-sm">No subscriptions found</p>
+                    <p className="text-xs text-muted-foreground mt-1">Try resetting filters or search criteria.</p>
                   </td>
                 </tr>
               ) : (
@@ -546,62 +560,62 @@ export default function SubscriptionsDirectoryPage() {
                   return (
                     <tr
                       key={s.id}
-                      className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition-colors"
+                      className="hover:bg-accent/40 transition-colors group"
                     >
                       {/* Member */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <Link
                           href={`/dashboard/members/${s.memberId}`}
-                          className="font-semibold text-zinc-900 dark:text-zinc-100 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-1.5"
+                          className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-1.5"
                         >
                           {s.memberName || "Unknown Member"}
-                          <ExternalLink className="h-3 w-3 text-zinc-400 opacity-60" />
+                          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-60" />
                         </Link>
-                        <div className="font-mono text-[10px] text-zinc-400">
+                        <div className="font-mono text-[11px] text-muted-foreground">
                           {s.memberNumber}
                         </div>
                       </td>
 
                       {/* Plan */}
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-3.5">
+                        <div className="font-semibold text-foreground">
                           {s.planName}
                         </div>
-                        <div className="font-mono text-[10px] text-zinc-400">
+                        <div className="font-mono text-[11px] text-muted-foreground">
                           {s.planCode}
                         </div>
                       </td>
 
                       {/* Branch */}
-                      <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
+                      <td className="px-4 py-3.5 text-muted-foreground font-medium">
                         {s.homeBranchName || "—"}
                       </td>
 
                       {/* Dates */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1.5 text-foreground font-medium">
                           <span>{s.startDate}</span>
-                          <span className="text-zinc-400">→</span>
-                          <span className="font-medium">{s.endDate}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-bold">{s.endDate}</span>
                         </div>
                         {expiring && (
-                          <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
-                            ⚡ Expiring soon
+                          <div className="text-[11px] font-bold text-amber-500 mt-0.5 flex items-center gap-1">
+                            ⚡ Expiring in &lt;7d
                           </div>
                         )}
                         {s.totalFreezeDaysUsed > 0 && (
-                          <div className="text-[10px] text-blue-600 dark:text-blue-400">
+                          <div className="text-[11px] text-blue-500 mt-0.5">
                             +{s.totalFreezeDaysUsed}d shifted (frozen)
                           </div>
                         )}
                       </td>
 
                       {/* Pricing Snapshot */}
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-3.5">
+                        <div className="font-bold font-mono text-foreground text-sm">
                           ₹{s.finalPrice.toLocaleString("en-IN")}
                         </div>
-                        <div className="text-[10px] text-zinc-400">
+                        <div className="text-[11px] text-muted-foreground">
                           Base: ₹{s.basePrice}
                           {s.discountAmount > 0 && ` - ₹${s.discountAmount}`}
                           {s.taxAmount > 0 && ` + ₹${s.taxAmount} tax`}
@@ -609,16 +623,14 @@ export default function SubscriptionsDirectoryPage() {
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3">{getStatusBadge(s.status)}</td>
+                      <td className="px-4 py-3.5">{getStatusBadge(s.status)}</td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1">
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="inline-flex items-center gap-1.5">
                           {/* Renew button */}
                           {hasPermission(Permission.MEMBER_SUBSCRIPTION_RENEW) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <button
                               onClick={() => {
                                 setSelectedSub(s);
                                 setRenewPlanId(s.planId);
@@ -628,20 +640,18 @@ export default function SubscriptionsDirectoryPage() {
                                 setModalError(null);
                                 setShowRenewModal(true);
                               }}
-                              className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                              className="px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-1 transition-colors"
                               title="Renew subscription"
                             >
-                              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Renew
-                            </Button>
+                              <RotateCcw className="h-3.5 w-3.5" /> Renew
+                            </button>
                           )}
 
                           {/* Freeze / Thaw button */}
                           {hasPermission(Permission.MEMBER_SUBSCRIPTION_FREEZE) && (
                             <>
                               {s.status === MembershipStatus.ACTIVE && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
+                                <button
                                   onClick={() => {
                                     setSelectedSub(s);
                                     setFreezeStartDate(new Date().toISOString().split("T")[0]);
@@ -650,17 +660,15 @@ export default function SubscriptionsDirectoryPage() {
                                     setModalError(null);
                                     setShowFreezeModal(true);
                                   }}
-                                  className="h-7 px-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                                  className="px-2.5 py-1 rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 text-xs font-semibold flex items-center gap-1 transition-colors"
                                   title="Freeze subscription"
                                 >
-                                  <PauseCircle className="h-3.5 w-3.5 mr-1" /> Freeze
-                                </Button>
+                                  <PauseCircle className="h-3.5 w-3.5" /> Freeze
+                                </button>
                               )}
 
                               {s.status === MembershipStatus.FROZEN && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
+                                <button
                                   onClick={() => {
                                     setSelectedSub(s);
                                     setThawDate(new Date().toISOString().split("T")[0]);
@@ -668,11 +676,11 @@ export default function SubscriptionsDirectoryPage() {
                                     setModalError(null);
                                     setShowThawModal(true);
                                   }}
-                                  className="h-7 px-2 text-xs text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40"
+                                  className="px-2.5 py-1 rounded-lg border border-cyan-500/20 bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20 text-xs font-semibold flex items-center gap-1 transition-colors"
                                   title="Thaw subscription"
                                 >
-                                  <PlayCircle className="h-3.5 w-3.5 mr-1" /> Thaw
-                                </Button>
+                                  <PlayCircle className="h-3.5 w-3.5" /> Thaw
+                                </button>
                               )}
                             </>
                           )}
@@ -680,20 +688,18 @@ export default function SubscriptionsDirectoryPage() {
                           {/* Cancel button */}
                           {hasPermission(Permission.MEMBER_SUBSCRIPTION_CANCEL) &&
                             (s.status === MembershipStatus.ACTIVE || s.status === MembershipStatus.FROZEN) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                              <button
                                 onClick={() => {
                                   setSelectedSub(s);
                                   setCancelReason("");
                                   setModalError(null);
                                   setShowCancelModal(true);
                                 }}
-                                className="h-7 px-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                                className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
                                 title="Cancel subscription"
                               >
                                 <Ban className="h-3.5 w-3.5" />
-                              </Button>
+                              </button>
                             )}
                         </div>
                       </td>
@@ -707,67 +713,66 @@ export default function SubscriptionsDirectoryPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
+          <div className="p-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground bg-muted/20">
             <div>
-              Page {page} of {totalPages} ({totalCount} total)
+              Page <span className="font-semibold text-foreground">{page}</span> of{" "}
+              <span className="font-semibold text-foreground">{totalPages}</span> ({totalCount} total)
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 disabled={page <= 1}
                 onClick={() => setPage(page - 1)}
+                className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
               >
                 Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
+              </button>
+              <button
                 disabled={page >= totalPages}
                 onClick={() => setPage(page + 1)}
+                className="px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
               >
                 Next
-              </Button>
+              </button>
             </div>
           </div>
         )}
-      </Card>
+      </div>
 
-      {/* --------------------------------------------------------------------- */}
-      {/* ASSIGN MEMBERSHIP MODAL                                               */}
-      {/* --------------------------------------------------------------------- */}
+      {/* ASSIGN MEMBERSHIP MODAL */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-border/80 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-primary" />
                 Assign Membership
               </h2>
               <button
                 onClick={() => setShowAssignModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {modalError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
               </div>
             )}
 
             <form onSubmit={handleAssignSubmit} className="space-y-4 text-xs">
               {/* Member Selection */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Target Member *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Target Member <span className="text-red-500">*</span>
                 </label>
                 <select
                   required
                   value={assignMemberId}
                   onChange={(e) => setAssignMemberId(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Select a member...</option>
                   {members.map((m) => (
@@ -781,14 +786,14 @@ export default function SubscriptionsDirectoryPage() {
               {/* Plan Selection */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Membership Plan *
+                  <label className="block font-semibold text-foreground mb-1.5">
+                    Membership Plan <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={assignPlanId}
                     onChange={(e) => setAssignPlanId(e.target.value)}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -799,14 +804,14 @@ export default function SubscriptionsDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                    Home Branch *
+                  <label className="block font-semibold text-foreground mb-1.5">
+                    Home Branch <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
                     value={assignBranchId}
                     onChange={(e) => setAssignBranchId(e.target.value)}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     {branches?.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -819,22 +824,22 @@ export default function SubscriptionsDirectoryPage() {
 
               {/* Start Date */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Start Date *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Start Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={assignStartDate}
                   onChange={(e) => setAssignStartDate(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
               {/* Pricing & Discount */}
-              <div className="grid grid-cols-3 gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
+              <div className="grid grid-cols-3 gap-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Discount (₹)
                   </label>
                   <input
@@ -842,11 +847,11 @@ export default function SubscriptionsDirectoryPage() {
                     min={0}
                     value={assignDiscount}
                     onChange={(e) => setAssignDiscount(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-foreground font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Tax Rate (%)
                   </label>
                   <input
@@ -855,24 +860,24 @@ export default function SubscriptionsDirectoryPage() {
                     max={100}
                     value={assignTaxRate}
                     onChange={(e) => setAssignTaxRate(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-foreground font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-500 mb-1">Final Amount</label>
-                  <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 py-1">
+                  <label className="block font-semibold text-muted-foreground mb-1.5">Final Total</label>
+                  <div className="text-base font-bold font-mono text-emerald-500 py-1">
                     ₹{estimatedFinalPrice.toLocaleString("en-IN")}
                   </div>
                 </div>
 
                 {assignDiscount > 0 && (
-                  <div className="col-span-3">
+                  <div className="col-span-3 pt-1">
                     <input
                       type="text"
                       placeholder="Discount reason (e.g. Founder promotion)"
                       value={assignDiscountReason}
                       onChange={(e) => setAssignDiscountReason(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1 text-zinc-900 dark:text-zinc-100"
+                      className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-foreground"
                     />
                   </div>
                 )}
@@ -880,92 +885,90 @@ export default function SubscriptionsDirectoryPage() {
 
               {/* Notes */}
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Notes
                 </label>
                 <textarea
                   rows={2}
                   value={assignNotes}
                   onChange={(e) => setAssignNotes(e.target.value)}
-                  placeholder="Optional internal remarks..."
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  placeholder="Optional remarks..."
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowAssignModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Assigning..." : "Confirm & Assign"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm & Assign"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* RENEW MEMBERSHIP MODAL                                                */}
-      {/* --------------------------------------------------------------------- */}
+      {/* RENEW MEMBERSHIP MODAL */}
       {showRenewModal && selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-primary" />
                 Renew Membership
               </h2>
               <button
                 onClick={() => setShowRenewModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {modalError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
               </div>
             )}
 
-            <div className="mb-4 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 p-3 text-xs space-y-1">
+            <div className="mb-4 rounded-xl bg-muted/20 border border-border/60 p-3 text-xs space-y-1">
               <div>
-                <span className="text-zinc-500">Member:</span>{" "}
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                <span className="text-muted-foreground">Member:</span>{" "}
+                <span className="font-semibold text-foreground">
                   {selectedSub.memberName}
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500">Current Expiry:</span>{" "}
-                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                <span className="text-muted-foreground">Current Expiry:</span>{" "}
+                <span className="font-semibold text-foreground">
                   {selectedSub.endDate}
                 </span>
               </div>
-              <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
+              <div className="text-[11px] text-emerald-500 font-medium">
                 Seamless chaining automatically starts the renewal cycle the day after current expiry.
               </div>
             </div>
 
             <form onSubmit={handleRenewSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Plan
                 </label>
                 <select
                   value={renewPlanId}
                   onChange={(e) => setRenewPlanId(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -976,7 +979,7 @@ export default function SubscriptionsDirectoryPage() {
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Custom Start Date (Optional)
                 </label>
                 <input
@@ -984,13 +987,13 @@ export default function SubscriptionsDirectoryPage() {
                   placeholder="Defaults to day after expiry"
                   value={renewStartDate}
                   onChange={(e) => setRenewStartDate(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Discount (₹)
                   </label>
                   <input
@@ -998,11 +1001,11 @@ export default function SubscriptionsDirectoryPage() {
                     min={0}
                     value={renewDiscount}
                     onChange={(e) => setRenewDiscount(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-foreground font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  <label className="block font-semibold text-foreground mb-1.5">
                     Tax Rate (%)
                   </label>
                   <input
@@ -1011,60 +1014,58 @@ export default function SubscriptionsDirectoryPage() {
                     max={100}
                     value={renewTaxRate}
                     onChange={(e) => setRenewTaxRate(Number(e.target.value))}
-                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1.5 text-zinc-900 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-foreground font-mono"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowRenewModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Renewing..." : "Confirm Renewal"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Renewal"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* FREEZE MEMBERSHIP MODAL                                               */}
-      {/* --------------------------------------------------------------------- */}
+      {/* FREEZE MEMBERSHIP MODAL */}
       {showFreezeModal && selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <PauseCircle className="h-4 w-4 text-blue-500" />
                 Freeze Membership
               </h2>
               <button
                 onClick={() => setShowFreezeModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {modalError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
               </div>
             )}
 
-            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 p-3 text-xs space-y-1 text-blue-800 dark:text-blue-200">
-              <div className="font-semibold flex items-center gap-1">
+            <div className="mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 p-3 text-xs text-blue-500 space-y-1">
+              <div className="font-semibold flex items-center gap-1.5">
                 <Info className="h-3.5 w-3.5" /> Date Shifting Policy
               </div>
               <p className="text-[11px] leading-relaxed">
@@ -1074,32 +1075,32 @@ export default function SubscriptionsDirectoryPage() {
 
             <form onSubmit={handleFreezeSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Freeze Start Date *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Freeze Start Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={freezeStartDate}
                   onChange={(e) => setFreezeStartDate(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Expected Resume Date (Optional)
                 </label>
                 <input
                   type="date"
                   value={freezeEndDate}
                   onChange={(e) => setFreezeEndDate(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Reason for Freeze
                 </label>
                 <input
@@ -1107,58 +1108,56 @@ export default function SubscriptionsDirectoryPage() {
                   placeholder="Medical leave, travel, exam, etc."
                   value={freezeReason}
                   onChange={(e) => setFreezeReason(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowFreezeModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Freezing..." : "Confirm Freeze"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Freeze"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* THAW MEMBERSHIP MODAL                                                 */}
-      {/* --------------------------------------------------------------------- */}
+      {/* THAW MEMBERSHIP MODAL */}
       {showThawModal && selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <PlayCircle className="h-4 w-4 text-emerald-500" />
                 Thaw Membership
               </h2>
               <button
                 onClick={() => setShowThawModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {modalError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
               </div>
             )}
 
-            <div className="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs space-y-1 text-emerald-800 dark:text-emerald-200">
+            <div className="mb-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-500 space-y-1">
               <div className="font-semibold">Resume Active Pass</div>
               <p className="text-[11px] leading-relaxed">
                 Resuming membership will calculate the exact days spent on hold and shift the end date forward accordingly.
@@ -1167,20 +1166,20 @@ export default function SubscriptionsDirectoryPage() {
 
             <form onSubmit={handleThawSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Actual Thaw Date *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Actual Thaw Date <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={thawDate}
                   onChange={(e) => setThawDate(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block font-semibold text-foreground mb-1.5">
                   Remarks / Reason
                 </label>
                 <input
@@ -1188,58 +1187,56 @@ export default function SubscriptionsDirectoryPage() {
                   placeholder="Returned early, resumed training..."
                   value={thawReason}
                   onChange={(e) => setThawReason(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowThawModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Thawing..." : "Thaw & Shift Validity"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Thaw & Shift Validity"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --------------------------------------------------------------------- */}
-      {/* CANCEL MEMBERSHIP MODAL                                               */}
-      {/* --------------------------------------------------------------------- */}
+      {/* CANCEL MEMBERSHIP MODAL */}
       {showCancelModal && selectedSub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xl my-8">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
-              <h2 className="text-lg font-bold text-red-600 dark:text-red-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-card p-6 shadow-2xl my-8 animate-scaleIn">
+            <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-3">
+              <h2 className="text-base font-bold text-red-500 flex items-center gap-2">
+                <Ban className="h-4 w-4" />
                 Cancel Membership
               </h2>
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-sm"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {modalError && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                {modalError}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{modalError}</span>
               </div>
             )}
 
-            <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-800 dark:text-red-200">
+            <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-500">
               Are you sure you want to cancel the membership for{" "}
               <strong>{selectedSub.memberName}</strong> ({selectedSub.planName})?
               This action terminates gym floor access immediately.
@@ -1247,8 +1244,8 @@ export default function SubscriptionsDirectoryPage() {
 
             <form onSubmit={handleCancelSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Cancellation Reason *
+                <label className="block font-semibold text-foreground mb-1.5">
+                  Cancellation Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   rows={2}
@@ -1256,27 +1253,25 @@ export default function SubscriptionsDirectoryPage() {
                   placeholder="Relocation, refund requested, policy breach..."
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-zinc-900 dark:text-zinc-100"
+                  className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                <Button
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowCancelModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Keep Active
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={modalLoading}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm disabled:opacity-50"
                 >
-                  {modalLoading ? "Cancelling..." : "Confirm Cancellation"}
-                </Button>
+                  {modalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Cancellation"}
+                </button>
               </div>
             </form>
           </div>

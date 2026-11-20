@@ -12,8 +12,6 @@ import {
   MembershipStatus,
   Permission,
 } from "@gymos/shared-types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { MemberPassCard } from "@/components/attendance/MemberPassCard";
 import {
   ArrowLeft,
@@ -24,12 +22,19 @@ import {
   ArrowRightLeft,
   Archive,
   Edit,
-  AlertTriangle,
-  History,
   HeartPulse,
   CreditCard,
   CheckCircle2,
   PauseCircle,
+  History,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 export default function MemberProfilePage() {
@@ -165,31 +170,32 @@ export default function MemberProfilePage() {
     switch (status) {
       case MemberStatus.ACTIVE:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Active
           </span>
         );
       case MemberStatus.INACTIVE:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-zinc-500/10 text-zinc-500 border border-border">
             Inactive
           </span>
         );
       case MemberStatus.SUSPENDED:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             Suspended
           </span>
         );
       case MemberStatus.ARCHIVED:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
             Archived
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
             {status}
           </span>
         );
@@ -198,63 +204,67 @@ export default function MemberProfilePage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center text-sm text-zinc-500">
-        Loading member profile...
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+        <p className="text-sm font-semibold text-foreground">Loading member profile...</p>
       </div>
     );
   }
 
   if (error || !member) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <p className="text-sm text-red-600 mb-4">{error || "Member not found"}</p>
-        <Link href="/dashboard/members">
-          <Button variant="outline" size="sm">
-            Back to Directory
-          </Button>
+      <div className="p-12 text-center max-w-md mx-auto">
+        <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-red-500 mb-4">{error || "Member not found"}</p>
+        <Link
+          href="/dashboard/members"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent text-xs font-semibold"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Directory
         </Link>
       </div>
     );
   }
 
+  const initials = `${member.firstName[0] || ""}${member.lastName[0] || ""}`.toUpperCase();
+
   return (
-    <div className="container mx-auto px-4 py-8 sm:px-6 max-w-5xl">
+    <div className="space-y-6 animate-fadeIn pb-16 max-w-5xl">
       {/* Top Navigation */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <Link
           href="/dashboard/members"
-          className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 flex items-center gap-1"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="h-3 w-3" /> Back to Members
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Members
         </Link>
       </div>
 
       {/* Profile Header Banner */}
-      <div className="mb-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xl uppercase">
-              {member.firstName[0]}
-              {member.lastName[0]}
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 via-purple-500/20 to-blue-500/20 border border-primary/30 flex items-center justify-center font-bold text-xl text-primary shadow-sm">
+              {initials || "MB"}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
                   {member.firstName} {member.lastName}
                 </h1>
                 {getStatusBadge(member.status)}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-                <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-mono font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-md">
                   {member.memberNumber}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                   {member.branchName || "Branch"}
                 </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                  Joined {new Date(member.joinedAt).toLocaleDateString()}
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  Joined {new Date(member.joinedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
                 </span>
               </div>
             </div>
@@ -263,44 +273,39 @@ export default function MemberProfilePage() {
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
             {hasPermission(Permission.MEMBER_UPDATE) && member.status !== MemberStatus.ARCHIVED && (
-              <Link href={`/dashboard/members/${member.id}/edit`}>
-                <Button variant="outline" size="sm" className="gap-1 text-xs">
-                  <Edit className="h-3.5 w-3.5" /> Edit
-                </Button>
+              <Link
+                href={`/dashboard/members/${member.id}/edit`}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent/50 text-foreground transition-colors"
+              >
+                <Edit className="h-3.5 w-3.5 text-primary" /> Edit
               </Link>
             )}
 
             {hasPermission(Permission.MEMBER_STATUS_MANAGE) && member.status !== MemberStatus.ARCHIVED && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => setShowStatusModal(true)}
-                className="gap-1 text-xs"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent/50 text-foreground transition-colors"
               >
-                <Shield className="h-3.5 w-3.5" /> Status
-              </Button>
+                <Shield className="h-3.5 w-3.5 text-amber-500" /> Status
+              </button>
             )}
 
             {hasPermission(Permission.MEMBER_TRANSFER) && member.status !== MemberStatus.ARCHIVED && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => setShowTransferModal(true)}
-                className="gap-1 text-xs"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent/50 text-foreground transition-colors"
               >
-                <ArrowRightLeft className="h-3.5 w-3.5" /> Transfer
-              </Button>
+                <ArrowRightLeft className="h-3.5 w-3.5 text-blue-500" /> Transfer
+              </button>
             )}
 
             {hasPermission(Permission.MEMBER_ARCHIVE) && member.status !== MemberStatus.ARCHIVED && (
-              <Button
-                variant="outline"
-                size="sm"
+              <button
                 onClick={() => setShowArchiveModal(true)}
-                className="gap-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-red-500/20 hover:bg-red-500/10 text-red-500 transition-colors"
               >
                 <Archive className="h-3.5 w-3.5" /> Archive
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -318,50 +323,51 @@ export default function MemberProfilePage() {
           const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
           return (
-            <div className="mb-6 rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/40 dark:from-emerald-950/40 dark:via-zinc-900 dark:to-emerald-950/20 p-5 shadow-sm">
+            <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-card to-background p-5 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
-                      Current Subscription
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                      Active Pass
                     </span>
                     {activeSub.status === MembershipStatus.FROZEN ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-950 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-xs font-bold text-blue-500">
                         <PauseCircle className="h-3 w-3" /> Frozen (Paused)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3" /> Active Pass
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" /> Current Subscription
                       </span>
                     )}
                   </div>
 
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                  <h3 className="text-xl font-bold text-foreground">
                     {activeSub.planName}
                   </h3>
 
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                     <span>
-                      Validity: <strong className="text-zinc-800 dark:text-zinc-200">{activeSub.startDate}</strong> to{" "}
-                      <strong className="text-zinc-800 dark:text-zinc-200">{activeSub.endDate}</strong>
+                      Validity: <strong className="text-foreground">{activeSub.startDate}</strong> to{" "}
+                      <strong className="text-foreground">{activeSub.endDate}</strong>
                     </span>
                     <span>
                       Remaining:{" "}
-                      <strong className={daysLeft <= 7 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400"}>
+                      <strong className={daysLeft <= 7 ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"}>
                         {daysLeft > 0 ? `${daysLeft} days` : "Expiring today"}
                       </strong>
                     </span>
                     <span>
-                      Paid: <strong>₹{activeSub.finalPrice.toLocaleString("en-IN")}</strong>
+                      Paid: <strong className="text-foreground font-mono">₹{activeSub.finalPrice.toLocaleString("en-IN")}</strong>
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <Link href="/dashboard/memberships">
-                    <Button size="sm" variant="outline" className="text-xs gap-1">
-                      <CreditCard className="h-3.5 w-3.5" /> Manage in Subscriptions
-                    </Button>
+                  <Link
+                    href="/dashboard/memberships"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-card border border-border hover:bg-accent text-foreground transition-colors"
+                  >
+                    <CreditCard className="h-3.5 w-3.5 text-primary" /> Manage Plan
                   </Link>
                 </div>
               </div>
@@ -370,58 +376,63 @@ export default function MemberProfilePage() {
         }
 
         return (
-          <div className="mb-6 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 text-zinc-500">
-              <CreditCard className="h-4 w-4 text-zinc-400" />
+          <div className="rounded-2xl border border-dashed border-border bg-card/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <CreditCard className="h-4 w-4 text-muted-foreground/60" />
               <span>No active membership subscription currently on file for this member.</span>
             </div>
-            <Link href="/dashboard/memberships">
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
-                Assign Membership Plan
-              </Button>
+            <Link
+              href="/dashboard/memberships"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm transition-all"
+            >
+              Assign Membership Plan
             </Link>
           </div>
         );
       })()}
 
       {/* Grid of Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Contact & Personal Information */}
-        <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <User className="h-4 w-4 text-emerald-600" />
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <User className="h-4 w-4" />
+            </div>
+            <h3 className="text-sm font-bold text-foreground">
               Personal & Contact Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-3 text-xs">
-            <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-zinc-500">Phone:</span>
-              <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+            </h3>
+          </div>
+          <div className="divide-y divide-border/40 text-xs">
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Phone:</span>
+              <span className="col-span-2 font-semibold text-foreground flex items-center gap-1">
+                <Phone className="w-3 h-3 text-muted-foreground" />
                 {member.phone}
               </span>
             </div>
-            <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-zinc-500">Email:</span>
-              <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Email:</span>
+              <span className="col-span-2 font-medium text-foreground flex items-center gap-1">
+                <Mail className="w-3 h-3 text-muted-foreground" />
                 {member.email || "—"}
               </span>
             </div>
-            <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-zinc-500">Gender:</span>
-              <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Gender:</span>
+              <span className="col-span-2 font-medium text-foreground">
                 {member.gender || "—"}
               </span>
             </div>
-            <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-zinc-500">Date of Birth:</span>
-              <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
-                {member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString() : "—"}
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Date of Birth:</span>
+              <span className="col-span-2 font-medium text-foreground">
+                {member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "—"}
               </span>
             </div>
-            <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-zinc-500">Address:</span>
-              <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Address:</span>
+              <span className="col-span-2 font-medium text-foreground">
                 {[
                   member.addressLine1,
                   member.addressLine2,
@@ -434,88 +445,92 @@ export default function MemberProfilePage() {
                   .join(", ") || "—"}
               </span>
             </div>
-            <div className="grid grid-cols-3 py-1">
-              <span className="text-zinc-500">Notes:</span>
-              <span className="col-span-2 text-zinc-700 dark:text-zinc-300 italic">
+            <div className="grid grid-cols-3 py-2.5">
+              <span className="text-muted-foreground">Notes:</span>
+              <span className="col-span-2 text-muted-foreground italic">
                 {member.notes || "None recorded"}
               </span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Emergency Contact & Membership Metadata */}
         <div className="space-y-6">
-          <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <HeartPulse className="h-4 w-4 text-emerald-600" />
+          <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+              <div className="p-2 rounded-lg bg-red-500/10 text-red-500">
+                <HeartPulse className="h-4 w-4" />
+              </div>
+              <h3 className="text-sm font-bold text-foreground">
                 Emergency Contact
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-3 text-xs">
-              <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-zinc-500">Name:</span>
-                <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+              </h3>
+            </div>
+            <div className="divide-y divide-border/40 text-xs">
+              <div className="grid grid-cols-3 py-2.5">
+                <span className="text-muted-foreground">Name:</span>
+                <span className="col-span-2 font-semibold text-foreground">
                   {member.emergencyContactName || "—"}
                 </span>
               </div>
-              <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-zinc-500">Phone:</span>
-                <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="grid grid-cols-3 py-2.5">
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="col-span-2 font-medium text-foreground">
                   {member.emergencyContactPhone || "—"}
                 </span>
               </div>
-              <div className="grid grid-cols-3 py-1">
-                <span className="text-zinc-500">Relationship:</span>
-                <span className="col-span-2 font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="grid grid-cols-3 py-2.5">
+                <span className="text-muted-foreground">Relationship:</span>
+                <span className="col-span-2 font-medium text-foreground">
                   {member.emergencyContactRelationship || "—"}
                 </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-            <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-emerald-600" />
+          <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2.5 border-b border-border/40 pb-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <h3 className="text-sm font-bold text-foreground">
                 Branch Assignment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-3 text-xs">
-              <div className="grid grid-cols-3 py-1 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="text-zinc-500">Current Branch:</span>
-                <span className="col-span-2 font-semibold text-zinc-900 dark:text-zinc-100">
+              </h3>
+            </div>
+            <div className="divide-y divide-border/40 text-xs">
+              <div className="grid grid-cols-3 py-2.5">
+                <span className="text-muted-foreground">Current Branch:</span>
+                <span className="col-span-2 font-semibold text-foreground">
                   {member.branchName || "Branch"}
                 </span>
               </div>
-              <div className="grid grid-cols-3 py-1">
-                <span className="text-zinc-500">Branch ID:</span>
-                <span className="col-span-2 font-mono text-[11px] text-zinc-500">
+              <div className="grid grid-cols-3 py-2.5">
+                <span className="text-muted-foreground">Branch ID:</span>
+                <span className="col-span-2 font-mono text-[11px] text-muted-foreground">
                   {member.branchId}
                 </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Transfer History */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <History className="h-4 w-4 text-emerald-600" />
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border/40 flex items-center gap-2">
+          <History className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-bold text-foreground">
             Branch Transfer History ({member.transfers?.length || 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+          </h3>
+        </div>
+        <div className="p-0">
           {!member.transfers || member.transfers.length === 0 ? (
-            <div className="p-6 text-center text-xs text-zinc-500">
+            <div className="p-6 text-center text-xs text-muted-foreground">
               No branch transfers recorded for this member.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-50 dark:bg-zinc-900/60 uppercase tracking-wider text-zinc-500 border-b border-zinc-200 dark:border-zinc-800">
+                <thead className="bg-muted/30 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold border-b border-border/40">
                   <tr>
                     <th className="px-4 py-2.5">Date</th>
                     <th className="px-4 py-2.5">From Branch</th>
@@ -523,19 +538,19 @@ export default function MemberProfilePage() {
                     <th className="px-4 py-2.5">Reason</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody className="divide-y divide-border/40">
                   {member.transfers.map((t) => (
-                    <tr key={t.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-                      <td className="px-4 py-2.5 text-zinc-500">
+                    <tr key={t.id} className="hover:bg-accent/40">
+                      <td className="px-4 py-2.5 text-muted-foreground">
                         {new Date(t.transferredAt).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-2.5 font-medium text-foreground">
                         {t.fromBranchName || t.fromBranchId}
                       </td>
-                      <td className="px-4 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
+                      <td className="px-4 py-2.5 font-medium text-emerald-500">
                         {t.toBranchName || t.toBranchId}
                       </td>
-                      <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 italic">
+                      <td className="px-4 py-2.5 text-muted-foreground italic">
                         {t.reason || "None specified"}
                       </td>
                     </tr>
@@ -544,31 +559,34 @@ export default function MemberProfilePage() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Membership Passes & History */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm mt-6">
-        <CardHeader className="pb-3 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-emerald-600" />
-            Membership Subscriptions ({subscriptions.length})
-          </CardTitle>
-          <Link href="/dashboard/memberships">
-            <Button variant="ghost" size="sm" className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">
-              Manage Subscriptions →
-            </Button>
+      {/* Membership Subscriptions */}
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border/40 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-bold text-foreground">
+              Membership Subscriptions ({subscriptions.length})
+            </h3>
+          </div>
+          <Link
+            href="/dashboard/memberships"
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Manage Subscriptions →
           </Link>
-        </CardHeader>
-        <CardContent className="p-0">
+        </div>
+        <div className="p-0">
           {subscriptions.length === 0 ? (
-            <div className="p-6 text-center text-xs text-zinc-500">
+            <div className="p-6 text-center text-xs text-muted-foreground">
               No historical membership subscriptions recorded for this member.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-50 dark:bg-zinc-900/60 uppercase tracking-wider text-zinc-500 border-b border-zinc-200 dark:border-zinc-800">
+                <thead className="bg-muted/30 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold border-b border-border/40">
                   <tr>
                     <th className="px-4 py-2.5">Plan</th>
                     <th className="px-4 py-2.5">Branch</th>
@@ -578,20 +596,20 @@ export default function MemberProfilePage() {
                     <th className="px-4 py-2.5">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody className="divide-y divide-border/40">
                   {subscriptions.map((s) => (
-                    <tr key={s.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-                      <td className="px-4 py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
+                    <tr key={s.id} className="hover:bg-accent/40">
+                      <td className="px-4 py-2.5 font-medium text-foreground">
                         {s.planName} ({s.planCode})
                       </td>
-                      <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400">
+                      <td className="px-4 py-2.5 text-muted-foreground">
                         {s.homeBranchName || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-zinc-500">{s.startDate}</td>
-                      <td className="px-4 py-2.5 text-zinc-700 dark:text-zinc-300 font-medium">
+                      <td className="px-4 py-2.5 text-muted-foreground">{s.startDate}</td>
+                      <td className="px-4 py-2.5 text-foreground font-medium">
                         {s.endDate}
                       </td>
-                      <td className="px-4 py-2.5 font-semibold text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-2.5 font-bold font-mono text-foreground">
                         ₹{s.finalPrice.toLocaleString("en-IN")}
                       </td>
                       <td className="px-4 py-2.5">
@@ -605,8 +623,8 @@ export default function MemberProfilePage() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Member Access Pass & Digital Credentials */}
       {member && (
@@ -619,20 +637,28 @@ export default function MemberProfilePage() {
 
       {/* Change Status Modal */}
       {showStatusModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full border border-zinc-200 dark:border-zinc-800 shadow-xl">
-            <h2 className="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">
-              Change Member Status
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleIn">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground">
+                Change Member Status
+              </h2>
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <form onSubmit={handleStatusSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Status
                 </label>
                 <select
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value as MemberStatus)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value={MemberStatus.ACTIVE}>ACTIVE</option>
                   <option value={MemberStatus.INACTIVE}>INACTIVE</option>
@@ -640,7 +666,7 @@ export default function MemberProfilePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Reason for status change
                 </label>
                 <input
@@ -648,26 +674,24 @@ export default function MemberProfilePage() {
                   placeholder="e.g. Requested temporary pause, Medical reason"
                   value={statusReason}
                   onChange={(e) => setStatusReason(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={statusLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                 >
-                  {statusLoading ? "Updating..." : "Save Status"}
-                </Button>
+                  {statusLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save Status"}
+                </button>
               </div>
             </form>
           </div>
@@ -676,22 +700,30 @@ export default function MemberProfilePage() {
 
       {/* Transfer Branch Modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full border border-zinc-200 dark:border-zinc-800 shadow-xl">
-            <h2 className="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5 text-emerald-600" />
-              Transfer Member to Branch
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleIn">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-primary" />
+                Transfer Member to Branch
+              </h2>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             <form onSubmit={handleTransferSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Target Destination Branch
                 </label>
                 <select
                   value={targetBranchId}
                   onChange={(e) => setTargetBranchId(e.target.value)}
                   required
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Select destination branch...</option>
                   {branches
@@ -704,34 +736,32 @@ export default function MemberProfilePage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Reason for Transfer
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Relocated to new neighborhood, Member request"
+                  placeholder="e.g. Relocation, Member requested"
                   value={transferReason}
                   onChange={(e) => setTransferReason(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowTransferModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={transferLoading}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                 >
-                  {transferLoading ? "Transferring..." : "Execute Transfer"}
-                </Button>
+                  {transferLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Transfer Member"}
+                </button>
               </div>
             </form>
           </div>
@@ -740,46 +770,52 @@ export default function MemberProfilePage() {
 
       {/* Archive Modal */}
       {showArchiveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-lg p-6 max-w-md w-full border border-red-200 dark:border-red-900/50 shadow-xl">
-            <h2 className="text-lg font-bold mb-2 text-red-600 dark:text-red-400 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Archive Member
-            </h2>
-            <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-4">
-              Archiving a member marks them as permanently archived. Their records and transfer
-              history are preserved for compliance and reporting.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-scaleIn">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-red-500 flex items-center gap-2">
+                <Archive className="h-4 w-4" />
+                Archive Member
+              </h2>
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Archiving disables attendance check-ins and marks the member inactive. This action can only be audited and undone by an organization owner.
             </p>
             <form onSubmit={handleArchiveSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Reason for Archival
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Permanently left gym, Member requested data archival"
+                  placeholder="e.g. Left permanently, Relocated abroad"
                   value={archiveReason}
                   onChange={(e) => setArchiveReason(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background/50 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() => setShowArchiveModal(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-accent"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
-                  size="sm"
                   disabled={archiveLoading}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm"
                 >
-                  {archiveLoading ? "Archiving..." : "Confirm Archive"}
-                </Button>
+                  {archiveLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Archive"}
+                </button>
               </div>
             </form>
           </div>

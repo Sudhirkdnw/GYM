@@ -51,7 +51,7 @@ export function AttendanceNav() {
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-6">
+    <div className="inline-flex flex-wrap items-center gap-1.5 p-1 rounded-2xl border bg-slate-100/80 border-slate-200/80 dark:bg-white/[0.04] dark:border-white/[0.08] mb-6">
       {navItems
         .filter((item) => item.show)
         .map((item) => {
@@ -64,10 +64,10 @@ export function AttendanceNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-gradient-to-r dark:from-violet-600 dark:to-indigo-600 dark:text-white dark:shadow-glow dark:shadow-violet-500/25"
+                  : "text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-white/[0.04]"
               }`}
             >
               <Icon className="h-3.5 w-3.5" />

@@ -13,8 +13,6 @@ import {
   InvoiceData,
   PaginatedResult,
 } from "@gymos/shared-types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { BillingNav } from "@/components/billing/BillingNav";
 import {
   IndianRupee,
@@ -28,6 +26,9 @@ import {
   ExternalLink,
   PieChart,
   RefreshCw,
+  Receipt,
+  Sparkles,
+  Wallet,
 } from "lucide-react";
 
 export default function BillingOverviewPage() {
@@ -89,43 +90,45 @@ export default function BillingOverviewPage() {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
+    <div className="space-y-6 animate-fadeIn pb-16">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Billing & Financial Records
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Tax invoices, manual payment reconciliation, outstanding dues, and credit management
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Receipt className="h-6 w-6 text-primary" />
+              Finance & Billing
+            </h1>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              Ledger
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Tax invoices, payment reconciliation receipts, outstanding dues, and customer credit deposits.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={fetchDashboardData}
             disabled={loading}
-            className="border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="p-2 rounded-xl border border-border bg-card hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh Ledger"
           >
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-primary" : ""}`} />
+          </button>
 
-          <Link href="/dashboard/billing/invoices">
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Create Invoice
-            </Button>
+          <Link
+            href="/dashboard/billing/invoices"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Create Invoice
           </Link>
         </div>
       </div>
@@ -134,227 +137,210 @@ export default function BillingOverviewPage() {
       <BillingNav />
 
       {error && (
-        <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-sm mb-6 flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-500 text-xs flex items-center justify-between">
           <span>{error}</span>
-          <Button size="sm" variant="ghost" onClick={fetchDashboardData}>
+          <button
+            onClick={fetchDashboardData}
+            className="font-semibold underline hover:no-underline"
+          >
             Retry
-          </Button>
+          </button>
         </div>
       )}
 
       {/* Topline KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Today's Collections */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Today&apos;s Collections
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Today&apos;s Collections</span>
+            <div className="h-8 w-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <TrendingUp className="h-4 w-4" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {loading ? "..." : formatCurrency(kpis?.todayCollections || 0)}
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              Received today across branches
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground">
+            {loading ? "..." : formatCurrency(kpis?.todayCollections || 0)}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Received today across active desks
+          </p>
+        </div>
 
         {/* Month-to-Date Collections */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              MTD Revenue
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>MTD Revenue</span>
+            <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <IndianRupee className="h-4 w-4" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {loading ? "..." : formatCurrency(kpis?.mtdCollections || 0)}
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              Calendar month collections
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground">
+            {loading ? "..." : formatCurrency(kpis?.mtdCollections || 0)}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Calendar month total collections
+          </p>
+        </div>
 
         {/* Total Outstanding Dues */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Total Outstanding Dues
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Total Outstanding Dues</span>
+            <div className="h-8 w-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
               <Clock className="h-4 w-4" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {loading ? "..." : formatCurrency(kpis?.totalOutstandingDues || 0)}
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Link
-                href="/dashboard/billing/dues"
-                className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
-              >
-                <span>View aging report</span>
-                <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-2xl font-bold font-mono text-amber-500">
+            {loading ? "..." : formatCurrency(kpis?.totalOutstandingDues || 0)}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <Link
+              href="/dashboard/billing/dues"
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5"
+            >
+              <span>View aging report</span>
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
 
         {/* Invoice Status Distribution */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Active Invoices
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Active Invoices</span>
+            <div className="h-8 w-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
               <FileText className="h-4 w-4" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {loading ? "..." : kpis?.activeInvoicesCount || 0}
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-              <span className="text-emerald-600 font-semibold">{kpis?.paidInvoicesCount || 0} Paid</span>
-              {" • "}
-              <span className="text-rose-600 font-semibold">{kpis?.overdueInvoicesCount || 0} Overdue</span>
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="text-2xl font-bold font-mono text-foreground">
+            {loading ? "..." : kpis?.activeInvoicesCount || 0}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <span className="text-emerald-500 font-semibold">{kpis?.paidInvoicesCount || 0} Paid</span>
+            {" • "}
+            <span className="text-red-500 font-semibold">{kpis?.overdueInvoicesCount || 0} Overdue</span>
+          </p>
+        </div>
       </div>
 
       {/* Two-Column Grid: Payment Methods & Branch Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Payment Methods Distribution */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-              <PieChart className="h-4 w-4 text-emerald-600" />
-              Payment Methods Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {methods.length === 0 ? (
-              <div className="py-8 text-center text-sm text-zinc-500">
-                No recorded payments yet
-              </div>
-            ) : (
-              <div className="space-y-3.5">
-                {methods.map((m) => (
-                  <div key={m.method} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-zinc-700 dark:text-zinc-300">{m.method}</span>
-                      <span className="text-zinc-900 dark:text-zinc-100 font-semibold">
-                        {formatCurrency(m.totalAmount)} ({m.percentage}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-600 rounded-full"
-                        style={{ width: `${Math.min(m.percentage, 100)}%` }}
-                      />
-                    </div>
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl p-5 shadow-sm lg:col-span-1 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <PieChart className="h-4 w-4 text-primary" />
+            Payment Methods Breakdown
+          </div>
+          {methods.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No recorded payments yet
+            </div>
+          ) : (
+            <div className="space-y-4 pt-1">
+              {methods.map((m) => (
+                <div key={m.method} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="text-foreground">{m.method}</span>
+                    <span className="text-foreground font-mono font-bold">
+                      {formatCurrency(m.totalAmount)}{" "}
+                      <span className="text-muted-foreground font-normal">({m.percentage}%)</span>
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(m.percentage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Branch Collections (Gym Owner View) or Recent Invoices */}
-        <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-              <Building2 className="h-4 w-4 text-emerald-600" />
-              {organization?.role === "GYM_OWNER"
-                ? "Branch Performance Breakdown"
-                : "Recent Invoices"}
-            </CardTitle>
-            <Link
-              href="/dashboard/billing/invoices"
-              className="text-xs font-medium text-emerald-600 hover:underline flex items-center gap-1"
-            >
-              <span>View all invoices</span>
-              <ExternalLink className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {organization?.role === "GYM_OWNER" && branchPerf.length > 0 ? (
-              <div className="overflow-x-auto">
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm lg:col-span-2 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="p-4 border-b border-border/40 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <Building2 className="h-4 w-4 text-primary" />
+                {organization?.role === "GYM_OWNER"
+                  ? "Branch Financial Performance"
+                  : "Recent Invoices"}
+              </div>
+              <Link
+                href="/dashboard/billing/invoices"
+                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+              >
+                <span>View all invoices</span>
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              {organization?.role === "GYM_OWNER" && branchPerf.length > 0 ? (
                 <table className="w-full text-xs text-left">
-                  <thead className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500">
+                  <thead className="border-b border-border/40 bg-muted/30 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
                     <tr>
-                      <th className="py-2.5 font-medium">Branch</th>
-                      <th className="py-2.5 font-medium">Total Collections</th>
-                      <th className="py-2.5 font-medium">Outstanding Dues</th>
-                      <th className="py-2.5 font-medium">Invoices</th>
+                      <th className="py-3 px-4">Branch</th>
+                      <th className="py-3 px-4">Total Collections</th>
+                      <th className="py-3 px-4">Outstanding Dues</th>
+                      <th className="py-3 px-4">Invoices</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                  <tbody className="divide-y divide-border/40">
                     {branchPerf.map((bp) => (
-                      <tr key={bp.branchId} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                        <td className="py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                      <tr key={bp.branchId} className="hover:bg-accent/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-foreground">
                           {bp.branchName} ({bp.branchCode})
                         </td>
-                        <td className="py-3 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <td className="py-3.5 px-4 text-emerald-500 font-bold font-mono">
                           {formatCurrency(bp.collections)}
                         </td>
-                        <td className="py-3 text-amber-600 dark:text-amber-400 font-semibold">
+                        <td className="py-3.5 px-4 text-amber-500 font-bold font-mono">
                           {formatCurrency(bp.dues)}
                         </td>
-                        <td className="py-3 text-zinc-600 dark:text-zinc-400">{bp.invoicesCount}</td>
+                        <td className="py-3.5 px-4 text-muted-foreground">{bp.invoicesCount}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
+              ) : (
                 <table className="w-full text-xs text-left">
-                  <thead className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500">
+                  <thead className="border-b border-border/40 bg-muted/30 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
                     <tr>
-                      <th className="py-2.5 font-medium">Invoice #</th>
-                      <th className="py-2.5 font-medium">Member</th>
-                      <th className="py-2.5 font-medium">Total</th>
-                      <th className="py-2.5 font-medium">Balance Due</th>
-                      <th className="py-2.5 font-medium">Status</th>
+                      <th className="py-3 px-4">Invoice #</th>
+                      <th className="py-3 px-4">Member</th>
+                      <th className="py-3 px-4">Total</th>
+                      <th className="py-3 px-4">Balance Due</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
+                  <tbody className="divide-y divide-border/40">
                     {recentInvoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                        <td className="py-2.5 font-mono font-medium text-emerald-600 dark:text-emerald-400">
+                      <tr key={inv.id} className="hover:bg-accent/40 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-primary">
                           {inv.invoiceNumber}
                         </td>
-                        <td className="py-2.5 font-medium text-zinc-900 dark:text-zinc-100">
+                        <td className="py-3.5 px-4 font-medium text-foreground">
                           {inv.customerSnapshot?.name || inv.member?.firstName}
                         </td>
-                        <td className="py-2.5 font-semibold text-zinc-900 dark:text-zinc-100">
+                        <td className="py-3.5 px-4 font-bold font-mono text-foreground">
                           {formatCurrency(inv.totalAmount)}
                         </td>
-                        <td className="py-2.5 text-amber-600 dark:text-amber-400 font-medium">
+                        <td className="py-3.5 px-4 text-amber-500 font-bold font-mono">
                           {formatCurrency(inv.balanceDue)}
                         </td>
-                        <td className="py-2.5">
+                        <td className="py-3.5 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase ${
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
                               inv.status === "PAID"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                 : inv.status === "PARTIALLY_PAID"
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
                                 : inv.status === "OVERDUE"
-                                ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-400"
-                                : "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400"
+                                ? "bg-red-500/10 text-red-500 border-red-500/20"
+                                : "bg-muted text-muted-foreground border-border"
                             }`}
                           >
                             {inv.status}
@@ -364,88 +350,86 @@ export default function BillingOverviewPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Recent Payments Feed */}
-      <Card className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-            <CreditCard className="h-4 w-4 text-emerald-600" />
-            Recent Payment Transactions
-          </CardTitle>
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border/40 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+            <CreditCard className="h-4 w-4 text-primary" />
+            Recent Payment Receipts
+          </div>
           <Link
             href="/dashboard/billing/payments"
-            className="text-xs font-medium text-emerald-600 hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
           >
             <span>View payment ledger</span>
             <ExternalLink className="h-3 w-3" />
           </Link>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="overflow-x-auto">
           {recentPayments.length === 0 ? (
-            <div className="py-8 text-center text-sm text-zinc-500">
+            <div className="py-12 text-center text-xs text-muted-foreground">
               No recent payments recorded
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500">
-                  <tr>
-                    <th className="py-2.5 font-medium">Receipt #</th>
-                    <th className="py-2.5 font-medium">Member</th>
-                    <th className="py-2.5 font-medium">Method</th>
-                    <th className="py-2.5 font-medium">Reference</th>
-                    <th className="py-2.5 font-medium">Amount</th>
-                    <th className="py-2.5 font-medium">Date</th>
-                    <th className="py-2.5 font-medium">Status</th>
+            <table className="w-full text-xs text-left">
+              <thead className="border-b border-border/40 bg-muted/30 uppercase tracking-wider text-[10px] text-muted-foreground font-semibold">
+                <tr>
+                  <th className="py-3 px-4">Receipt #</th>
+                  <th className="py-3 px-4">Member</th>
+                  <th className="py-3 px-4">Method</th>
+                  <th className="py-3 px-4">Reference</th>
+                  <th className="py-3 px-4">Amount</th>
+                  <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {recentPayments.map((p) => (
+                  <tr key={p.id} className="hover:bg-accent/40 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-primary">
+                      {p.paymentNumber}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-foreground">
+                      {p.member?.firstName} {p.member?.lastName}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border/60">
+                        {p.method}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-muted-foreground text-[11px]">
+                      {p.transactionReference || p.chequeNumber || "—"}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold font-mono text-emerald-500">
+                      {formatCurrency(p.amount)}
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">{p.paidAt.slice(0, 10)}</td>
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                          p.status === "COMPLETED"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : p.status === "PENDING"
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : "bg-red-500/10 text-red-500 border-red-500/20"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                  {recentPayments.map((p) => (
-                    <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
-                      <td className="py-3 font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                        {p.paymentNumber}
-                      </td>
-                      <td className="py-3 font-medium text-zinc-900 dark:text-zinc-100">
-                        {p.member?.firstName} {p.member?.lastName}
-                      </td>
-                      <td className="py-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          {p.method}
-                        </span>
-                      </td>
-                      <td className="py-3 font-mono text-zinc-500">
-                        {p.transactionReference || p.chequeNumber || "—"}
-                      </td>
-                      <td className="py-3 font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(p.amount)}
-                      </td>
-                      <td className="py-3 text-zinc-500">{p.paidAt.slice(0, 10)}</td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase ${
-                            p.status === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400"
-                              : p.status === "PENDING"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-400"
-                          }`}
-                        >
-                          {p.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
