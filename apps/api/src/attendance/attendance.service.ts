@@ -1832,26 +1832,38 @@ export class AttendanceService {
 
   async getKioskDailyToken(
     organizationId: string,
-    branchId: string,
+    branchId?: string,
   ): Promise<KioskTokenResponse> {
+    if (!organizationId) {
+      throw new BadRequestException('Organization context is required');
+    }
+
     const branch = await this.prisma.withSuperAdminContext(async (tx) => {
+      if (branchId) {
+        return tx.branch.findFirst({
+          where: { id: branchId, organizationId },
+          include: { organization: true },
+        });
+      }
       return tx.branch.findFirst({
-        where: { id: branchId, organizationId },
+        where: { organizationId, status: 'ACTIVE' },
         include: { organization: true },
+        orderBy: { createdAt: 'asc' },
       });
     });
 
     if (!branch || branch.status !== 'ACTIVE') {
-      throw new NotFoundException('Active branch not found');
+      throw new NotFoundException('Active branch not found for this gym');
     }
 
+    const resolvedBranchId = branch.id;
     const timezone = branch.timezone || branch.organization?.timezone || 'Asia/Kolkata';
     const now = new Date();
     const { localDate } = this.getLocalTimeAndDate(now, timezone);
 
     const payload = {
       org: organizationId,
-      brn: branchId,
+      brn: resolvedBranchId,
       dat: localDate,
       iat: Math.floor(now.getTime() / 1000),
       exp: Math.floor(now.getTime() / 1000) + 86400 * 2, // 48-hour validity buffer
@@ -1863,7 +1875,7 @@ export class AttendanceService {
 
     return {
       kioskToken,
-      branchId,
+      branchId: resolvedBranchId,
       branchName: branch.name,
       organizationName: branch.organization.name,
       date: localDate,

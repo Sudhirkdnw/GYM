@@ -461,10 +461,12 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Get or generate daily counter kiosk QR token for active branch' })
   @ApiResponse({ status: 200, description: 'Daily counter QR token and metadata' })
   async getKioskDailyToken(
-    @CurrentTenant() tenant: { id: string },
-    @CurrentBranch() branchId: string,
+    @CurrentTenant() organizationId: string,
+    @CurrentBranch() branch: BranchData | null,
+    @Query('branchId') queryBranchId?: string,
   ): Promise<KioskTokenResponse> {
-    return this.attendanceService.getKioskDailyToken(tenant.id, branchId);
+    const resolvedBranchId = queryBranchId || branch?.id;
+    return this.attendanceService.getKioskDailyToken(organizationId, resolvedBranchId);
   }
 
   @Public()

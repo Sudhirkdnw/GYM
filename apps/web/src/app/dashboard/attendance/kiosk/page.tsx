@@ -46,7 +46,14 @@ export default function KioskCounterQrPage() {
     try {
       setRefreshing(true);
       setError(null);
-      const res = await apiClient<KioskTokenResponse>("/attendance/kiosk/token");
+      const selectedBranchId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("gymos_selected_branch_id")
+          : null;
+      const url = selectedBranchId
+        ? `/attendance/kiosk/token?branchId=${encodeURIComponent(selectedBranchId)}`
+        : "/attendance/kiosk/token";
+      const res = await apiClient<KioskTokenResponse>(url);
       setData(res);
 
       if (canvasRef.current && res.checkInUrl) {
