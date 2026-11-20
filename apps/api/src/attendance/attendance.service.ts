@@ -14,13 +14,17 @@ import {
   AttendanceStatus,
   PassStatus,
 } from '@prisma/client';
+import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service';
 import { BranchContextService } from '../common/tenant/branch-context.service';
 import { EnvelopeEncryptionService } from './encryption/envelope-encryption.service';
 import { RedisService } from '../common/redis/redis.service';
 import { QrTokenService } from './qr-token.service';
 import { PhysicalPasscodeService } from './physical-passcode.service';
-import { AttendanceHistoryQueryInput } from '@gymos/validation';
+import {
+  AttendanceHistoryQueryInput,
+  KioskCheckInInput,
+} from '@gymos/validation';
 import {
   AuthenticatedUserContext,
   CheckInRequest,
@@ -34,6 +38,9 @@ import {
   MemberAccessPassData,
   DynamicPassTokenResponse,
   PublicPassResponse,
+  KioskTokenResponse,
+  KioskInfoResponse,
+  KioskCheckInResponse,
   PaginatedResult,
   UserRole,
 } from '@gymos/shared-types';
@@ -1769,5 +1776,291 @@ export class AttendanceService {
       createdAt: toIso(pass.createdAt),
       updatedAt: toIso(pass.updatedAt),
     };
+  }
+
+  // =========================================================================
+  // 8. COUNTER KIOSK DAILY QR METHODS
+  // =========================================================================
+
+  private getKioskSigningSecret(): string {
+    return process.env.JWT_SECRET || 'gymos_kiosk_secret_key_2026';
+  }
+
+  private signKioskPayload(payload: { org: string; brn: string; dat: string; exp: number; iat: number }): string {
+    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto
+      .createHmac('sha256', this.getKioskSigningSecret())
+      .update(payloadB64)
+      .digest('hex');
+    return `${payloadB64}.${signature}`;
+  }
+
+  private verifyAndDecodeKioskToken(token: string): { org: string; brn: string; dat: string; exp: number; iat: number } {
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestException('Kiosk token is required');
+    }
+    const parts = token.split('.');
+    if (parts.length !== 2) {
+      throw new BadRequestException('Invalid kiosk token structure');
+    }
+    const [payloadB64, signature] = parts;
+    if (!payloadB64 || !signature) {
+      throw new BadRequestException('Invalid kiosk token components');
+    }
+    const expectedSig = crypto
+      .createHmac('sha256', this.getKioskSigningSecret())
+      .update(payloadB64)
+      .digest('hex');
+
+    if (
+      signature.length !== expectedSig.length ||
+      !crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'))
+    ) {
+      throw new BadRequestException('Invalid or tampered kiosk QR token');
+    }
+
+    try {
+      const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+      if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) {
+        throw new BadRequestException('This QR code has expired. Please refresh the gym desk QR.');
+      }
+      return payload;
+    } catch {
+      throw new BadRequestException('Corrupted kiosk QR token payload');
+    }
+  }
+
+  async getKioskDailyToken(
+    organizationId: string,
+    branchId: string,
+  ): Promise<KioskTokenResponse> {
+    const branch = await this.prisma.withSuperAdminContext(async (tx) => {
+      return tx.branch.findFirst({
+        where: { id: branchId, organizationId },
+        include: { organization: true },
+      });
+    });
+
+    if (!branch || branch.status !== 'ACTIVE') {
+      throw new NotFoundException('Active branch not found');
+    }
+
+    const timezone = branch.timezone || branch.organization?.timezone || 'Asia/Kolkata';
+    const now = new Date();
+    const { localDate } = this.getLocalTimeAndDate(now, timezone);
+
+    const payload = {
+      org: organizationId,
+      brn: branchId,
+      dat: localDate,
+      iat: Math.floor(now.getTime() / 1000),
+      exp: Math.floor(now.getTime() / 1000) + 86400 * 2, // 48-hour validity buffer
+    };
+
+    const kioskToken = this.signKioskPayload(payload);
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const checkInUrl = `${baseUrl.replace(/\/$/, '')}/checkin?token=${encodeURIComponent(kioskToken)}`;
+
+    return {
+      kioskToken,
+      branchId,
+      branchName: branch.name,
+      organizationName: branch.organization.name,
+      date: localDate,
+      checkInUrl,
+      expiresAt: new Date(payload.exp * 1000).toISOString(),
+    };
+  }
+
+  async getKioskInfo(kioskToken: string): Promise<KioskInfoResponse> {
+    const payload = this.verifyAndDecodeKioskToken(kioskToken);
+
+    const branch = await this.prisma.withSuperAdminContext(async (tx) => {
+      return tx.branch.findFirst({
+        where: { id: payload.brn, organizationId: payload.org },
+        include: { organization: true },
+      });
+    });
+
+    if (!branch || branch.status !== 'ACTIVE') {
+      throw new NotFoundException('Branch is not active or not found');
+    }
+
+    const timezone = branch.timezone || branch.organization?.timezone || 'Asia/Kolkata';
+    const now = new Date();
+    const { localDate } = this.getLocalTimeAndDate(now, timezone);
+
+    if (payload.dat !== localDate) {
+      throw new BadRequestException("This desk QR code is for a different date. Please scan today's QR code.");
+    }
+
+    return {
+      valid: true,
+      organizationName: branch.organization.name,
+      branchName: branch.name,
+      date: payload.dat,
+    };
+  }
+
+  async kioskCheckIn(dto: KioskCheckInInput): Promise<KioskCheckInResponse> {
+    const payload = this.verifyAndDecodeKioskToken(dto.kioskToken);
+    const { org: organizationId, brn: branchId } = payload;
+
+    const raw = dto.identifier.trim();
+    const digitsOnly = raw.replace(/\D/g, '');
+
+    return this.prisma.withTenantContext(organizationId, async (tx) => {
+      // 1. Resolve organization & branch
+      const branch = await tx.branch.findUnique({
+        where: { id: branchId },
+        include: { organization: true },
+      });
+
+      if (!branch || branch.status !== 'ACTIVE') {
+        throw new ForbiddenException('Branch is currently inactive');
+      }
+
+      const timezone = branch.timezone || branch.organization.timezone || 'Asia/Kolkata';
+      const now = new Date();
+      const { localDate, localTime } = this.getLocalTimeAndDate(now, timezone);
+
+      // Verify date matches current local date
+      if (payload.dat !== localDate) {
+        throw new BadRequestException("This desk QR code has expired. Please scan today's fresh QR code.");
+      }
+
+      // 2. Resolve Settings & Operating Hours
+      const settings = await this.resolveSettings(tx, organizationId, branchId);
+      if (!settings.allowOffHoursCheckIn) {
+        const isWithin = this.isWithinOperatingHours(
+          localTime,
+          settings.operatingHoursStart,
+          settings.operatingHoursEnd,
+        );
+        if (!isWithin) {
+          throw new ForbiddenException({
+            statusCode: HttpStatus.FORBIDDEN,
+            error: 'Forbidden',
+            message: `Branch is currently closed. Operating hours: ${settings.operatingHoursStart} - ${settings.operatingHoursEnd}`,
+            code: 'OUTSIDE_OPERATING_HOURS',
+          });
+        }
+      }
+
+      // 3. Find Member
+      const member = await tx.member.findFirst({
+        where: {
+          organizationId,
+          OR: [
+            { phone: raw },
+            ...(digitsOnly.length >= 10 ? [{ phone: { endsWith: digitsOnly.slice(-10) } }] : []),
+            { memberNumber: { equals: raw, mode: 'insensitive' } },
+            ...(raw.length === 36 ? [{ id: raw }] : []),
+          ],
+        },
+        include: { branch: true },
+      });
+
+      if (!member) {
+        throw new NotFoundException({
+          statusCode: HttpStatus.NOT_FOUND,
+          error: 'Not Found',
+          message: 'No registered member found with this phone number or ID. Please check with the front desk.',
+          code: 'MEMBER_NOT_FOUND',
+        });
+      }
+
+      // 4. Verify Active Status
+      if (member.status !== 'ACTIVE') {
+        throw new ForbiddenException({
+          statusCode: HttpStatus.FORBIDDEN,
+          error: 'Forbidden',
+          message: `Member profile is ${member.status.toLowerCase()}. Please visit the reception desk.`,
+          code: 'MEMBER_INACTIVE',
+        });
+      }
+
+      // 5. Validate Membership
+      const { membership, daysRemaining } = await this.validateMembership(
+        tx,
+        organizationId,
+        member.id,
+        branchId,
+        localDate,
+      );
+
+      // 6. Validate Financial Dues
+      await this.validateFinancialDues(
+        tx,
+        organizationId,
+        member.id,
+        localDate,
+        settings,
+      );
+
+      // 7. Validate Anti-Passback & Active Session
+      await this.validateAntiPassback(
+        tx,
+        organizationId,
+        member.id,
+        settings.cooldownMinutes,
+        now,
+      );
+
+      // 8. Create Attendance Record
+      const record = await tx.attendanceRecord.create({
+        data: {
+          organizationId,
+          branchId,
+          memberId: member.id,
+          membershipId: membership.id,
+          method: AttendanceMethod.KIOSK,
+          status: AttendanceStatus.CHECKED_IN,
+          checkInTime: now,
+          verifiedById: null,
+          notes: 'Self-service counter QR check-in',
+        },
+        include: {
+          member: true,
+          branch: true,
+          membership: { include: { plan: true } },
+        },
+      });
+
+      // 9. Outbox event
+      await tx.attendanceOutboxEvent.create({
+        data: {
+          organizationId,
+          aggregateId: record.id,
+          eventType: 'attendance.checked_in',
+          payload: {
+            attendanceId: record.id,
+            memberId: member.id,
+            branchId,
+            membershipId: membership.id,
+            checkInTime: now.toISOString(),
+            method: AttendanceMethod.KIOSK,
+            verifiedById: null,
+          },
+          idempotencyKey: `attendance_checkin_${record.id}`,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Welcome, ${member.firstName}! Check-in confirmed.`,
+        member: {
+          id: member.id,
+          memberNumber: member.memberNumber,
+          firstName: member.firstName,
+          lastName: member.lastName,
+        },
+        membership: {
+          planName: membership.plan.name,
+          daysRemaining,
+        },
+        checkInTime: now.toISOString(),
+      };
+    });
   }
 }

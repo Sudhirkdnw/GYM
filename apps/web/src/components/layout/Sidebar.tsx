@@ -84,6 +84,7 @@ export function Sidebar({
           subItems: [
             { label: "Live Floor", href: "/dashboard/attendance", exact: true },
             { label: "QR Scanner", href: "/dashboard/attendance/scanner" },
+            { label: "Counter QR (Kiosk)", href: "/dashboard/attendance/kiosk" },
             { label: "Attendance History", href: "/dashboard/attendance/history" },
           ],
         },

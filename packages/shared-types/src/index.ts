@@ -1266,6 +1266,40 @@ export function getLocalTimeAndDate(
   }
 }
 
+export interface KioskTokenResponse {
+  kioskToken: string;
+  branchId: string;
+  branchName: string;
+  organizationName: string;
+  date: string;
+  checkInUrl: string;
+  expiresAt: string;
+}
+
+export interface KioskInfoResponse {
+  valid: boolean;
+  organizationName: string;
+  branchName: string;
+  date: string;
+}
+
+export interface KioskCheckInResponse {
+  success: boolean;
+  message: string;
+  member: {
+    id: string;
+    memberNumber: string;
+    firstName: string;
+    lastName: string;
+  };
+  membership: {
+    planName: string;
+    daysRemaining: number;
+  };
+  checkInTime: string;
+}
+
+
 
 
 

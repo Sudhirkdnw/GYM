@@ -46,6 +46,8 @@ import {
   IssueMemberPassInput,
   revokeMemberPassSchema,
   RevokeMemberPassInput,
+  kioskCheckInSchema,
+  KioskCheckInInput,
 } from '@gymos/validation';
 import {
   Permission,
@@ -59,6 +61,9 @@ import {
   MemberAccessPassData,
   DynamicPassTokenResponse,
   PublicPassResponse,
+  KioskTokenResponse,
+  KioskInfoResponse,
+  KioskCheckInResponse,
   PaginatedResult,
 } from '@gymos/shared-types';
 
@@ -449,5 +454,37 @@ export class AttendanceController {
     res.setHeader('Referrer-Policy', 'no-referrer');
     const clientIp = req.ip || (req.headers['x-forwarded-for'] as string) || '';
     return this.attendanceService.refreshPublicWebPass(passToken, clientIp);
+  }
+
+  @Get('kiosk/token')
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiOperation({ summary: 'Get or generate daily counter kiosk QR token for active branch' })
+  @ApiResponse({ status: 200, description: 'Daily counter QR token and metadata' })
+  async getKioskDailyToken(
+    @CurrentTenant() tenant: { id: string },
+    @CurrentBranch() branchId: string,
+  ): Promise<KioskTokenResponse> {
+    return this.attendanceService.getKioskDailyToken(tenant.id, branchId);
+  }
+
+  @Public()
+  @Get('public/kiosk-info')
+  @ApiOperation({ summary: 'Get public gym & branch info for scanned kiosk token' })
+  @ApiQuery({ name: 'kioskToken', description: 'Daily kiosk QR token' })
+  @ApiResponse({ status: 200, description: 'Branch info and validity' })
+  async getKioskInfo(
+    @Query('kioskToken') kioskToken: string,
+  ): Promise<KioskInfoResponse> {
+    return this.attendanceService.getKioskInfo(kioskToken);
+  }
+
+  @Public()
+  @Post('public/kiosk-check-in')
+  @ApiOperation({ summary: 'Member self check-in using counter daily QR token and phone number' })
+  @ApiResponse({ status: 200, description: 'Member check-in confirmation' })
+  async kioskCheckIn(
+    @Body(new ZodValidationPipe(kioskCheckInSchema)) dto: KioskCheckInInput,
+  ): Promise<KioskCheckInResponse> {
+    return this.attendanceService.kioskCheckIn(dto);
   }
 }

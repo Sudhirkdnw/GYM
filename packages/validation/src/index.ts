@@ -784,6 +784,14 @@ export const revokeMemberPassSchema = z.object({
 
 export type RevokeMemberPassInput = z.infer<typeof revokeMemberPassSchema>;
 
+export const kioskCheckInSchema = z.object({
+  kioskToken: z.string().min(10, 'Valid Kiosk QR token is required'),
+  identifier: z.string().min(2, 'Phone number or Member ID is required').max(100),
+});
+
+export type KioskCheckInInput = z.infer<typeof kioskCheckInSchema>;
+
+
 
 
 

@@ -109,7 +109,11 @@ export default function FrontDeskScannerPage() {
       } catch (err: unknown) {
         sound.playError();
         if (err instanceof ApiClientError) {
-          const errorCode = err.errorResponse?.code || `HTTP_${err.statusCode}`;
+          const errData = err.errorResponse as Record<string, unknown> | undefined;
+          const errorCode =
+            (typeof errData?.code === "string" ? errData.code : undefined) ||
+            err.errorResponse?.error ||
+            `HTTP_${err.statusCode}`;
           const errorMsg = err.errorResponse?.message || err.message;
           setScanError({
             code: errorCode,
