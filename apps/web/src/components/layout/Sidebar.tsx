@@ -17,8 +17,10 @@ import {
   CalendarCheck,
   Building,
   ArrowLeftRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useEntitlements } from "@/hooks/useEntitlements";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -33,7 +35,8 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   exact?: boolean;
   permission?: string;
-  subItems?: { label: string; href: string; exact?: boolean }[];
+  requiredFeature?: string;
+  subItems?: { label: string; href: string; exact?: boolean; requiredFeature?: string }[];
 }
 
 interface NavSection {
@@ -48,7 +51,8 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { organization } = useAuth();
+  const { user, organization } = useAuth();
+  const { isEntitled } = useEntitlements();
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     "Front Desk": true,
     Memberships: false,
@@ -63,6 +67,20 @@ export function Sidebar({
   };
 
   const navSections: NavSection[] = [
+    ...(user?.isSuperAdmin
+      ? [
+          {
+            title: "PLATFORM SAAS",
+            items: [
+              {
+                label: "Super Admin Console",
+                href: "/platform",
+                icon: ShieldCheck,
+              },
+            ],
+          },
+        ]
+      : []),
     {
       title: "WORKSPACE",
       items: [
@@ -84,19 +102,29 @@ export function Sidebar({
           subItems: [
             { label: "Live Floor", href: "/dashboard/attendance", exact: true },
             { label: "QR Scanner", href: "/dashboard/attendance/scanner" },
-            { label: "Counter QR (Kiosk)", href: "/dashboard/attendance/kiosk" },
-            { label: "Attendance History", href: "/dashboard/attendance/history" },
+            {
+              label: "Counter QR (Kiosk)",
+              href: "/dashboard/attendance/kiosk",
+              requiredFeature: "attendance.kiosk.dynamic_qr",
+            },
+            {
+              label: "Attendance History",
+              href: "/dashboard/attendance/history",
+              requiredFeature: "attendance.history.export",
+            },
           ],
         },
         {
           label: "Members",
           href: "/dashboard/members",
           icon: Users,
+          requiredFeature: "members.read",
         },
         {
           label: "Memberships",
           href: "/dashboard/memberships",
           icon: CreditCard,
+          requiredFeature: "memberships.plans.create",
           subItems: [
             { label: "Subscriptions", href: "/dashboard/memberships", exact: true },
             { label: "Plans", href: "/dashboard/memberships/plans" },
@@ -106,6 +134,7 @@ export function Sidebar({
           label: "Finance",
           href: "/dashboard/billing",
           icon: Receipt,
+          requiredFeature: "billing.invoices.view",
           subItems: [
             { label: "Overview", href: "/dashboard/billing", exact: true },
             { label: "Invoices", href: "/dashboard/billing/invoices" },
@@ -123,6 +152,7 @@ export function Sidebar({
           label: "Branches",
           href: "/dashboard/branches",
           icon: Building2,
+          requiredFeature: "core.branches.multi",
         },
       ],
     },
@@ -147,6 +177,20 @@ export function Sidebar({
       ],
     },
   ];
+
+  const visibleNavSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => !item.requiredFeature || isEntitled(item.requiredFeature))
+        .map((item) => ({
+          ...item,
+          subItems: item.subItems?.filter(
+            (sub) => !sub.requiredFeature || isEntitled(sub.requiredFeature),
+          ),
+        })),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const isActive = (href: string, exact: boolean = false) => {
     if (exact) {
@@ -222,7 +266,7 @@ export function Sidebar({
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          {navSections.map((section) => (
+          {visibleNavSections.map((section) => (
             <div key={section.title} className="space-y-1">
               {!isCollapsed && (
                 <div className="px-3 pb-1.5 text-[10px] font-bold tracking-wider text-zinc-500 uppercase">

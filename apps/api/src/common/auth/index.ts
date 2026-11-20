@@ -8,3 +8,7 @@ export * from './csrf-protection.guard';
 export * from './require-branch-context.decorator';
 export * from './current-branch.decorator';
 export * from './branch-context.guard';
+export * from './require-entitlement.decorator';
+export * from './entitlement.guard';
+export * from './super-admin.guard';
+

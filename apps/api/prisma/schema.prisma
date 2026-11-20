@@ -273,6 +273,12 @@ model Organization {
   attendanceSettings      AttendanceSettings[]
   attendanceOutboxEvents  AttendanceOutboxEvent[]
 
+  // SaaS Subscription & Entitlements
+  subscriptions           OrganizationSubscription[]
+  entitlementOverrides    OrganizationEntitlementOverride[]
+  usageRecords            OrganizationUsageRecord[]
+  entitlementChangeLogs   EntitlementChangeLog[]
+
   @@map("organizations")
 }
 
@@ -1148,4 +1154,167 @@ model AttendanceOutboxEvent {
   @@index([status, createdAt], map: "idx_attendance_outbox_status_created")
   @@map("attendance_outbox_events")
 }
+
+// =========================================================================
+// SAAS SUBSCRIPTIONS & SERVICE ENTITLEMENT SYSTEM
+// =========================================================================
+
+enum SaasSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+
+  @@map("saas_subscription_status")
+}
+
+enum FeatureValueType {
+  BOOLEAN
+  NUMERIC
+  TIERED
+
+  @@map("feature_value_type")
+}
+
+/// SaasPlan defines commercial subscription tiers created by the Super Admin
+model SaasPlan {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  code                  String                    @unique @map("code") @db.VarChar(50)
+  name                  String                    @map("name") @db.VarChar(100)
+  description           String?                   @map("description") @db.Text
+  monthlyPrice          Decimal                   @default(0.00) @map("monthly_price") @db.Decimal(12, 2)
+  annualPrice           Decimal                   @default(0.00) @map("annual_price") @db.Decimal(12, 2)
+  currency              String                    @default("INR") @map("currency") @db.VarChar(10)
+  isActive              Boolean                   @default(true) @map("is_active")
+  isPublic              Boolean                   @default(true) @map("is_public")
+  sortOrder             Int                       @default(0) @map("sort_order")
+
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  features              SaasPlanFeature[]
+  subscriptions         OrganizationSubscription[]
+
+  @@map("saas_plans")
+}
+
+/// FeatureCatalog stores all registered platform capabilities and feature keys
+model FeatureCatalog {
+  key                   String                    @id @map("key") @db.VarChar(100)
+  domain                String                    @map("domain") @db.VarChar(50)
+  name                  String                    @map("name") @db.VarChar(100)
+  description           String?                   @map("description") @db.Text
+  valueType             FeatureValueType          @default(BOOLEAN) @map("value_type")
+  defaultMetadata       Json?                     @map("default_metadata")
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  planFeatures          SaasPlanFeature[]
+  overrides             OrganizationEntitlementOverride[]
+
+  @@index([domain], map: "idx_feature_catalog_domain")
+  @@map("feature_catalog")
+}
+
+/// SaasPlanFeature links a SaasPlan with a FeatureCatalog item and default limit
+model SaasPlanFeature {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  planId                String                    @map("plan_id") @db.Uuid
+  featureKey            String                    @map("feature_key") @db.VarChar(100)
+  isEnabled             Boolean                   @default(true) @map("is_enabled")
+  numericQuota          Int?                      @map("numeric_quota")
+  metadata              Json?                     @map("metadata")
+
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  plan                  SaasPlan                  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature               FeatureCatalog            @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+
+  @@unique([planId, featureKey], name: "unique_plan_feature")
+  @@map("saas_plan_features")
+}
+
+/// OrganizationSubscription assigns a commercial SaaS plan to an organization
+model OrganizationSubscription {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  planId                String                    @map("plan_id") @db.Uuid
+  status                SaasSubscriptionStatus    @default(ACTIVE) @map("status")
+
+  currentPeriodStart    DateTime                  @map("current_period_start") @db.Date
+  currentPeriodEnd      DateTime                  @map("current_period_end") @db.Date
+  trialEndsAt           DateTime?                 @map("trial_ends_at") @db.Date
+  agreedPrice           Decimal                   @default(0.00) @map("agreed_price") @db.Decimal(12, 2)
+  billingInterval       String                    @default("MONTHLY") @map("billing_interval") @db.VarChar(20)
+
+  notes                 String?                   @map("notes") @db.Text
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                  SaasPlan                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status], map: "idx_org_subscription_status")
+  @@map("organization_subscriptions")
+}
+
+/// OrganizationEntitlementOverride allows Super Admin to override any feature/quota per gym
+model OrganizationEntitlementOverride {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  featureKey            String                    @map("feature_key") @db.VarChar(100)
+  isEnabled             Boolean                   @map("is_enabled")
+  numericQuota          Int?                      @map("numeric_quota")
+  reason                String?                   @map("reason") @db.VarChar(255)
+  grantedByUserId       String?                   @map("granted_by_user_id") @db.Uuid
+  expiresAt             DateTime?                 @map("expires_at") @db.Timestamptz
+
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature               FeatureCatalog            @relation(fields: [featureKey], references: [key], onDelete: Cascade)
+
+  @@unique([organizationId, featureKey], name: "unique_org_feature_override")
+  @@index([organizationId], map: "idx_entitlement_overrides_org")
+  @@map("organization_entitlement_overrides")
+}
+
+/// OrganizationUsageRecord tracks real-time and cumulative usage metrics (e.g. WhatsApp counts)
+model OrganizationUsageRecord {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  metricKey             String                    @map("metric_key") @db.VarChar(100)
+  period                String                    @map("period") @db.VarChar(20) // e.g. "2026-11"
+  usageCount            Int                       @default(0) @map("usage_count")
+
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, metricKey, period], name: "unique_org_metric_period")
+  @@map("organization_usage_records")
+}
+
+/// EntitlementChangeLog logs every grant, revocation, or override made by Super Admin
+model EntitlementChangeLog {
+  id                    String                    @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  featureKey            String                    @map("feature_key") @db.VarChar(100)
+  actionType            String                    @map("action_type") @db.VarChar(50) // OVERRIDE_GRANTED, OVERRIDE_REVOKED, PLAN_CHANGED
+  previousState         Json?                     @map("previous_state")
+  newState              Json                      @map("new_state")
+  reason                String?                   @map("reason") @db.VarChar(255)
+  performedByUserId     String?                   @map("performed_by_user_id") @db.Uuid
+
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt], map: "idx_entitlement_log_org_time")
+  @@map("entitlement_change_logs")
+}
+
 

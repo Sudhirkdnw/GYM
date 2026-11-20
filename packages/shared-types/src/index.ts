@@ -1299,6 +1299,121 @@ export interface KioskCheckInResponse {
   checkInTime: string;
 }
 
+// =========================================================================
+// SAAS MODULAR ENTITLEMENT & PLATFORM SYSTEM TYPES
+// =========================================================================
+
+export enum SaasSubscriptionStatus {
+  TRIALING = 'TRIALING',
+  ACTIVE = 'ACTIVE',
+  PAST_DUE = 'PAST_DUE',
+  SUSPENDED = 'SUSPENDED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum FeatureValueType {
+  BOOLEAN = 'BOOLEAN',
+  NUMERIC = 'NUMERIC',
+  TIERED = 'TIERED',
+}
+
+export interface FeatureCatalogItem {
+  key: string;
+  domain: string;
+  name: string;
+  description?: string | null;
+  valueType: FeatureValueType;
+}
+
+export interface SaasPlanData {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  monthlyPrice: number;
+  annualPrice: number;
+  currency: string;
+  isActive: boolean;
+  isPublic: boolean;
+  sortOrder: number;
+  featuresCount?: number;
+  subscribersCount?: number;
+}
+
+export interface SaasPlanFeatureData {
+  id: string;
+  planId: string;
+  featureKey: string;
+  isEnabled: boolean;
+  numericQuota?: number | null;
+  feature?: FeatureCatalogItem;
+}
+
+export interface OrganizationSubscriptionData {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  planId: string;
+  planName?: string;
+  planCode?: string;
+  status: SaasSubscriptionStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  trialEndsAt?: string | null;
+  agreedPrice: number;
+  billingInterval: string;
+  notes?: string | null;
+}
+
+export interface OrganizationEntitlementOverrideData {
+  id: string;
+  organizationId: string;
+  featureKey: string;
+  isEnabled: boolean;
+  numericQuota?: number | null;
+  reason?: string | null;
+  expiresAt?: string | null;
+  feature?: FeatureCatalogItem;
+}
+
+export interface EffectiveEntitlementsContext {
+  organizationId: string;
+  planCode: string;
+  planName: string;
+  subscriptionStatus: SaasSubscriptionStatus;
+  isSubscriptionActive: boolean;
+  expiresAt: string;
+  features: Record<string, boolean>;
+  quotas: Record<string, { current: number; max: number | null }>;
+}
+
+export interface PlatformOverviewData {
+  totalOrganizations: number;
+  activeOrganizations: number;
+  suspendedOrganizations: number;
+  totalMembers: number;
+  totalPlans: number;
+  estimatedMrr: number;
+  planDistribution?: Record<string, number>;
+}
+
+export interface PlatformOrganizationListItem {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  businessEmail?: string | null;
+  businessPhone?: string | null;
+  planName: string;
+  planCode: string;
+  subscriptionStatus: SaasSubscriptionStatus;
+  currentPeriodEnd: string;
+  branchesCount: number;
+  membersCount: number;
+  createdAt: string;
+}
+
+
 
 
 

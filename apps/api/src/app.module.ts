@@ -16,9 +16,12 @@ import { MembershipsModule } from './memberships/memberships.module';
 import { BillingModule } from './billing/billing.module';
 import { RedisModule } from './common/redis/redis.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { EntitlementModule } from './common/entitlements/entitlement.module';
+import { PlatformModule } from './platform/platform.module';
 import { CsrfProtectionGuard } from './common/auth/csrf-protection.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
+import { EntitlementGuard } from './common/auth/entitlement.guard';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
 @Module({
@@ -40,6 +43,8 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     BillingModule,
     RedisModule,
     AttendanceModule,
+    EntitlementModule,
+    PlatformModule,
     HealthModule,
   ],
   providers: [
@@ -54,6 +59,10 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: EntitlementGuard,
     },
   ],
 })

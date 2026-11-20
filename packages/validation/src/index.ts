@@ -791,6 +791,60 @@ export const kioskCheckInSchema = z.object({
 
 export type KioskCheckInInput = z.infer<typeof kioskCheckInSchema>;
 
+// =========================================================================
+// SAAS PLATFORM & ENTITLEMENT VALIDATION SCHEMAS
+// =========================================================================
+
+export const saasSubscriptionStatusEnum = z.enum([
+  'TRIALING',
+  'ACTIVE',
+  'PAST_DUE',
+  'SUSPENDED',
+  'CANCELLED',
+]);
+
+export const createSaasPlanSchema = z.object({
+  code: z.string().min(2).max(50).regex(/^[a-z0-9_-]+$/, 'Plan code must be lowercase alphanumeric with hyphens'),
+  name: z.string().min(2).max(100),
+  description: z.string().max(1000).optional(),
+  monthlyPrice: z.number().min(0),
+  annualPrice: z.number().min(0),
+  currency: z.string().default('INR'),
+  isActive: z.boolean().default(true),
+  isPublic: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+  features: z.array(
+    z.object({
+      featureKey: z.string(),
+      isEnabled: z.boolean(),
+      numericQuota: z.number().int().nullable().optional(),
+    }),
+  ).optional(),
+});
+
+export type CreateSaasPlanInput = z.infer<typeof createSaasPlanSchema>;
+
+export const setEntitlementOverrideSchema = z.object({
+  featureKey: z.string().min(3).max(100),
+  isEnabled: z.boolean(),
+  numericQuota: z.number().int().nullable().optional(),
+  reason: z.string().max(255).optional(),
+  expiresAt: z.string().datetime().nullable().optional(),
+});
+
+export type SetEntitlementOverrideInput = z.infer<typeof setEntitlementOverrideSchema>;
+
+export const assignSubscriptionPlanSchema = z.object({
+  planId: z.string().uuid(),
+  status: saasSubscriptionStatusEnum.default('ACTIVE'),
+  currentPeriodMonths: z.number().int().positive().default(12),
+  agreedPrice: z.number().min(0).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export type AssignSubscriptionPlanInput = z.infer<typeof assignSubscriptionPlanSchema>;
+
+
 
 
 

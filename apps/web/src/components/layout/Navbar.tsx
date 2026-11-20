@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Dumbbell, LogOut, Building2, User, Users, CreditCard, Receipt, QrCode } from "lucide-react";
+import { Dumbbell, LogOut, Building2, User, Users, CreditCard, Receipt, QrCode, ShieldCheck } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { BranchSelector } from "./BranchSelector";
@@ -34,6 +34,17 @@ export function Navbar() {
           >
             System Status
           </Link>
+
+          {user?.isSuperAdmin && (
+            <Link
+              href="/platform"
+              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-violet-600 hover:bg-violet-700 text-white shadow-sm transition-colors"
+              title="Super Admin SaaS Console"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Platform Console</span>
+            </Link>
+          )}
 
           {isAuthenticated ? (
             <div className="flex items-center gap-3">

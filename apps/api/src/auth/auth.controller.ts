@@ -44,11 +44,15 @@ import {
 } from '@gymos/validation';
 import { AUTH_CONFIG } from '@gymos/config';
 import { AuthenticatedUserContext } from '@gymos/shared-types';
+import { EntitlementService } from '../common/entitlements/entitlement.service';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly entitlementService: EntitlementService,
+  ) {}
 
   private setAuthCookies(
     res: Response,
@@ -241,6 +245,32 @@ export class AuthController {
     @CurrentTenant() organizationId: string | null,
   ) {
     return this.authService.getMe(user.id, organizationId || undefined);
+  }
+
+  @Get('me/entitlements')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get active feature entitlements and limits for current gym' })
+  @SwaggerApiResponse({ status: 200, description: 'Effective entitlements context' })
+  async getMyEntitlements(
+    @CurrentTenant() organizationId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+  ) {
+    if (!organizationId) {
+      if (user.isSuperAdmin) {
+        return {
+          organizationId: null,
+          planCode: 'super_admin',
+          planName: 'Platform Super Admin',
+          subscriptionStatus: 'ACTIVE',
+          isSubscriptionActive: true,
+          expiresAt: '2099-12-31',
+          features: {},
+          quotas: {},
+        };
+      }
+      throw new UnauthorizedException('Organization context required to retrieve entitlements');
+    }
+    return this.entitlementService.getEffectiveEntitlements(organizationId);
   }
 
   @Get('organizations')

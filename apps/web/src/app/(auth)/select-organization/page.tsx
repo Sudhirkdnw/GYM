@@ -12,7 +12,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Building2, ArrowRight, AlertCircle } from "lucide-react";
+import { Building2, ArrowRight, AlertCircle, ShieldCheck } from "lucide-react";
 import { UserRole } from "@gymos/shared-types";
 
 interface OrgItem {
@@ -24,7 +24,7 @@ interface OrgItem {
 }
 
 export default function SelectOrganizationPage() {
-  const { selectOrganization } = useAuth();
+  const { user, selectOrganization } = useAuth();
   const [organizations, setOrganizations] = useState<OrgItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -79,6 +79,31 @@ export default function SelectOrganizationPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {user?.isSuperAdmin && (
+            <div className="flex items-center justify-between p-4 rounded-xl border border-violet-500/40 bg-gradient-to-r from-violet-950/40 via-purple-950/30 to-indigo-950/40 dark:from-violet-950/60 dark:to-indigo-950/60">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-600/30 border border-violet-500/50 text-violet-400">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+                    Platform Super Admin
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Manage SaaS subscriptions, gym feature toggles, and revenue
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => router.push("/platform")}
+                className="bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs h-9 px-4 shrink-0 gap-1.5 shadow-sm"
+              >
+                <span>Console</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
           {serverError && (
             <div
               role="alert"
