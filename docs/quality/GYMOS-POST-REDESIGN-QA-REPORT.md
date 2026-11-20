@@ -33,9 +33,27 @@ A comprehensive post-redesign quality audit was executed against the GymOS multi
 
 ## 3. Visual QA & User Experience Audit
 
-All 14 core admin views and their sub-screens were rigorously validated in real browser environments using Chrome DevTools across multiple screen resolutions and color schemes.
+All 14 core admin views and sub-routes were inspected in live browser sessions:
 
-### 3.1 Theme System & Persistence
+### 3.1 Screens Tested
+| Screen / Route | Path | Description / Key Components | Status |
+| :--- | :--- | :--- | :---: |
+| **Overview Dashboard** | `/dashboard` | KPI stat cards, attendance chart, live floor widget, expiring memberships | PASS |
+| **Attendance Live Floor** | `/dashboard/attendance` | Real-time occupants count, live member occupancy cards, checkout triggers | PASS |
+| **QR Scanner** | `/dashboard/attendance/scanner` | Camera viewport, live scanner overlay, manual entry code fallback modal | PASS |
+| **Attendance History** | `/dashboard/attendance/history` | Paginated sessions table, date filters, branch filter, UTF-8 BOM CSV export | PASS |
+| **Members Directory** | `/dashboard/members` | Searchable directory, membership status badges, create/edit member modals | PASS |
+| **Active Memberships** | `/dashboard/memberships` | Active contracts, renewal status, freeze/thaw action dialogs | PASS |
+| **Membership Plans** | `/dashboard/memberships/plans` | Tier cards (Standard, Premium, VIP), duration/price badges, plan creator | PASS |
+| **Billing Overview** | `/dashboard/billing` | Revenue metrics, collection rate, outstanding balance metrics | PASS |
+| **Invoices** | `/dashboard/billing/invoices` | Invoice ledger, status pills (PAID, UNPAID, VOID), invoice PDF view | PASS |
+| **Payments** | `/dashboard/billing/payments` | Transaction stream, payment method tags, refund modal | PASS |
+| **Dues Tracking** | `/dashboard/billing/dues` | Aging dues buckets (30/60/90 days), member contact shortcuts | PASS |
+| **Credits** | `/dashboard/billing/credits` | Member credit balances, wallet ledger, manual credit adjustment modal | PASS |
+| **Branches Management** | `/dashboard/branches` | Multi-branch cards, capacity gauges, active status toggles | PASS |
+| **Organization & Settings** | `/dashboard/organization` | Tenant details, attendance rules (`requireCheckOut`, cooldowns, auto-checkout) | PASS |
+
+### 3.2 Theme System & Persistence
 - **Dark Mode (Default Enterprise Theme):**
   - Background palette: `#0a0a0f` deep canvas with `#131622` card containers.
   - Borders: `rgba(255, 255, 255, 0.08)` hairline dividers with subtle violet gradient accents.
@@ -49,7 +67,7 @@ All 14 core admin views and their sub-screens were rigorously validated in real 
   - Immediate `<html>` class toggle (`dark` vs light) without Flash of Unstyled Content (FOUC).
   - Quick toggle button in header and profile settings dropdown operates seamlessly.
 
-### 3.2 Responsive Layout & Overflow Validation
+### 3.3 Responsive Layout & Overflow Validation
 - **Desktop (1536px & 1280px):**
   - Fixed 264px collapsible sidebar with module groupings (Operations, Management, Financials, Settings).
   - Header with live Branch Selector, Global Search modal trigger (`Cmd+K`), Theme Toggle, Notification Bell, and Profile Menu.
@@ -61,11 +79,11 @@ All 14 core admin views and their sub-screens were rigorously validated in real 
   - Checked `window.innerWidth === document.documentElement.scrollWidth` (375px); zero horizontal scroll leakage.
   - Action buttons and touch targets conform to minimum 44px hit-box requirements.
 
-### 3.3 Visual Artifacts Generated
-- Screen recordings captured during automated browser audit:
-  - `recording.mp4`: Navigation across Overview, Attendance, and Member management.
-  - `recording_2.mp4`: Billing, Invoices, Payments, and Plan configurations.
-  - `recording_3.mp4`: Light/Dark toggle, mobile drawer toggle, and branch context switching.
+### 3.4 Visual Artifacts & Browser Evidence
+- Automated Chrome DevTools browser recordings generated during testing:
+  - `recording.mp4`: Core navigation through Overview, Live Floor, and Members directory.
+  - `recording_2.mp4`: Billing suite, Invoice creation, Payments, and Plan configurations.
+  - `recording_3.mp4`: Dark/Light theme toggle, responsive drawer on mobile (375px), and branch switching.
 
 ---
 
@@ -150,7 +168,17 @@ GYMOS MONOREPO TEST RUN SUMMARY
 
 ---
 
-## 6. Stage 2.7 Remediation Status
+## 6. Bugs Discovered & Remediated During Audit
+
+| Bug ID | Description | Severity | Remediation | Commit |
+| :---: | :--- | :---: | :--- | :---: |
+| **BUG-01** | **Prisma Connection Pool Starvation Under Heavy Concurrency**<br>During concurrent 20-request tenant isolation tests, Prisma's default 2000ms transaction acquisition timeout caused intermittent `Unable to start a transaction in the given time` failures. | Low / Concurrency Stress | Extended transaction options in `withTenantContext` and `withSuperAdminContext` with `{ maxWait: 10000, timeout: 15000 }`. | `2ac990d` |
+| **BUG-02** | **Outbox Dispatcher Loop Aborting on Single Tenant Error**<br>In `AttendanceOutboxDispatcher`, a transient database error in one tenant's dispatch transaction aborted the batch loop for subsequent organizations. | Medium / Resilience | Isolated per-organization outbox processing within dedicated inner `try/catch` blocks and added transaction timeouts. | `2ac990d` |
+| **BUG-03** | **CORS `x-branch-id` Header Rejection**<br>Frontend requests containing the active branch selector header were initially blocked by API CORS preflight. | High / Usability | Added `x-branch-id` to allowed CORS headers in `main.ts`. | `ce51fc6` |
+
+---
+
+## 7. Stage 2.7 Remediation Status
 
 | Finding | Item | Implementation & Verification Summary | Status |
 | :---: | :--- | :--- | :---: |
@@ -161,7 +189,16 @@ GYMOS MONOREPO TEST RUN SUMMARY
 
 ---
 
-## 7. Next Steps & Stage 3 Readiness
+## 8. Remaining Limitations & Operational Considerations
+
+1. **F-03 Front-Desk Proactive Checkout Toast:**  
+   The attendance settings toggle for `requireCheckOut` is fully functional and persisted in database settings. The backend partial unique index unconditionally prevents duplicate active sessions. The proactive UI alert toast specifically prompting the receptionist to check out the prior session is scheduled as an enhancement for the Front Desk module in the next phase.
+2. **Camera Hardware Permissions in Browser Scanner:**  
+   The QR scanner component in `/dashboard/attendance/scanner` requires standard browser camera permissions over HTTPS or localhost. For environments without an active camera or permission, the manual code input fallback modal provides identical check-in capabilities.
+
+---
+
+## 9. Next Steps & Stage 3 Readiness
 
 The application is fully verified, visually and functionally stable, and meets all criteria for production-grade SaaS delivery.
 
