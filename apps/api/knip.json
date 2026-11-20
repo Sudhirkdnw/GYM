@@ -2,6 +2,16 @@
   "$schema": "https://unpkg.com/knip@5/overview/configuration-schema.json",
   "entry": ["src/main.ts", "src/**/*.spec.ts", "test/**/*.ts"],
   "project": ["src/**/*.ts", "test/**/*.ts"],
-  "ignoreDependencies": ["swagger-ui-express", "ts-jest"],
+  "ignoreDependencies": [
+    "@nestjs/jwt",
+    "bullmq",
+    "ioredis",
+    "swagger-ui-express",
+    "ts-jest",
+    "@types/supertest",
+    "rimraf",
+    "supertest"
+  ],
+  "ignoreBinaries": ["eslint"],
   "jest": false
 }

@@ -36,6 +36,7 @@ export const SECURITY_CONFIG = {
     "x-correlation-id",
     "x-request-id",
     "x-organization-id",
+    "x-branch-id",
   ],
   MAX_BODY_SIZE_BYTES: 10 * 1024 * 1024, // 10MB
 } as const;
