@@ -492,14 +492,13 @@ export class PlatformService {
         throw new NotFoundException(`Organization with ID ${orgId} not found`);
       }
 
+      // Authorize tenant context for this specific org in RLS
+      await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${orgId}';`);
+
       // Delete dependent records in reverse dependency order
-      await tx.attendanceRecord.deleteMany({ where: { organizationId: orgId } });
-      await tx.attendanceSettings.deleteMany({ where: { organizationId: orgId } });
-      await tx.attendanceOutboxEvent.deleteMany({ where: { organizationId: orgId } });
-      await tx.memberAccessPass.deleteMany({ where: { organizationId: orgId } });
-      await tx.refund.deleteMany({ where: { organizationId: orgId } });
       await tx.paymentAllocationReversal.deleteMany({ where: { organizationId: orgId } });
       await tx.paymentAllocation.deleteMany({ where: { organizationId: orgId } });
+      await tx.refund.deleteMany({ where: { organizationId: orgId } });
       await tx.payment.deleteMany({ where: { organizationId: orgId } });
       await tx.invoiceItem.deleteMany({ where: { organizationId: orgId } });
       await tx.invoice.deleteMany({ where: { organizationId: orgId } });
@@ -507,6 +506,10 @@ export class PlatformService {
       await tx.memberCreditAccount.deleteMany({ where: { organizationId: orgId } });
       await tx.billingOutboxEvent.deleteMany({ where: { organizationId: orgId } });
       await tx.organizationBillingSequence.deleteMany({ where: { organizationId: orgId } });
+      await tx.attendanceRecord.deleteMany({ where: { organizationId: orgId } });
+      await tx.attendanceSettings.deleteMany({ where: { organizationId: orgId } });
+      await tx.attendanceOutboxEvent.deleteMany({ where: { organizationId: orgId } });
+      await tx.memberAccessPass.deleteMany({ where: { organizationId: orgId } });
       await tx.membershipFreeze.deleteMany({ where: { organizationId: orgId } });
       await tx.membershipHistory.deleteMany({ where: { organizationId: orgId } });
       await tx.memberMembership.deleteMany({ where: { organizationId: orgId } });
@@ -541,19 +544,72 @@ export class PlatformService {
       throw new BadRequestException('At least one organization ID must be provided');
     }
 
-    const results = [];
-    for (const id of orgIds) {
-      try {
-        const res = await this.deleteOrganization(id);
-        results.push(res);
-      } catch (err: unknown) {
-        results.push({ success: false, id, error: (err as Error).message });
+    const results: Array<{ success: boolean; id: string; name?: string; error?: string }> = [];
+
+    await this.prisma.withSuperAdminContext(async (tx) => {
+      for (const id of orgIds) {
+        try {
+          const org = await tx.organization.findUnique({ where: { id } });
+          if (!org) {
+            results.push({ success: false, id, error: 'Not found' });
+            continue;
+          }
+
+          // Authorize tenant context for this specific org in RLS
+          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${id}';`);
+
+          await tx.paymentAllocationReversal.deleteMany({ where: { organizationId: id } });
+          await tx.paymentAllocation.deleteMany({ where: { organizationId: id } });
+          await tx.refund.deleteMany({ where: { organizationId: id } });
+          await tx.payment.deleteMany({ where: { organizationId: id } });
+          await tx.invoiceItem.deleteMany({ where: { organizationId: id } });
+          await tx.invoice.deleteMany({ where: { organizationId: id } });
+          await tx.memberCreditEntry.deleteMany({ where: { organizationId: id } });
+          await tx.memberCreditAccount.deleteMany({ where: { organizationId: id } });
+          await tx.billingOutboxEvent.deleteMany({ where: { organizationId: id } });
+          await tx.organizationBillingSequence.deleteMany({ where: { organizationId: id } });
+          await tx.attendanceRecord.deleteMany({ where: { organizationId: id } });
+          await tx.attendanceSettings.deleteMany({ where: { organizationId: id } });
+          await tx.attendanceOutboxEvent.deleteMany({ where: { organizationId: id } });
+          await tx.memberAccessPass.deleteMany({ where: { organizationId: id } });
+          await tx.membershipFreeze.deleteMany({ where: { organizationId: id } });
+          await tx.membershipHistory.deleteMany({ where: { organizationId: id } });
+          await tx.memberMembership.deleteMany({ where: { organizationId: id } });
+          await tx.membershipOutboxEvent.deleteMany({ where: { organizationId: id } });
+          await tx.membershipPlanBranch.deleteMany({ where: { organizationId: id } });
+          await tx.membershipPlan.deleteMany({ where: { organizationId: id } });
+          await tx.memberTransfer.deleteMany({ where: { organizationId: id } });
+          await tx.member.deleteMany({ where: { organizationId: id } });
+          await tx.organizationMemberSequence.deleteMany({ where: { organizationId: id } });
+          await tx.branchStaffAssignment.deleteMany({ where: { organizationId: id } });
+          await tx.branch.deleteMany({ where: { organizationId: id } });
+          await tx.organizationUser.deleteMany({ where: { organizationId: id } });
+          await tx.auditLog.deleteMany({ where: { organizationId: id } });
+          await tx.organizationSubscription.deleteMany({ where: { organizationId: id } });
+          await tx.organizationEntitlementOverride.deleteMany({ where: { organizationId: id } });
+          await tx.organizationUsageRecord.deleteMany({ where: { organizationId: id } });
+          await tx.entitlementChangeLog.deleteMany({ where: { organizationId: id } });
+
+          await tx.organization.delete({ where: { id } });
+
+          results.push({ success: true, id, name: org.name });
+        } catch (err: unknown) {
+          results.push({ success: false, id, error: (err as Error).message });
+        }
+      }
+    });
+
+    // Invalidate Redis caches
+    for (const res of results) {
+      if (res.success) {
+        await this.entitlementService.invalidateCache(res.id);
       }
     }
 
+    const deletedCount = results.filter((r) => r.success).length;
     return {
       totalRequested: orgIds.length,
-      deletedCount: results.filter((r) => r.success).length,
+      deletedCount,
       results,
     };
   }

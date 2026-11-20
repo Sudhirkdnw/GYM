@@ -209,12 +209,21 @@ export default function PlatformOrganizationsPage() {
 
       if (deleteModal.isBulk) {
         // Bulk delete
-        await apiClient("/platform/organizations/bulk-delete", {
+        const res = await apiClient<{
+          totalRequested: number;
+          deletedCount: number;
+          results: Array<{ success: boolean; id: string; error?: string }>;
+        }>("/platform/organizations/bulk-delete", {
           method: "POST",
           body: JSON.stringify({ ids: selectedIds }),
         });
+
+        if (res.deletedCount === 0) {
+          throw new Error("Unable to delete selected gyms. Please check server logs.");
+        }
+
         setSuccessMessage(
-          `Successfully deleted ${selectedIds.length} gym organization(s) and purged related records.`,
+          `Successfully deleted ${res.deletedCount} of ${selectedIds.length} gym organization(s) and purged related records.`,
         );
         setSelectedIds([]);
       } else if (deleteModal.targetGym) {
