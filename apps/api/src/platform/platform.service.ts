@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { EntitlementService } from '../common/entitlements/entitlement.service';
+import { PasswordHasherService } from '../auth/password-hasher.service';
 import {
   PlatformOverviewData,
   SaasSubscriptionStatus,
@@ -15,6 +16,7 @@ export class PlatformService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly entitlementService: EntitlementService,
+    private readonly passwordHasher: PasswordHasherService,
   ) {}
 
   /**
@@ -158,6 +160,206 @@ export class PlatformService {
           limit,
           total,
           totalPages: Math.ceil(total / limit),
+        },
+      };
+    });
+  }
+
+  /**
+   * Register a new Gym Organization directly from the Super Admin platform.
+   */
+  async createOrganization(dto: {
+    name: string;
+    slug?: string;
+    branchName?: string;
+    branchCode?: string;
+    ownerFirstName: string;
+    ownerLastName: string;
+    ownerEmail: string;
+    ownerPhone?: string;
+    password?: string;
+    planId?: string;
+    planCode?: string;
+    billingInterval?: 'MONTHLY' | 'ANNUAL';
+    agreedPrice?: number;
+    status?: 'ACTIVE' | 'SUSPENDED';
+  }) {
+    if (!dto.name?.trim()) {
+      throw new BadRequestException('Gym Organization name is required');
+    }
+    if (!dto.ownerEmail?.trim()) {
+      throw new BadRequestException('Owner email is required');
+    }
+    if (!dto.ownerFirstName?.trim()) {
+      throw new BadRequestException('Owner first name is required');
+    }
+
+    const name = dto.name.trim();
+    const ownerEmail = dto.ownerEmail.toLowerCase().trim();
+    const ownerFirstName = dto.ownerFirstName.trim();
+    const ownerLastName = (dto.ownerLastName || '').trim();
+    const branchName = (dto.branchName || 'Main Branch').trim();
+    const branchCode = (dto.branchCode || 'MAIN').trim().toUpperCase();
+    const password = dto.password?.trim() || 'GymOwner@123';
+    const orgStatus = dto.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE';
+    const billingInterval = dto.billingInterval === 'ANNUAL' ? 'ANNUAL' : 'MONTHLY';
+
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      // 1. Generate unique organization slug
+      const baseSlug =
+        dto.slug?.trim() ||
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '') ||
+        'gym';
+
+      let finalSlug = baseSlug;
+      const existingSlug = await tx.organization.findUnique({
+        where: { slug: finalSlug },
+      });
+      if (existingSlug) {
+        finalSlug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
+      }
+
+      // 2. Create Organization record
+      const org = await tx.organization.create({
+        data: {
+          name,
+          slug: finalSlug,
+          status: orgStatus as any,
+          currency: 'INR',
+          timezone: 'Asia/Kolkata',
+          businessEmail: ownerEmail,
+          businessPhone: dto.ownerPhone?.trim() || null,
+        },
+      });
+
+      // 3. Create primary Branch
+      const branchSlug =
+        branchName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '') || 'main';
+
+      const branch = await tx.branch.create({
+        data: {
+          organizationId: org.id,
+          name: branchName,
+          slug: `${finalSlug}-${branchSlug}`,
+          branchCode,
+          status: 'ACTIVE',
+          timezone: 'Asia/Kolkata',
+          email: ownerEmail,
+          phone: dto.ownerPhone?.trim() || null,
+        },
+      });
+
+      // 4. Create or link Owner User
+      let user = await tx.user.findUnique({ where: { email: ownerEmail } });
+      let isNewUser = false;
+      if (!user) {
+        const passwordHash = await this.passwordHasher.hashPassword(password);
+        user = await tx.user.create({
+          data: {
+            email: ownerEmail,
+            passwordHash,
+            firstName: ownerFirstName,
+            lastName: ownerLastName,
+            status: 'ACTIVE',
+            emailVerified: true,
+          },
+        });
+        isNewUser = true;
+      }
+
+      // 5. Link user to organization as GYM_OWNER
+      const orgUser = await tx.organizationUser.create({
+        data: {
+          organizationId: org.id,
+          userId: user.id,
+          role: 'GYM_OWNER',
+        },
+      });
+
+      // 6. Assign to primary branch
+      await tx.branchStaffAssignment.create({
+        data: {
+          organizationId: org.id,
+          branchId: branch.id,
+          organizationUserId: orgUser.id,
+          status: 'ACTIVE',
+        },
+      });
+
+      // 7. Attach SaaS Subscription Plan
+      let plan = null;
+      if (dto.planId) {
+        plan = await tx.saasPlan.findUnique({ where: { id: dto.planId } });
+      } else if (dto.planCode) {
+        plan = await tx.saasPlan.findUnique({ where: { code: dto.planCode.toLowerCase() } });
+      }
+      if (!plan) {
+        plan = await tx.saasPlan.findFirst({
+          where: { isActive: true },
+          orderBy: { monthlyPrice: 'desc' },
+        });
+      }
+      if (!plan) {
+        throw new BadRequestException('No active SaaS plan available to assign to this gym');
+      }
+
+      const now = new Date();
+      const currentPeriodEnd = new Date(now);
+      if (billingInterval === 'ANNUAL') {
+        currentPeriodEnd.setFullYear(currentPeriodEnd.getFullYear() + 1);
+      } else {
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+      }
+
+      const agreedPrice =
+        dto.agreedPrice !== undefined
+          ? dto.agreedPrice
+          : billingInterval === 'ANNUAL'
+          ? Number(plan.annualPrice)
+          : Number(plan.monthlyPrice);
+
+      await tx.organizationSubscription.create({
+        data: {
+          organizationId: org.id,
+          planId: plan.id,
+          status: SaasSubscriptionStatus.ACTIVE,
+          billingInterval,
+          agreedPrice,
+          currentPeriodStart: now,
+          currentPeriodEnd,
+          notes: `Created by Super Admin via Platform Console on ${now.toISOString()}`,
+        },
+      });
+
+      // Invalidate cache
+      await this.entitlementService.invalidateCache(org.id);
+
+      return {
+        success: true,
+        organization: org,
+        branch,
+        owner: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          isNewUser,
+          defaultPassword: isNewUser ? password : null,
+        },
+        subscription: {
+          planId: plan.id,
+          planName: plan.name,
+          planCode: plan.code,
+          billingInterval,
+          agreedPrice,
         },
       };
     });

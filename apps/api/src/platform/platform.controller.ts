@@ -10,11 +10,13 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SuperAdminGuard } from '../common/auth/super-admin.guard';
 import { CurrentUser } from '../common/auth/current-user.decorator';
 import { AuthenticatedUserContext } from '@gymos/shared-types';
 import { PlatformService } from './platform.service';
 
+@ApiTags('Platform Super Admin')
 @Controller('platform')
 @UseGuards(SuperAdminGuard)
 export class PlatformController {
@@ -44,6 +46,15 @@ export class PlatformController {
       search,
       status,
     });
+  }
+
+  /**
+   * Register a new Gym Organization directly by Super Admin.
+   */
+  @Post('organizations')
+  @ApiOperation({ summary: 'Register and onboard a new gym organization with owner account and SaaS plan' })
+  async createOrganization(@Body() dto: any) {
+    return this.platformService.createOrganization(dto);
   }
 
   /**

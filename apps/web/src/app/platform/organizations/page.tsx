@@ -17,6 +17,13 @@ import {
   ChevronRight,
   AlertOctagon,
   X,
+  Plus,
+  UserPlus,
+  Lock,
+  Mail,
+  User,
+  Phone,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -39,6 +46,14 @@ interface OrganizationItem {
   } | null;
 }
 
+interface SaasPlanOption {
+  id: string;
+  name: string;
+  code: string;
+  monthlyPrice: number;
+  annualPrice: number;
+}
+
 interface PaginationMeta {
   page: number;
   limit: number;
@@ -48,6 +63,7 @@ interface PaginationMeta {
 
 export default function PlatformOrganizationsPage() {
   const [gyms, setGyms] = useState<OrganizationItem[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<SaasPlanOption[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +97,37 @@ export default function PlatformOrganizationsPage() {
   });
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Register New Gym Modal State
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+
+  // Form Fields
+  const [formGymName, setFormGymName] = useState("");
+  const [formSlug, setFormSlug] = useState("");
+  const [formBranchName, setFormBranchName] = useState("Main Branch");
+  const [formBranchCode, setFormBranchCode] = useState("MAIN");
+  const [formOwnerFirstName, setFormOwnerFirstName] = useState("");
+  const [formOwnerLastName, setFormOwnerLastName] = useState("");
+  const [formOwnerEmail, setFormOwnerEmail] = useState("");
+  const [formOwnerPhone, setFormOwnerPhone] = useState("");
+  const [formPassword, setFormPassword] = useState("GymOwner@123");
+  const [formPlanId, setFormPlanId] = useState("");
+  const [formBillingInterval, setFormBillingInterval] = useState<"MONTHLY" | "ANNUAL">("MONTHLY");
+
+  // Load available SaaS plans on mount
+  useEffect(() => {
+    apiClient<SaasPlanOption[]>("/platform/plans")
+      .then((res) => {
+        const list = res || [];
+        setAvailablePlans(list);
+        if (list.length > 0) {
+          setFormPlanId(list[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const loadGyms = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -90,73 +137,65 @@ export default function PlatformOrganizationsPage() {
         query += `&search=${encodeURIComponent(search.trim())}`;
       }
       if (statusFilter !== "ALL") {
-        query += `&status=${statusFilter}`;
+        query += `&status=${encodeURIComponent(statusFilter)}`;
       }
+
       const res = await apiClient<{
         data: OrganizationItem[];
         meta: PaginationMeta;
       }>(query);
 
       setGyms(res.data || []);
-      if (res.meta) {
-        setMeta(res.meta);
-      }
+      setMeta(
+        res.meta || {
+          page: 1,
+          limit,
+          total: res.data?.length || 0,
+          totalPages: 1,
+        },
+      );
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load gym list");
+      setError(
+        err instanceof Error ? err.message : "Failed to load gym organizations",
+      );
     } finally {
       setIsLoading(false);
     }
   }, [page, limit, search, statusFilter]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadGyms();
-    }, 250);
-    return () => clearTimeout(timer);
+    loadGyms();
   }, [loadGyms]);
 
-  // Reset to page 1 on search or filter change
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter]);
-
-  // Sync header indeterminate state
+  // Sync indeterminate checkbox state
   useEffect(() => {
     if (!headerCheckboxRef.current) return;
-    const pageIds = gyms.map((g) => g.id);
-    const selectedOnPage = pageIds.filter((id) => selectedIds.includes(id));
+    const allOnPageSelected =
+      gyms.length > 0 && gyms.every((g) => selectedIds.includes(g.id));
+    const someOnPageSelected = gyms.some((g) => selectedIds.includes(g.id));
 
-    if (selectedOnPage.length === 0) {
-      headerCheckboxRef.current.checked = false;
-      headerCheckboxRef.current.indeterminate = false;
-    } else if (selectedOnPage.length === pageIds.length && pageIds.length > 0) {
-      headerCheckboxRef.current.checked = true;
-      headerCheckboxRef.current.indeterminate = false;
-    } else {
-      headerCheckboxRef.current.checked = false;
-      headerCheckboxRef.current.indeterminate = true;
-    }
+    headerCheckboxRef.current.checked = allOnPageSelected;
+    headerCheckboxRef.current.indeterminate =
+      !allOnPageSelected && someOnPageSelected;
   }, [selectedIds, gyms]);
 
-  // Toggle single selection
+  // Toggle single item selection
   const handleToggleSingle = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
-  // Toggle select-all on current page
+  // Toggle select all on current page
   const handleToggleSelectAll = () => {
     const pageIds = gyms.map((g) => g.id);
-    const allSelectedOnPage = pageIds.every((id) => selectedIds.includes(id));
+    const allOnPageSelected = pageIds.every((id) => selectedIds.includes(id));
 
-    if (allSelectedOnPage) {
-      // Unselect all on this page
+    if (allOnPageSelected) {
       setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
     } else {
-      // Add all missing on this page
-      const newSelected = Array.from(new Set([...selectedIds, ...pageIds]));
-      setSelectedIds(newSelected);
+      const merged = Array.from(new Set([...selectedIds, ...pageIds]));
+      setSelectedIds(merged);
     }
   };
 
@@ -164,24 +203,32 @@ export default function PlatformOrganizationsPage() {
     setSelectedIds([]);
   };
 
-  // Toggle Gym Account Status (Active / Suspended)
+  // Toggle Gym Account Status (ACTIVE <-> SUSPENDED)
   const toggleGymStatus = async (gym: OrganizationItem) => {
-    const newStatus = gym.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+    const nextStatus = gym.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
     try {
       setUpdatingId(gym.id);
+      setError(null);
       await apiClient(`/platform/organizations/${gym.id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: nextStatus }),
       });
-      await loadGyms();
+      setGyms((prev) =>
+        prev.map((g) => (g.id === gym.id ? { ...g, status: nextStatus } : g)),
+      );
+      setSuccessMessage(
+        `Gym "${gym.name}" account status updated to ${nextStatus}.`,
+      );
     } catch (err: unknown) {
-      alert(`Status update failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      setError(
+        err instanceof Error ? err.message : "Failed to update gym status",
+      );
     } finally {
       setUpdatingId(null);
     }
   };
 
-  // Open single delete confirmation
+  // Open single delete confirmation modal
   const openSingleDeleteModal = (gym: OrganizationItem) => {
     setDeleteModal({
       isOpen: true,
@@ -190,7 +237,7 @@ export default function PlatformOrganizationsPage() {
     });
   };
 
-  // Open bulk delete confirmation
+  // Open bulk delete confirmation modal
   const openBulkDeleteModal = () => {
     if (selectedIds.length === 0) return;
     setDeleteModal({
@@ -200,34 +247,27 @@ export default function PlatformOrganizationsPage() {
     });
   };
 
-  // Execute confirmed deletion
+  // Confirm delete handler
   const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
       setError(null);
-      setSuccessMessage(null);
 
       if (deleteModal.isBulk) {
-        // Bulk delete
         const res = await apiClient<{
-          totalRequested: number;
+          success: boolean;
           deletedCount: number;
-          results: Array<{ success: boolean; id: string; error?: string }>;
+          failedCount: number;
         }>("/platform/organizations/bulk-delete", {
           method: "POST",
-          body: JSON.stringify({ ids: selectedIds }),
+          body: JSON.stringify({ organizationIds: selectedIds }),
         });
 
-        if (res.deletedCount === 0) {
-          throw new Error("Unable to delete selected gyms. Please check server logs.");
-        }
-
         setSuccessMessage(
-          `Successfully deleted ${res.deletedCount} of ${selectedIds.length} gym organization(s) and purged related records.`,
+          `Successfully deleted ${res.deletedCount} gym organization(s).`,
         );
         setSelectedIds([]);
       } else if (deleteModal.targetGym) {
-        // Single delete
         await apiClient(`/platform/organizations/${deleteModal.targetGym.id}`, {
           method: "DELETE",
         });
@@ -248,6 +288,90 @@ export default function PlatformOrganizationsPage() {
     }
   };
 
+  // Open Register Modal
+  const handleOpenRegister = () => {
+    setFormGymName("");
+    setFormSlug("");
+    setFormBranchName("Main Branch");
+    setFormBranchCode("MAIN");
+    setFormOwnerFirstName("");
+    setFormOwnerLastName("");
+    setFormOwnerEmail("");
+    setFormOwnerPhone("");
+    setFormPassword("GymOwner@123");
+    if (availablePlans.length > 0 && !formPlanId) {
+      setFormPlanId(availablePlans[0].id);
+    }
+    setFormBillingInterval("MONTHLY");
+    setRegisterError(null);
+    setIsRegisterOpen(true);
+  };
+
+  const handleGymNameChange = (name: string) => {
+    setFormGymName(name);
+    const autoSlug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    setFormSlug(autoSlug);
+  };
+
+  // Handle register submit
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formGymName.trim()) {
+      setRegisterError("Gym Organization Name is required");
+      return;
+    }
+    if (!formOwnerEmail.trim() || !formOwnerFirstName.trim()) {
+      setRegisterError("Owner First Name and Email are required");
+      return;
+    }
+
+    try {
+      setIsRegistering(true);
+      setRegisterError(null);
+
+      const res = await apiClient<{
+        success: boolean;
+        organization: { id: string; name: string; slug: string };
+        owner: { email: string; isNewUser: boolean; defaultPassword?: string };
+      }>("/platform/organizations", {
+        method: "POST",
+        body: JSON.stringify({
+          name: formGymName.trim(),
+          slug: formSlug.trim() || undefined,
+          branchName: formBranchName.trim() || "Main Branch",
+          branchCode: formBranchCode.trim().toUpperCase() || "MAIN",
+          ownerFirstName: formOwnerFirstName.trim(),
+          ownerLastName: formOwnerLastName.trim(),
+          ownerEmail: formOwnerEmail.trim().toLowerCase(),
+          ownerPhone: formOwnerPhone.trim() || undefined,
+          password: formPassword.trim() || "GymOwner@123",
+          planId: formPlanId || undefined,
+          billingInterval: formBillingInterval,
+        }),
+      });
+
+      setSuccessMessage(
+        `Gym "${res.organization.name}" registered successfully! Owner can log in with: ${res.owner.email} ${
+          res.owner.defaultPassword ? `(Password: ${res.owner.defaultPassword})` : ""
+        }`,
+      );
+
+      setIsRegisterOpen(false);
+      setPage(1);
+      await loadGyms();
+    } catch (err: unknown) {
+      setRegisterError(
+        err instanceof Error ? err.message : "Failed to register gym organization",
+      );
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   const startRecord = meta.total === 0 ? 0 : (page - 1) * limit + 1;
   const endRecord = Math.min(page * limit, meta.total);
 
@@ -261,29 +385,27 @@ export default function PlatformOrganizationsPage() {
             <span>Gym Organizations</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-            Manage gym accounts, assign SaaS subscriptions, and customize module entitlements per gym.
+            Super Admin directory of all commercial gym customer accounts. Register new gyms, assign SaaS subscriptions, or configure granular module entitlements.
           </p>
         </div>
 
-        {/* Global Bulk Delete button when items selected */}
-        {selectedIds.length > 0 && (
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={openBulkDeleteModal}
-              className="bg-red-600 hover:bg-red-500 text-white font-medium text-xs h-9 px-4 gap-2 shadow-sm"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span>Delete Selected ({selectedIds.length})</span>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleClearSelection}
-              className="border-slate-300 dark:border-white/[0.1] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white text-xs h-9 px-3"
-            >
-              Clear
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <Button
+            onClick={handleOpenRegister}
+            className="bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs h-9 px-4 gap-1.5 shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Register New Gym</span>
+          </Button>
+
+          <Link
+            href="/platform/plans"
+            className="inline-flex items-center justify-center rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-zinc-200 text-xs font-medium h-9 px-3.5 gap-1.5 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+            <span>SaaS Plans</span>
+          </Link>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -567,27 +689,295 @@ export default function PlatformOrganizationsPage() {
         )}
       </div>
 
+      {/* REGISTER NEW GYM ORGANIZATION MODAL */}
+      {isRegisterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-2xl max-h-[92vh] bg-white dark:bg-[#0e0f17] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between shrink-0 bg-slate-50 dark:bg-[#12131f]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-600/20 dark:border dark:border-violet-500/40 dark:text-violet-400">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Register New Gym Organization
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Onboard a new gym business, create owner login credentials, and assign SaaS subscription.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRegisterOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-white/[0.08] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleRegisterSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {registerError && (
+                <div className="p-3.5 rounded-xl border border-red-300 dark:border-red-500/40 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{registerError}</span>
+                </div>
+              )}
+
+              {/* Section 1: Gym Details */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>1. Gym Business & Branch</span>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Gym Organization Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Iron Paradise Gym"
+                      value={formGymName}
+                      onChange={(e) => handleGymNameChange(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Unique Slug (subdomain identifier)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. iron-paradise"
+                      value={formSlug}
+                      onChange={(e) => setFormSlug(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Primary Branch Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Main Branch - Central"
+                      value={formBranchName}
+                      onChange={(e) => setFormBranchName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Branch Code
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="MAIN"
+                      value={formBranchCode}
+                      onChange={(e) => setFormBranchCode(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono uppercase"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Owner Login */}
+              <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" />
+                  <span>2. Gym Owner Account (Login Credentials)</span>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Owner First Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Vikram"
+                      value={formOwnerFirstName}
+                      onChange={(e) => setFormOwnerFirstName(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Owner Last Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sharma"
+                      value={formOwnerLastName}
+                      onChange={(e) => setFormOwnerLastName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Owner Login Email *
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-zinc-500" />
+                      <input
+                        type="email"
+                        placeholder="owner@gymname.com"
+                        value={formOwnerEmail}
+                        onChange={(e) => setFormOwnerEmail(e.target.value)}
+                        required
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Owner Phone (Optional)
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-zinc-500" />
+                      <input
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={formOwnerPhone}
+                        onChange={(e) => setFormOwnerPhone(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                    Initial Owner Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-zinc-500" />
+                    <input
+                      type="text"
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      required
+                      className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
+                    The gym owner can change their password after logging into their dashboard.
+                  </p>
+                </div>
+              </div>
+
+              {/* Section 3: SaaS Subscription Plan */}
+              <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>3. SaaS Subscription Package</span>
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Assigned SaaS Plan
+                    </label>
+                    <select
+                      value={formPlanId}
+                      onChange={(e) => setFormPlanId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    >
+                      {availablePlans.map((plan) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name} (₹{plan.monthlyPrice.toLocaleString("en-IN")}/mo)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
+                      Billing Interval
+                    </label>
+                    <select
+                      value={formBillingInterval}
+                      onChange={(e) =>
+                        setFormBillingInterval(e.target.value as "MONTHLY" | "ANNUAL")
+                      }
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    >
+                      <option value="MONTHLY">Monthly Billing Cycle</option>
+                      <option value="ANNUAL">Annual Billing Cycle (1 Year)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 border-t border-slate-200 dark:border-white/[0.08] flex items-center justify-end gap-3 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsRegisterOpen(false)}
+                  className="border-slate-300 dark:border-white/[0.1] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:text-white text-xs h-9"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isRegistering}
+                  className="bg-violet-600 hover:bg-violet-500 text-white text-xs h-9 px-5 gap-1.5 font-medium shadow-sm"
+                >
+                  {isRegistering ? (
+                    <>
+                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span>Onboarding Gym...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Register & Activate Gym</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-[#12131f] p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 dark:bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-red-300 dark:border-red-500/30 bg-white dark:bg-[#12131f] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-950/60 border border-red-500/40 text-red-400">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950/60 dark:border dark:border-red-500/40 dark:text-red-400">
                 <AlertOctagon className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   {deleteModal.isBulk
                     ? `Delete ${deleteModal.count} Gym Organizations?`
                     : `Delete "${deleteModal.targetGym?.name}"?`}
                 </h3>
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
                   This action is permanent and cannot be undone.
                 </p>
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-red-950/20 border border-red-500/20 text-xs text-red-300/90 leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-500/20 text-xs text-red-800 dark:text-red-300/90 leading-relaxed">
               All associated branches, members, attendance records, invoices, and SaaS entitlements for{" "}
               {deleteModal.isBulk
                 ? `the ${deleteModal.count} selected gyms`
@@ -600,7 +990,7 @@ export default function PlatformOrganizationsPage() {
                 variant="outline"
                 disabled={isDeleting}
                 onClick={() => setDeleteModal({ isOpen: false, isBulk: false })}
-                className="border-white/[0.1] text-zinc-300 hover:text-white text-xs h-9 px-4"
+                className="border-slate-300 dark:border-white/[0.1] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:text-white text-xs h-9 px-4"
               >
                 Cancel
               </Button>
