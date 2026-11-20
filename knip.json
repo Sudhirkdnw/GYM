@@ -11,10 +11,12 @@
     },
     "apps/web": {
       "entry": ["src/app/**/*.{ts,tsx}"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignoreDependencies": ["@gymos/config", "zod"]
     },
     "apps/worker": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["zod"]
     }
   }
 }
