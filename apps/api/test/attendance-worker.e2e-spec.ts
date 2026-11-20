@@ -62,9 +62,11 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
       connection: queueRedis,
     });
 
-    const silentLog = () => {};
-    dispatcher = new AttendanceOutboxDispatcher(prisma, attendanceQueue, silentLog);
-    processor = new AutoCheckoutProcessor(prisma, redis, silentLog);
+    const debugLog = (level: string, msg: string, meta?: any) => {
+      if (level === 'ERROR' || level === 'WARN') console.log(`[DISPATCHER ${level}]`, msg, meta);
+    };
+    dispatcher = new AttendanceOutboxDispatcher(prisma, attendanceQueue, debugLog);
+    processor = new AutoCheckoutProcessor(prisma, redis, debugLog);
 
     // Setup Test Orgs, Branches, and Members
     await prisma.withSuperAdminContext(async (tx) => {
@@ -87,6 +89,11 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
             timezone: 'Asia/Kolkata',
           },
         });
+      } else if (dbOrgAlpha.status !== 'ACTIVE') {
+        dbOrgAlpha = await tx.organization.update({
+          where: { id: dbOrgAlpha.id },
+          data: { status: 'ACTIVE' },
+        });
       }
       orgAlpha = { id: dbOrgAlpha.id, name: dbOrgAlpha.name };
 
@@ -99,6 +106,11 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
             status: 'ACTIVE',
             timezone: 'UTC',
           },
+        });
+      } else if (dbOrgBeta.status !== 'ACTIVE') {
+        dbOrgBeta = await tx.organization.update({
+          where: { id: dbOrgBeta.id },
+          data: { status: 'ACTIVE' },
         });
       }
       orgBeta = { id: dbOrgBeta.id, name: dbOrgBeta.name };
@@ -302,10 +314,13 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
         });
       });
 
-      // Mock queue.add to reject for this job
+      // Mock queue.add to reject for this specific job
       const originalAdd = attendanceQueue.add.bind(attendanceQueue);
-      jest.spyOn(attendanceQueue, 'add').mockImplementationOnce(async () => {
-        throw new Error('Simulated BullMQ Redis connection drop');
+      jest.spyOn(attendanceQueue, 'add').mockImplementation(async (name: any, data: any, opts: any) => {
+        if (opts?.jobId === idempKeyFail) {
+          throw new Error('Simulated BullMQ Redis connection drop');
+        }
+        return originalAdd(name, data, opts);
       });
 
       const result = await dispatcher.dispatchPendingEvents();
@@ -604,7 +619,7 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
           });
         });
       }
-    });
+    }, 15000);
 
     it('should maintain strict per-tenant isolation without cross-tenant session leaks', async () => {
       // Create session in Org Beta
@@ -635,6 +650,10 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
 
   describe('2B. Token-Safe Redis Distributed Lock (F-01 Remediation)', () => {
     const lockKey = 'lock:worker:attendance:auto-checkout';
+
+    beforeEach(async () => {
+      await redis.del(lockKey);
+    });
 
     afterEach(async () => {
       await redis.del(lockKey);

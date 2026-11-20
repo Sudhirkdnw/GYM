@@ -71,13 +71,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       throw new Error(`Invalid tenant ID format: ${tenantId}`);
     }
 
-    return this.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}';`);
-      if (isSuperAdmin) {
-        await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
-      }
-      return callback(tx);
-    });
+    return this.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}';`);
+        if (isSuperAdmin) {
+          await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
+        }
+        return callback(tx);
+      },
+      { maxWait: 10000, timeout: 15000 },
+    );
   }
 
   /**
@@ -86,9 +89,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   async withSuperAdminContext<T>(
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    return this.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
-      return callback(tx);
-    });
+    return this.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
+        return callback(tx);
+      },
+      { maxWait: 10000, timeout: 15000 },
+    );
   }
 }

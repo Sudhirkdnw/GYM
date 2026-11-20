@@ -37,78 +37,88 @@ export class AttendanceOutboxDispatcher {
 
       // 2. Iterate per organization to enforce tenant RLS context
       for (const org of orgs) {
-        await this.prisma.$transaction(async (tx) => {
-          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
+        try {
+          await this.prisma.$transaction(
+            async (tx) => {
+              await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
 
-          const pendingEvents = await tx.attendanceOutboxEvent.findMany({
-            where: {
-              organizationId: org.id,
-              status: "PENDING",
+              const pendingEvents = await tx.attendanceOutboxEvent.findMany({
+                where: {
+                  organizationId: org.id,
+                  status: "PENDING",
+                },
+                orderBy: { createdAt: "asc" },
+                take: 50,
+              });
+
+              for (const event of pendingEvents) {
+                try {
+                  // Enqueue in BullMQ with bounded retry policy and idempotency
+                  await this.attendanceQueue.add(
+                    event.eventType,
+                    event.payload as Record<string, unknown>,
+                    {
+                      jobId: event.idempotencyKey,
+                      attempts: 5,
+                      backoff: {
+                        type: "exponential",
+                        delay: 2000,
+                      },
+                      removeOnComplete: 100,
+                      removeOnFail: 500,
+                    },
+                  );
+
+                  // Mark as PUBLISHED transactionally
+                  await tx.attendanceOutboxEvent.update({
+                    where: { id: event.id },
+                    data: {
+                      status: "PUBLISHED",
+                      processedAt: new Date(),
+                    },
+                  });
+
+                  dispatched++;
+                  this.log("INFO", `Dispatched attendance outbox event`, {
+                    eventId: event.id,
+                    eventType: event.eventType,
+                    orgId: org.id,
+                  });
+                } catch (dispatchErr) {
+                  failed++;
+                  const errMsg =
+                    dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
+                  const nextRetry = event.retryCount + 1;
+                  const nextStatus = nextRetry >= 5 ? "FAILED" : "PENDING";
+
+                  await tx.attendanceOutboxEvent.update({
+                    where: { id: event.id },
+                    data: {
+                      retryCount: { increment: 1 },
+                      lastError: errMsg,
+                      status: nextStatus,
+                    },
+                  });
+
+                  this.log("WARN", `Failed to dispatch attendance outbox event`, {
+                    eventId: event.id,
+                    eventType: event.eventType,
+                    orgId: org.id,
+                    retryCount: nextRetry,
+                    status: nextStatus,
+                    error: errMsg,
+                  });
+                }
+              }
             },
-            orderBy: { createdAt: "asc" },
-            take: 50,
-          });
-
-          for (const event of pendingEvents) {
-            try {
-              // Enqueue in BullMQ with bounded retry policy and idempotency
-              await this.attendanceQueue.add(
-                event.eventType,
-                event.payload as Record<string, unknown>,
-                {
-                  jobId: event.idempotencyKey,
-                  attempts: 5,
-                  backoff: {
-                    type: "exponential",
-                    delay: 2000,
-                  },
-                  removeOnComplete: 100,
-                  removeOnFail: 500,
-                },
-              );
-
-              // Mark as PUBLISHED transactionally
-              await tx.attendanceOutboxEvent.update({
-                where: { id: event.id },
-                data: {
-                  status: "PUBLISHED",
-                  processedAt: new Date(),
-                },
-              });
-
-              dispatched++;
-              this.log("INFO", `Dispatched attendance outbox event`, {
-                eventId: event.id,
-                eventType: event.eventType,
-                orgId: org.id,
-              });
-            } catch (dispatchErr) {
-              failed++;
-              const errMsg =
-                dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
-              const nextRetry = event.retryCount + 1;
-              const nextStatus = nextRetry >= 5 ? "FAILED" : "PENDING";
-
-              await tx.attendanceOutboxEvent.update({
-                where: { id: event.id },
-                data: {
-                  retryCount: { increment: 1 },
-                  lastError: errMsg,
-                  status: nextStatus,
-                },
-              });
-
-              this.log("WARN", `Failed to dispatch attendance outbox event`, {
-                eventId: event.id,
-                eventType: event.eventType,
-                orgId: org.id,
-                retryCount: nextRetry,
-                status: nextStatus,
-                error: errMsg,
-              });
-            }
-          }
-        });
+            { maxWait: 10000, timeout: 15000 },
+          );
+        } catch (orgErr) {
+          this.log(
+            "WARN",
+            `Outbox dispatch failed for organization ${org.id}: ${orgErr instanceof Error ? orgErr.message : String(orgErr)}`,
+          );
+        }
       }
     } catch (err) {
       this.log("ERROR", "Attendance outbox dispatcher failure", {
