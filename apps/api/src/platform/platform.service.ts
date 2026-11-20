@@ -257,11 +257,12 @@ export class PlatformService {
         },
       });
 
-      // 4. Create or link Owner User
+      // 4. Create or link Owner User (Ensure credentials match what Super Admin provided)
+      const passwordHash = await this.passwordHasher.hashPassword(password);
       let user = await tx.user.findUnique({ where: { email: ownerEmail } });
       let isNewUser = false;
+
       if (!user) {
-        const passwordHash = await this.passwordHasher.hashPassword(password);
         user = await tx.user.create({
           data: {
             email: ownerEmail,
@@ -273,6 +274,19 @@ export class PlatformService {
           },
         });
         isNewUser = true;
+      } else {
+        // When Super Admin provisions a gym for an existing email, update their password so
+        // the provided initial credentials work immediately, activate the account, and verify email.
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            passwordHash,
+            status: 'ACTIVE',
+            emailVerified: true,
+            ...(ownerFirstName ? { firstName: ownerFirstName } : {}),
+            ...(ownerLastName ? { lastName: ownerLastName } : {}),
+          },
+        });
       }
 
       // 5. Link user to organization as GYM_OWNER
@@ -352,7 +366,7 @@ export class PlatformService {
           firstName: user.firstName,
           lastName: user.lastName,
           isNewUser,
-          defaultPassword: isNewUser ? password : null,
+          defaultPassword: password,
         },
         subscription: {
           planId: plan.id,
