@@ -316,22 +316,22 @@ export default function GymEntitlementsConfigPage() {
       )}
 
       {/* SaaS Subscription Plan Card */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0e0f17] p-6">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0e0f17] p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-violet-400" />
-              <h2 className="text-sm font-semibold text-white">
+              <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Assigned SaaS Subscription
               </h2>
             </div>
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
               Current package:{" "}
-              <span className="font-bold text-violet-300">
+              <span className="font-bold text-violet-700 dark:text-violet-300">
                 {data?.subscription?.planName || "Enterprise"}
               </span>{" "}
               • Renewal Date:{" "}
-              <span className="font-mono text-zinc-300">
+              <span className="font-mono text-slate-700 dark:text-zinc-300">
                 {data?.subscription?.currentPeriodEnd || "2028-11-20"}
               </span>
             </p>
@@ -341,7 +341,7 @@ export default function GymEntitlementsConfigPage() {
             <select
               value={selectedPlanCode}
               onChange={(e) => setSelectedPlanCode(e.target.value)}
-              className="bg-[#141522] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+              className="bg-slate-50 dark:bg-[#141522] border border-slate-300 dark:border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
             >
               <option value="starter">Starter Plan (Base Operations)</option>
               <option value="pro">Pro Plan (Operations + Billing + CRM)</option>
@@ -352,7 +352,7 @@ export default function GymEntitlementsConfigPage() {
               onClick={handleChangePlan}
               disabled={isChangingPlan}
               variant="outline"
-              className="border-violet-500/40 text-violet-300 hover:bg-violet-950/50 hover:text-white text-xs h-8 px-3"
+              className="border-violet-300 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:text-violet-900 dark:hover:text-white text-xs h-8 px-3"
             >
               {isChangingPlan ? "Switching..." : "Apply Plan"}
             </Button>
@@ -360,9 +360,9 @@ export default function GymEntitlementsConfigPage() {
         </div>
 
         {/* Numeric Quotas */}
-        <div className="mt-6 pt-6 border-t border-white/[0.05] grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/[0.05] grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-700 dark:text-zinc-300 block mb-1.5">
               Max Active Members
             </label>
             <input
@@ -370,15 +370,15 @@ export default function GymEntitlementsConfigPage() {
               placeholder="Leave blank for unlimited"
               value={memberQuota}
               onChange={(e) => setMemberQuota(e.target.value)}
-              className="w-full bg-[#141522] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+              className="w-full bg-slate-50 dark:bg-[#141522] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
             />
-            <p className="text-[10px] text-zinc-500 mt-1">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
               Active: {data?.effective.quotas["members.max_active"]?.current ?? 0}
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-700 dark:text-zinc-300 block mb-1.5">
               Max Branch Locations
             </label>
             <input
@@ -386,15 +386,15 @@ export default function GymEntitlementsConfigPage() {
               placeholder="Leave blank for unlimited"
               value={branchQuota}
               onChange={(e) => setBranchQuota(e.target.value)}
-              className="w-full bg-[#141522] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+              className="w-full bg-slate-50 dark:bg-[#141522] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
             />
-            <p className="text-[10px] text-zinc-500 mt-1">
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
               Active: {data?.effective.quotas["core.branches.max"]?.current ?? 1}
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-zinc-300 block mb-1.5">
+            <label className="text-xs font-medium text-slate-700 dark:text-zinc-300 block mb-1.5">
               Change Reason (Audit Log)
             </label>
             <input
@@ -402,7 +402,7 @@ export default function GymEntitlementsConfigPage() {
               placeholder="e.g. VIP contract add-on"
               value={overrideReason}
               onChange={(e) => setOverrideReason(e.target.value)}
-              className="w-full bg-[#141522] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+              className="w-full bg-slate-50 dark:bg-[#141522] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-violet-500"
             />
           </div>
         </div>
@@ -412,12 +412,12 @@ export default function GymEntitlementsConfigPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-violet-400" />
-            <h2 className="text-base font-bold text-white">
+            <Layers className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
               Service Entitlements Catalog ({data?.catalog.length || 0} Modules)
             </h2>
           </div>
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-slate-500 dark:text-zinc-500">
             Toggles override plan defaults instantly
           </span>
         </div>
@@ -425,18 +425,18 @@ export default function GymEntitlementsConfigPage() {
         {Object.entries(domains).map(([domain, items]) => (
           <div
             key={domain}
-            className="rounded-2xl border border-white/[0.08] bg-[#0e0f17] overflow-hidden"
+            className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0e0f17] overflow-hidden shadow-sm"
           >
-            <div className="bg-white/[0.02] px-6 py-3 border-b border-white/[0.05] flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-violet-300">
+            <div className="bg-slate-50 dark:bg-white/[0.02] px-6 py-3 border-b border-slate-200 dark:border-white/[0.05] flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
                 {domainDisplayNames[domain] || domain}
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                 {items.length} features
               </span>
             </div>
 
-            <div className="divide-y divide-white/[0.04]">
+            <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
               {items.map((feat) => {
                 const isEnabled = featureStates[feat.key] ?? false;
                 const hasCustomOverride = data?.overrides.some(
@@ -446,27 +446,27 @@ export default function GymEntitlementsConfigPage() {
                 return (
                   <div
                     key={feat.key}
-                    className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-white/[0.01] transition-colors"
+                    className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors"
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white">
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
                           {feat.name}
                         </span>
                         {hasCustomOverride ? (
-                          <span className="rounded bg-amber-950/60 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                          <span className="rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:border dark:border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold dark:text-amber-300 uppercase">
                             OVERRIDE
                           </span>
                         ) : (
-                          <span className="rounded bg-zinc-900 border border-zinc-700 px-1.5 py-0.2 text-[9px] font-medium text-zinc-400 uppercase">
+                          <span className="rounded bg-slate-100 text-slate-600 dark:bg-zinc-900 dark:border dark:border-zinc-700 px-1.5 py-0.2 text-[9px] font-medium dark:text-zinc-400 uppercase">
                             PLAN DEFAULT
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
                         {feat.description || feat.key}
                       </p>
-                      <p className="text-[10px] text-zinc-600 font-mono">
+                      <p className="text-[10px] text-slate-400 dark:text-zinc-600 font-mono">
                         key: {feat.key}
                       </p>
                     </div>
@@ -476,7 +476,7 @@ export default function GymEntitlementsConfigPage() {
                       type="button"
                       onClick={() => toggleFeature(feat.key)}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        isEnabled ? "bg-violet-600" : "bg-zinc-800"
+                        isEnabled ? "bg-violet-600" : "bg-slate-300 dark:bg-zinc-800"
                       }`}
                       role="switch"
                       aria-checked={isEnabled}

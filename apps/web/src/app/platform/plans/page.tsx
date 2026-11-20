@@ -301,11 +301,11 @@ export default function PlatformPlansPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Package className="h-6 w-6 text-violet-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <Package className="h-6 w-6 text-violet-600 dark:text-violet-400" />
             <span>SaaS Subscription Plans</span>
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
             Super Admin controls commercial plans, pricing, quotas, and feature allocations for all gyms.
           </p>
         </div>
@@ -330,27 +330,27 @@ export default function PlatformPlansPage() {
               key={plan.id}
               className={`rounded-2xl border p-6 flex flex-col justify-between transition-all relative ${
                 isEnterprise
-                  ? "border-violet-500/60 bg-gradient-to-b from-violet-950/30 via-[#10111a] to-[#0d0e15] shadow-glow shadow-violet-500/10"
-                  : "border-white/[0.08] bg-[#0e0f17] hover:border-violet-500/30"
+                  ? "border-violet-300 dark:border-violet-500/60 bg-gradient-to-b from-violet-50/60 via-white to-white dark:from-violet-950/30 dark:via-[#10111a] dark:to-[#0d0e15] shadow-lg shadow-violet-500/10"
+                  : "border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0e0f17] shadow-sm hover:border-violet-500/40"
               }`}
             >
               <div>
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       {plan.name}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-zinc-400 uppercase">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-zinc-400 uppercase">
                         {plan.code}
                       </span>
                       {plan.isActive ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium">
                           Active
                         </span>
                       ) : (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-500 font-medium">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-500 font-medium">
                           Inactive
                         </span>
                       )}
@@ -362,7 +362,7 @@ export default function PlatformPlansPage() {
                     <button
                       onClick={() => handleOpenEdit(plan)}
                       title="Edit Plan & Features"
-                      className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+                      className="p-1.5 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </button>
@@ -370,40 +370,40 @@ export default function PlatformPlansPage() {
                       onClick={() => handleDelete(plan)}
                       disabled={deletingId === plan.id}
                       title="Delete Plan"
-                      className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                      className="p-1.5 rounded-lg text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-400 mt-3 min-h-[36px]">
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-3 min-h-[36px]">
                   {plan.description || "Commercial gym operations package"}
                 </p>
 
                 {/* Pricing Block */}
-                <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-white">
+                <div className="mt-5 pt-4 border-t border-slate-200 dark:border-white/[0.06] flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold text-slate-900 dark:text-white">
                     ₹{plan.monthlyPrice.toLocaleString("en-IN")}
                   </span>
-                  <span className="text-xs text-zinc-400 font-medium">/ month</span>
+                  <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">/ month</span>
                 </div>
-                <p className="text-[11px] text-zinc-500 mt-0.5">
+                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
                   ₹{plan.annualPrice.toLocaleString("en-IN")} billed annually
                 </p>
 
                 {/* Quotas & Subscriptions */}
-                <div className="mt-4 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] grid grid-cols-2 gap-2 text-[11px]">
+                <div className="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.05] grid grid-cols-2 gap-2 text-[11px]">
                   <div>
-                    <span className="text-zinc-500 block">Subscribed Gyms:</span>
-                    <span className="text-white font-semibold flex items-center gap-1">
-                      <Building2 className="h-3 w-3 text-violet-400" />
+                    <span className="text-slate-500 dark:text-zinc-500 block">Subscribed Gyms:</span>
+                    <span className="text-slate-900 dark:text-white font-semibold flex items-center gap-1">
+                      <Building2 className="h-3 w-3 text-violet-600 dark:text-violet-400" />
                       {plan.assignedGymsCount ?? 0} gyms
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block">Active Features:</span>
-                    <span className="text-white font-semibold">
+                    <span className="text-slate-500 dark:text-zinc-500 block">Active Features:</span>
+                    <span className="text-slate-900 dark:text-white font-semibold">
                       {enabledCount} / {plan.features.length}
                     </span>
                   </div>
@@ -411,7 +411,7 @@ export default function PlatformPlansPage() {
 
                 {/* Feature highlights */}
                 <div className="mt-5 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                     Feature Allocation ({enabledCount} Enabled)
                   </p>
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -421,13 +421,15 @@ export default function PlatformPlansPage() {
                         className="flex items-center gap-2 text-xs"
                       >
                         {f.isEnabled ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
                         ) : (
-                          <XCircle className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+                          <XCircle className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-600 shrink-0" />
                         )}
                         <span
                           className={
-                            f.isEnabled ? "text-zinc-200" : "text-zinc-500 line-through"
+                            f.isEnabled
+                              ? "text-slate-800 dark:text-zinc-200"
+                              : "text-slate-400 dark:text-zinc-500 line-through"
                           }
                         >
                           {f.name}
@@ -435,7 +437,7 @@ export default function PlatformPlansPage() {
                       </div>
                     ))}
                     {plan.features.length > 10 && (
-                      <p className="text-[11px] text-zinc-500 italic pl-5 pt-1">
+                      <p className="text-[11px] text-slate-400 dark:text-zinc-500 italic pl-5 pt-1">
                         + {plan.features.length - 10} more modules
                       </p>
                     )}
@@ -444,11 +446,11 @@ export default function PlatformPlansPage() {
               </div>
 
               {/* Bottom footer */}
-              <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center gap-2">
+              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/[0.06] flex items-center gap-2">
                 <Button
                   onClick={() => handleOpenEdit(plan)}
                   variant="outline"
-                  className="w-1/2 text-xs h-9 border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] text-white"
+                  className="w-1/2 text-xs h-9 border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white"
                 >
                   Edit Plan
                 </Button>
@@ -466,26 +468,26 @@ export default function PlatformPlansPage() {
 
       {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-[#0e0f17] border border-white/[0.12] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#0e0f17] border border-slate-200 dark:border-white/[0.12] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
             {/* Modal Header */}
-            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between shrink-0 bg-[#12131f]">
+            <div className="p-6 border-b border-slate-200 dark:border-white/[0.08] flex items-center justify-between shrink-0 bg-slate-50 dark:bg-[#12131f]">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-600/20 border border-violet-200 dark:border-violet-500/40 text-violet-700 dark:text-violet-400">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                     {editingPlanId ? `Edit SaaS Plan: ${formName}` : "Create New Custom SaaS Plan"}
                   </h2>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
                     Configure custom prices, member & branch quotas, and granular module entitlements.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-white/[0.08] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -494,7 +496,7 @@ export default function PlatformPlansPage() {
             {/* Modal Body */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {modalError && (
-                <div className="p-3.5 rounded-xl border border-red-500/40 bg-red-950/30 text-red-300 text-xs flex items-center gap-2">
+                <div className="p-3.5 rounded-xl border border-red-500/40 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-300 text-xs flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{modalError}</span>
                 </div>
@@ -502,14 +504,14 @@ export default function PlatformPlansPage() {
 
               {/* Section 1: Basic Info */}
               <div className="space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
                   <Package className="h-3.5 w-3.5" />
                   <span>1. Plan Information & Pricing</span>
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                       Plan Display Name *
                     </label>
                     <input
@@ -518,12 +520,12 @@ export default function PlatformPlansPage() {
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       required
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                       Unique Plan Code * (lowercase slug)
                     </label>
                     <input
@@ -533,13 +535,13 @@ export default function PlatformPlansPage() {
                       onChange={(e) => setFormCode(e.target.value)}
                       disabled={!!editingPlanId}
                       required
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                     Plan Description
                   </label>
                   <input
@@ -547,13 +549,13 @@ export default function PlatformPlansPage() {
                     placeholder="Short marketing summary of the package"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                       Monthly Price (₹ INR) *
                     </label>
                     <input
@@ -562,12 +564,12 @@ export default function PlatformPlansPage() {
                       value={formMonthlyPrice}
                       onChange={(e) => setFormMonthlyPrice(Number(e.target.value))}
                       required
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                       Annual Price (₹ INR) *
                     </label>
                     <input
@@ -576,18 +578,18 @@ export default function PlatformPlansPage() {
                       value={formAnnualPrice}
                       onChange={(e) => setFormAnnualPrice(Number(e.target.value))}
                       required
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1.5">
                       Status
                     </label>
                     <select
                       value={formIsActive ? "active" : "inactive"}
                       onChange={(e) => setFormIsActive(e.target.value === "active")}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <option value="active">Active (Available for gyms)</option>
                       <option value="inactive">Inactive / Draft</option>
@@ -597,18 +599,18 @@ export default function PlatformPlansPage() {
               </div>
 
               {/* Section 2: Quotas */}
-              <div className="space-y-4 pt-4 border-t border-white/[0.08]">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
                   <Layers className="h-3.5 w-3.5" />
                   <span>2. Quota & Limits</span>
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                       Max Active Members Limit
                     </label>
-                    <p className="text-[11px] text-zinc-500 mb-1.5">
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-500 mb-1.5">
                       Leave blank for Unlimited members.
                     </p>
                     <input
@@ -616,15 +618,15 @@ export default function PlatformPlansPage() {
                       placeholder="Unlimited (Leave blank)"
                       value={formMemberQuota}
                       onChange={(e) => setFormMemberQuota(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-zinc-300 mb-1">
                       Max Branches Limit
                     </label>
-                    <p className="text-[11px] text-zinc-500 mb-1.5">
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-500 mb-1.5">
                       Number of gym branch locations allowed (e.g. 1, 3, 10).
                     </p>
                     <input
@@ -633,21 +635,21 @@ export default function PlatformPlansPage() {
                       placeholder="1"
                       value={formBranchQuota}
                       onChange={(e) => setFormBranchQuota(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-white/[0.1] bg-[#161722] text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#161722] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Section 3: Feature Checklist (All 49 Features) */}
-              <div className="space-y-4 pt-4 border-t border-white/[0.08]">
+              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/[0.08]">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       <span>3. Module Entitlements ({enabledFeatureKeys.size} / {safeCatalog.length} Enabled)</span>
                     </h4>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
                       Toggle exact modules included in this subscription package.
                     </p>
                   </div>
@@ -658,7 +660,7 @@ export default function PlatformPlansPage() {
                       variant="outline"
                       size="sm"
                       onClick={selectAllFeatures}
-                      className="text-[11px] h-7 px-2.5 border-white/[0.1] bg-white/[0.04] text-zinc-200 hover:text-white"
+                      className="text-[11px] h-7 px-2.5 border-slate-300 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white"
                     >
                       Select All 49
                     </Button>
@@ -667,7 +669,7 @@ export default function PlatformPlansPage() {
                       variant="outline"
                       size="sm"
                       onClick={deselectAllFeatures}
-                      className="text-[11px] h-7 px-2.5 border-white/[0.1] bg-white/[0.04] text-zinc-200 hover:text-white"
+                      className="text-[11px] h-7 px-2.5 border-slate-300 dark:border-white/[0.1] bg-slate-50 dark:bg-white/[0.04] text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white"
                     >
                       Deselect All
                     </Button>
@@ -685,15 +687,15 @@ export default function PlatformPlansPage() {
                     return (
                       <div
                         key={domain}
-                        className="p-4 rounded-xl border border-white/[0.06] bg-[#131420]/80 space-y-3"
+                        className="p-4 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-slate-50/80 dark:bg-[#131420]/80 space-y-3"
                       >
                         {/* Domain header */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase tracking-wide text-zinc-200">
+                            <span className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-zinc-200">
                               {domain}
                             </span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-400 font-mono">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/70 dark:bg-white/[0.06] text-slate-600 dark:text-zinc-400 font-mono">
                               {domainEnabledCount} / {domainFeatures.length}
                             </span>
                           </div>
@@ -702,15 +704,15 @@ export default function PlatformPlansPage() {
                             <button
                               type="button"
                               onClick={() => toggleDomain(domain, true)}
-                              className="text-[10px] text-violet-400 hover:text-violet-300 font-medium px-2 py-0.5 rounded hover:bg-violet-500/10 transition-colors"
+                              className="text-[10px] text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium px-2 py-0.5 rounded hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors"
                             >
                               Enable All
                             </button>
-                            <span className="text-zinc-600 text-[10px]">|</span>
+                            <span className="text-slate-300 dark:text-zinc-600 text-[10px]">|</span>
                             <button
                               type="button"
                               onClick={() => toggleDomain(domain, false)}
-                              className="text-[10px] text-zinc-400 hover:text-zinc-300 font-medium px-2 py-0.5 rounded hover:bg-white/[0.05] transition-colors"
+                              className="text-[10px] text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-300 font-medium px-2 py-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-white/[0.05] transition-colors"
                             >
                               Disable All
                             </button>
@@ -727,21 +729,21 @@ export default function PlatformPlansPage() {
                                 key={feat.key}
                                 className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-all select-none ${
                                   isChecked
-                                    ? "border-violet-500/40 bg-violet-600/10 text-white"
-                                    : "border-white/[0.04] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
+                                    ? "border-violet-400/60 bg-violet-50 dark:bg-violet-600/10 text-violet-950 dark:text-white"
+                                    : "border-slate-200 dark:border-white/[0.04] bg-white dark:bg-white/[0.02] text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-white/[0.04]"
                                 }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => toggleFeature(feat.key)}
-                                  className="mt-0.5 rounded border-white/20 text-violet-600 focus:ring-violet-500 shrink-0"
+                                  className="mt-0.5 rounded border-slate-300 dark:border-white/20 text-violet-600 focus:ring-violet-500 shrink-0"
                                 />
                                 <div className="space-y-0.5 leading-tight truncate">
                                   <div className="font-medium text-xs truncate">
                                     {feat.name}
                                   </div>
-                                  <div className="text-[10px] text-zinc-500 font-mono truncate">
+                                  <div className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono truncate">
                                     {feat.key}
                                   </div>
                                 </div>
@@ -756,12 +758,12 @@ export default function PlatformPlansPage() {
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="pt-6 border-t border-white/[0.08] flex items-center justify-end gap-3 shrink-0">
+              <div className="pt-6 border-t border-slate-200 dark:border-white/[0.08] flex items-center justify-end gap-3 shrink-0">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsModalOpen(false)}
-                  className="border-white/[0.1] bg-white/[0.04] text-zinc-300 hover:text-white text-xs h-9"
+                  className="border-slate-300 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:text-white text-xs h-9"
                 >
                   Cancel
                 </Button>
