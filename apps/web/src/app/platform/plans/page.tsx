@@ -27,6 +27,11 @@ interface FeatureCatalogItem {
   category: string;
 }
 
+interface FeatureCatalogResponse {
+  all: FeatureCatalogItem[];
+  grouped: Record<string, FeatureCatalogItem[]>;
+}
+
 interface SaasPlanWithFeatures {
   id: string;
   code: string;
@@ -76,12 +81,15 @@ export default function PlatformPlansPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const [plansData, catalogData] = await Promise.all([
+      const [plansData, catalogRes] = await Promise.all([
         apiClient<SaasPlanWithFeatures[]>("/platform/plans"),
-        apiClient<FeatureCatalogItem[]>("/platform/features"),
+        apiClient<FeatureCatalogResponse | FeatureCatalogItem[]>("/platform/features"),
       ]);
       setPlans(plansData || []);
-      setCatalog(catalogData || []);
+      const items = Array.isArray(catalogRes)
+        ? catalogRes
+        : (catalogRes as FeatureCatalogResponse)?.all || [];
+      setCatalog(items);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load SaaS plans");
     } finally {
@@ -266,7 +274,8 @@ export default function PlatformPlansPage() {
   };
 
   // Group catalog by domain
-  const domains = Array.from(new Set(catalog.map((f) => f.domain)));
+  const safeCatalog = Array.isArray(catalog) ? catalog : [];
+  const domains = Array.from(new Set(safeCatalog.map((f) => f.domain)));
 
   if (isLoading) {
     return (
@@ -636,7 +645,7 @@ export default function PlatformPlansPage() {
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      <span>3. Module Entitlements ({enabledFeatureKeys.size} / {catalog.length} Enabled)</span>
+                      <span>3. Module Entitlements ({enabledFeatureKeys.size} / {safeCatalog.length} Enabled)</span>
                     </h4>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
                       Toggle exact modules included in this subscription package.
@@ -668,7 +677,7 @@ export default function PlatformPlansPage() {
                 {/* Domain Blocks */}
                 <div className="space-y-4">
                   {domains.map((domain) => {
-                    const domainFeatures = catalog.filter((f) => f.domain === domain);
+                    const domainFeatures = safeCatalog.filter((f) => f.domain === domain);
                     const domainEnabledCount = domainFeatures.filter((f) =>
                       enabledFeatureKeys.has(f.key),
                     ).length;
