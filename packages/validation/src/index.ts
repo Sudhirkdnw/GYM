@@ -19,6 +19,10 @@ export const apiEnvSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   COOKIE_SECRET: z.string().min(16).default('development-cookie-secret-min-16-chars-long'),
+  ATTENDANCE_SECRET_MASTER_KEY: z
+    .string()
+    .min(32, 'Master key must be at least 32 characters')
+    .default('development-attendance-master-key-32-chars!'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
 });
 

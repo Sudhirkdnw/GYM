@@ -29,5 +29,10 @@ export default () => ({
     sameSite: (process.env.COOKIE_SAME_SITE || "lax") as "lax" | "strict" | "none",
     domain: process.env.COOKIE_DOMAIN || undefined,
   },
+  attendance: {
+    secretMasterKey:
+      process.env.ATTENDANCE_SECRET_MASTER_KEY ||
+      "development-attendance-master-key-32-chars!",
+  },
   logLevel: process.env.LOG_LEVEL || "info",
 });

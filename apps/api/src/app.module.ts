@@ -14,6 +14,8 @@ import { BranchesModule } from './branches/branches.module';
 import { MembersModule } from './members/members.module';
 import { MembershipsModule } from './memberships/memberships.module';
 import { BillingModule } from './billing/billing.module';
+import { RedisModule } from './common/redis/redis.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { CsrfProtectionGuard } from './common/auth/csrf-protection.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { PermissionsGuard } from './common/auth/permissions.guard';
@@ -36,6 +38,8 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
     MembersModule,
     MembershipsModule,
     BillingModule,
+    RedisModule,
+    AttendanceModule,
     HealthModule,
   ],
   providers: [

@@ -3,8 +3,8 @@
 
 **Stage:** 2.7 — Attendance Management & QR Check-In System  
 **Baseline Commit:** `e1f9f46`  
-**Current Milestone:** Step 2 — Shared Types, DTOs & Zod Validation  
-**Current Status:** STEP 2 COMPLETED & VERIFIED (Awaiting Step 3 Authorization)
+**Current Milestone:** Step 3 — Cryptographic QR Token Service  
+**Current Status:** STEP 3 COMPLETED & VERIFIED (Awaiting Step 4 Authorization)
 
 ---
 
@@ -19,8 +19,8 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 | Milestone | Description | Status | Commit | Verification |
 | :---: | :--- | :---: | :---: | :--- |
 | **Step 1** | Database Migration, Enums & PostgreSQL RLS | **COMPLETED** | `d57757e` | 4 tables created; RLS `ENABLE` + `FORCE` with zero SuperAdmin bypass; partial unique index verified against concurrent transactions; 193/193 regression tests passed. |
-| **Step 2** | Shared Types, DTOs & Zod Validation Schemas | **COMPLETED** | *(pending)* | Comprehensive domain contracts in `@gymos/shared-types`; zero secret leakage; strict Zod validation in `@gymos/validation`; 29 unit tests passed; all workspaces build clean; 193/193 regression tests passed. |
-| **Step 3** | QR Cryptographic Token Service | *PENDING* | — | *Awaiting authorization* |
+| **Step 2** | Shared Types, DTOs & Zod Validation Schemas | **COMPLETED** | `af1c673` | Comprehensive domain contracts in `@gymos/shared-types`; zero secret leakage; strict Zod validation in `@gymos/validation`; 29 unit tests passed; all workspaces build clean; 193/193 regression tests passed. |
+| **Step 3** | QR Cryptographic Token Service | **COMPLETED** | *(pending)* | AES-256-GCM envelope encryption (`enc:v1:`); HMAC-SHA256 dynamic tokens (90s expiry, 5s skew, constant-time compare); Redis atomic nonce replay prevention (NX, 180s TTL, fail-closed on Redis failure); salted SHA-256 physical passcodes (16-char unambiguous alphabet); 23 unit tests + 4 live Redis E2E integration tests; 197/197 regression tests passed. |
 | **Step 4** | Attendance Service & Validation Engine | *PENDING* | — | *Awaiting authorization* |
 | **Step 5** | Attendance Controller & RBAC Matrix | *PENDING* | — | *Awaiting authorization* |
 | **Step 6** | Worker Outbox & Auto-Checkout Routine | *PENDING* | — | *Awaiting authorization* |
@@ -91,3 +91,74 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
   - `@gymos/validation`: `tsc -b` passed.
   - `@gymos/api`: `nest build` passed.
   - `@gymos/web`: `next build` passed (26 routes compiled).
+
+---
+
+## 5. Step 3 Detailed Implementation
+
+### A. Cryptographic QR Architecture & Envelope Encryption
+- **Master Key Security:** Master key configured via `ATTENDANCE_SECRET_MASTER_KEY` environment variable. Validated at boot by `apiEnvSchema` (Zod `min(32)`).
+- **AES-256-GCM Envelope Encryption (`EnvelopeEncryptionService`):**
+  - Master key is derived using SHA-256 (`crypto.createHash('sha256').update(masterKey).digest()`) yielding exactly 32 bytes.
+  - Random 12-byte CSPRNG IV generated per operation (`crypto.randomBytes(12)`).
+  - 16-byte authentication tag retrieved via `cipher.getAuthTag()`.
+  - Serialized format: `enc:v1:<iv_hex>:<tag_hex>:<ciphertext_hex>`.
+  - Fail-closed decryption: Throws `InternalServerErrorException` on corrupted ciphertext, modified tag, wrong master key, or tampered envelope version.
+
+### B. Dynamic QR Token Lifecycle (`QrTokenService`)
+- **HMAC-SHA256 Signing:** Token body is structured as `v1.<base64url(payload)>.<base64url(signature)>`.
+- **Payload Claims:**
+  - `sub`: Member Access Pass UUID.
+  - `mid`: Member UUID.
+  - `org`: Organization UUID (tenant scope).
+  - `iat`: Epoch timestamp in seconds when token was minted.
+  - `exp`: Epoch timestamp in seconds (`iat + 90`).
+  - `jti`: Cryptographically secure 16-byte random hex nonce.
+- **Timing-Safe Comparison:** Signatures are compared using `crypto.timingSafeEqual` over SHA-256 digests of both values to avoid timing side-channel leakage.
+- **Expiry & Skew Tolerance:**
+  - Standard validity: 90 seconds. Client refresh recommendation: 45 seconds.
+  - Clock skew allowance: 5 seconds in the future (`now + 5`). Past expiry is strictly enforced.
+- **Secret Rotation:**
+  - `rotateSigningSecret(orgId, passId)` generates a new 32-byte CSPRNG key, encrypts it via AES-256-GCM, increments `secretVersion`, and invalidates prior dynamic tokens instantly.
+
+### C. Atomic Replay Prevention & Fail-Closed Redis Resilience (`RedisService`)
+- **Atomic Nonce Consumption:**
+  - Nonces are registered at Redis key: `attendance:nonce:<orgId>:<nonce>`.
+  - Execution: `SET attendance:nonce:<orgId>:<nonce> 1 EX 180 NX`.
+  - Returns `true` if key was newly set (token accepted); returns `false` if key already existed (`TOKEN_REPLAY_DETECTED`).
+- **Fail-Closed Redis Policy:**
+  - If Redis is unreachable, errors out, or times out during dynamic token verification, check-in aborts immediately with `503 ServiceUnavailableException('REDIS_REPLAY_CHECK_UNAVAILABLE')`.
+  - Dynamic QR check-in NEVER proceeds without atomic replay verification.
+
+### D. Physical Passcode Security (`PhysicalPasscodeService`)
+- **Unambiguous Alphabet:** 30 characters: `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (excludes confusing `0, O, 1, I, L`).
+- **Passcode Format:** 16 characters formatted as 4-character chunks: `XXXX-XXXX-XXXX-XXXX` (e.g., `A7K9-W3M2-X8P1-Q4V6`).
+- **Zero Raw Passcode Persistence:**
+  - Passcode is returned ONCE to staff at issuance time and never stored in plaintext.
+  - Stored fields:
+    - `passCodeSalt`: 16-byte CSPRNG random hex salt.
+    - `passCodeHash`: `crypto.createHash('sha256').update(normalizedPasscode + salt + orgId).digest('hex')`. Tenant-bound salt prevents cross-tenant rainbow table attacks.
+    - `passCodeMasked`: First 4 and last 4 characters preserved, middle 8 masked: `A7K9-****-****-Q4V6`.
+- **Constant-Time Verification:** Hash matching executed via `crypto.timingSafeEqual`.
+
+### E. Step 3 Verification & Test Execution
+- **Unit Tests (`qr-token.service.spec.ts`):** **23 passed, 0 failed**.
+  - Envelope encryption / decryption roundtrip.
+  - Ciphertext tampering detection & authentication tag failure.
+  - Wrong master key rejection.
+  - Dynamic token generation, payload decoding, HMAC verification.
+  - Clock skew (within 5s accepted; beyond 5s rejected).
+  - Expired token rejection.
+  - Organization mismatch rejection (`FORBIDDEN`).
+  - Redis nonce atomic consumption & replay rejection (`TOKEN_REPLAY_DETECTED`).
+  - Secret rotation and version increment.
+  - Passcode generation, entropy, masking, and salted hash verification.
+- **E2E Live Integration Test (`attendance-redis-replay.e2e-spec.ts`):** **4 passed, 0 failed**.
+  - Redis ping / health check.
+  - Atomic single-scan acquisition.
+  - Organization isolation of identical nonces across tenants.
+  - **10 Concurrent Scan Requests:** 10 simultaneous threads querying identical nonce resulted in **exactly 1 ACQUIRED and 9 REPLAY_DETECTED** with 0 errors.
+- **Overall Suite Status:**
+  - API Unit Tests: **4 test suites, 57 of 57 tests passed (100%)**.
+  - Full E2E Test Suite: **11 test suites, 197 of 197 tests passed (100%)**.
+  - Monorepo Compilation: All packages and applications compiled with exit code `0`.
