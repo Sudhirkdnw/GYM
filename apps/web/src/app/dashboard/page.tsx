@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Users,
   CreditCard,
+  QrCode,
 } from "lucide-react";
 
 export default function DashboardShellPage() {
@@ -263,6 +264,36 @@ export default function DashboardShellPage() {
               <Link href="/dashboard/memberships/plans">
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
                   Manage Plans
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <QrCode className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    Attendance & Front Desk
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Live floor occupancy, browser QR scanner, manual check-in, and history ledger
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/attendance">
+                <Button size="sm" variant="outline" className="text-xs">
+                  Live Floor
+                </Button>
+              </Link>
+              <Link href="/dashboard/attendance/scanner">
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                  Launch Scanner
                 </Button>
               </Link>
             </div>

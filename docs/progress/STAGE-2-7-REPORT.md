@@ -467,3 +467,89 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 - **Full Monorepo Production Build (`npm run build`):** **Clean compilation with exit code 0 across all 6 workspaces** (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).
 
 
+---
+
+## 8. Step 7: Frontend Screens & Browser QR Scanner Implementation Report
+
+**Milestone:** Step 7 — Frontend Screens & Browser QR Scanner  
+**Status:** Completed & Fully Verified  
+**Date:** 2026-11-20  
+
+### A. Architectural Scope & Objectives Delivered
+
+1. **Front-Desk High-Speed Browser Camera Scanner (`/dashboard/attendance/scanner`):**
+   - Implemented browser-based QR video scanning using `navigator.mediaDevices.getUserMedia` with video frame extraction onto HTML5 canvas and continuous `jsQR` decoding.
+   - Dual-camera switching support (`facingMode: "environment"` vs `"user"`) with dynamic device enumeration.
+   - Clean lifecycle resource management: stops video tracks and cancels animation frames on component unmount or route change.
+   - Scan feedback with Web Audio API sound synthesizer: 880Hz chime for success, 587Hz tone for dues warning, and 220Hz buzz for denial.
+   - Rapid-debounce: temporary freeze (4-second countdown) prevents duplicate scan submissions of the same token.
+   - Fallback physical badge entry modal with masked passcode input.
+   - Instant visual response cards:
+     - Access Granted (Emerald) with member photo, number, active plan name, days remaining, and check-in timestamp.
+     - Dues Warning Notice (Amber) alerting staff of outstanding balance while honoring admission policy.
+     - Access Denied (Red) showing specific domain rejection code and user-friendly explanation.
+
+2. **Attendance Dashboard & Live Floor (`/dashboard/attendance`):**
+   - Real-time headcount metric card displaying currently active members inside the gym.
+   - Today's cumulative check-in volume and peak concurrency tracking.
+   - Active check-in roster table with member avatar, name, number, check-in timestamp, and live elapsed stay duration.
+   - Instant one-click check-out button with optimistic state removal.
+   - Fast client-side search filtering by member name or member number.
+   - 15-second background auto-polling for up-to-date occupancy figures.
+   - Launchers for High-Speed Scanner and Manual Check-In Modal.
+
+3. **Manual Check-In Modal (`apps/web/src/components/attendance/ManualCheckInModal.tsx`):**
+   - Quick-search lookup by member name, member number, or phone number.
+   - Staff note input for audit trail.
+   - Direct execution of `POST /api/v1/attendance/manual` under staff tenant & branch context.
+   - Real-time display of admission results, dues warnings, or rejection reasons.
+
+4. **Attendance History & Ledger (`/dashboard/attendance/history`):**
+   - Comprehensive multi-filter attendance ledger supporting filtering by branch, member, status (`CHECKED_IN`, `CHECKED_OUT`, `AUTO_CHECKED_OUT`, `CANCELLED`), method (`QR_SCAN`, `MANUAL_STAFF`, `KIOSK`, `RFID_CARD`), and date range.
+   - Paginated table showing Member, Branch, Method badge, Check-In / Check-Out timestamps, Duration, and Status badges.
+   - CSV export functionality generating instant client-side ledger downloads.
+
+5. **Attendance Settings Screen (`/dashboard/attendance/settings`):**
+   - Policy configuration for organization-level defaults and branch-specific overrides.
+   - Configurable parameters:
+     - Operating hours (Opening & Closing times in `HH:mm` format).
+     - Off-hours check-in permission toggle.
+     - Auto-checkout duration threshold (in hours).
+     - Mandatory check-out requirement toggle.
+     - Anti-passback / duplicate scan cooldown period (in minutes).
+     - Dues admission policy (allow/block check-in with dues & overdue grace days).
+
+6. **Member Access Pass Management Card (`apps/web/src/components/attendance/MemberPassCard.tsx`):**
+   - Integrated into Member Profile screen (`/dashboard/members/[memberId]`).
+   - Displays current pass status (`ACTIVE`, `SUSPENDED`, `REVOKED`), issue date, last access timestamp, and masked physical badge code.
+   - Pass issuance modal supporting optional physical badge assignment.
+   - Pass revocation modal with mandatory audit reason.
+   - Rolling Dynamic QR Token preview modal featuring 90-second countdown ring and 45-second auto-refresh.
+   - One-click copy for the member's public digital pass URL.
+
+7. **Member-Facing Public Mobile Web Pass (`/pass/[passToken]`):**
+   - Standalone, zero-login mobile web view for gym members.
+   - Displays member first name, member number, and high-contrast dynamic QR pass generated via `qrcode`.
+   - Real-time animated 90-second expiration countdown ring with automatic token refresh at 45 seconds.
+   - Responsive, dark-mode-first aesthetic with full screen fit on mobile devices.
+   - Strict validation: displays explicit revocation card if the pass was revoked by staff.
+
+8. **Navigation & Global Integration:**
+   - Added Attendance navigation item with `QrCode` icon to `Navbar.tsx`.
+   - Added Attendance quick-access card to Main Dashboard (`/dashboard`).
+   - Unified tab bar (`AttendanceNav.tsx`) linking Live Floor, Scanner, History, and Settings.
+
+### B. Automated Verification Results
+
+- **Next.js Web App Production Typecheck (`tsc --noEmit`):** **0 errors**
+- **Next.js Web App ESLint (`next lint`):** **0 warnings, 0 errors**
+- **Next.js Production Build (`npm run --workspace=@gymos/web build`):** **30 of 30 routes built cleanly**
+  - `/dashboard/attendance` (Static/Dynamic client route)
+  - `/dashboard/attendance/scanner` (High-speed client scanner)
+  - `/dashboard/attendance/history` (Ledger and CSV export)
+  - `/dashboard/attendance/settings` (Tenant & branch policy editor)
+  - `/pass/[passToken]` (Server-rendered dynamic public mobile pass)
+- **Full API Unit Test Suite (`npm run --workspace=@gymos/api test`):** **6 suites, 120 of 120 passed (100%)**
+- **Full API E2E Regression Suite (`npm run --workspace=@gymos/api test:e2e`):** **14 suites, 246 of 246 passed (100%)**
+- **Worker Service Typecheck (`npm run --workspace=@gymos/worker typecheck`):** **0 errors**
+- **Full Monorepo Production Build (`npm run build`):** **All 6 workspaces built cleanly with exit code 0**

@@ -14,6 +14,7 @@ import {
 } from "@gymos/shared-types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MemberPassCard } from "@/components/attendance/MemberPassCard";
 import {
   ArrowLeft,
   User,
@@ -606,6 +607,15 @@ export default function MemberProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Member Access Pass & Digital Credentials */}
+      {member && (
+        <MemberPassCard
+          memberId={member.id}
+          memberName={`${member.firstName} ${member.lastName}`}
+          permissions={organization?.permissions || []}
+        />
+      )}
 
       {/* Change Status Modal */}
       {showStatusModal && (
