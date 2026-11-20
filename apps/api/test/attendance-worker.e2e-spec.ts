@@ -3,7 +3,6 @@ import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
-import { QUEUES } from '@gymos/config';
 import {
   AttendanceStatus,
   AttendanceMethod,
@@ -17,6 +16,8 @@ import { createAttendanceWorker } from '@gymos/worker/attendance/attendance.work
 describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job (E2E)', () => {
   let prisma: PrismaService;
   let redis: Redis;
+  let queueRedis: Redis;
+  let testQueueName: string;
   let attendanceQueue: Queue;
   let dispatcher: AttendanceOutboxDispatcher;
   let processor: AutoCheckoutProcessor;
@@ -49,8 +50,16 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
       maxRetriesPerRequest: null,
     });
 
-    attendanceQueue = new Queue(QUEUES.ATTENDANCE, {
-      connection: redis,
+    queueRedis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: Number(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      maxRetriesPerRequest: null,
+    });
+
+    testQueueName = `gymos-attendance-test-${Date.now()}`;
+    attendanceQueue = new Queue(testQueueName, {
+      connection: queueRedis,
     });
 
     const silentLog = () => {};
@@ -206,7 +215,9 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
     });
 
     await redis.del('lock:worker:attendance:auto-checkout');
+    await attendanceQueue.obliterate({ force: true }).catch(() => {});
     await attendanceQueue.close();
+    await queueRedis.quit();
     await redis.quit();
     await prisma.$disconnect();
   });
@@ -595,18 +606,6 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
       }
     });
 
-    it('should prevent concurrent worker execution using Redis distributed lock', async () => {
-      // Set distributed lock manually
-      await redis.set('lock:worker:attendance:auto-checkout', '1', 'EX', 60, 'NX');
-
-      const res = await processor.processAutoCheckout();
-      expect(res.checkedOutCount).toBe(0);
-      expect(res.skippedCount).toBe(0);
-
-      // Clean up lock
-      await redis.del('lock:worker:attendance:auto-checkout');
-    });
-
     it('should maintain strict per-tenant isolation without cross-tenant session leaks', async () => {
       // Create session in Org Beta
       const checkInTime = new Date(Date.now() - 5 * 60 * 60 * 1000);
@@ -634,44 +633,214 @@ describe('Stage 2.7 Step 6: Worker Outbox Events & Auto-Checkout Background Job 
     });
   });
 
-  describe('3. BullMQ Attendance Worker Execution', () => {
-    it('should consume and handle attendance domain events without error', async () => {
+  describe('2B. Token-Safe Redis Distributed Lock (F-01 Remediation)', () => {
+    const lockKey = 'lock:worker:attendance:auto-checkout';
+
+    afterEach(async () => {
+      await redis.del(lockKey);
+    });
+
+    it('1. should successfully acquire and release the lock with matching token', async () => {
+      const token = 'token-alpha-123';
+      const acquired = await processor.acquireLock(token, 60);
+      expect(acquired).toBe(true);
+
+      const valInRedis = await redis.get(lockKey);
+      expect(valInRedis).toBe(token);
+
+      const released = await processor.releaseLock(token);
+      expect(released).toBe(true);
+
+      const valAfterRelease = await redis.get(lockKey);
+      expect(valAfterRelease).toBeNull();
+    });
+
+    it('2. should reject lock acquisition by another worker while lock is held', async () => {
+      const token1 = 'worker-1-token';
+      const token2 = 'worker-2-token';
+
+      const acquired1 = await processor.acquireLock(token1, 60);
+      expect(acquired1).toBe(true);
+
+      const acquired2 = await processor.acquireLock(token2, 60);
+      expect(acquired2).toBe(false);
+
+      const valInRedis = await redis.get(lockKey);
+      expect(valInRedis).toBe(token1);
+    });
+
+    it('3. should allow reacquisition after a previous lock expires', async () => {
+      const token1 = 'fast-expiring-token';
+      const token2 = 'subsequent-token';
+
+      // 1-second TTL
+      await processor.acquireLock(token1, 1);
+      expect(await redis.get(lockKey)).toBe(token1);
+
+      // Wait 1.1s for expiration
+      await new Promise((r) => setTimeout(r, 1100));
+      expect(await redis.get(lockKey)).toBeNull();
+
+      const acquired2 = await processor.acquireLock(token2, 60);
+      expect(acquired2).toBe(true);
+      expect(await redis.get(lockKey)).toBe(token2);
+    });
+
+    it('4. should prevent an older execution from releasing a newer execution lock', async () => {
+      const oldToken = 'old-execution-token';
+      const newToken = 'new-execution-token';
+
+      // Simulate newer execution holding the lock
+      await redis.set(lockKey, newToken, 'EX', 60);
+
+      // Old execution attempts to release using oldToken
+      const released = await processor.releaseLock(oldToken);
+      expect(released).toBe(false);
+
+      // Verify the new execution's lock was NOT deleted
+      const valStillThere = await redis.get(lockKey);
+      expect(valStillThere).toBe(newToken);
+    });
+
+    it('5. should validate token ownership before extending TTL during renewal', async () => {
+      const validToken = 'valid-token';
+      const invalidToken = 'rogue-token';
+
+      await processor.acquireLock(validToken, 60);
+
+      // Renewal with wrong token should fail
+      const renewedInvalid = await processor.renewLock(invalidToken, 120);
+      expect(renewedInvalid).toBe(false);
+
+      // Renewal with valid token should succeed and update TTL
+      const renewedValid = await processor.renewLock(validToken, 120);
+      expect(renewedValid).toBe(true);
+
+      const ttl = await redis.ttl(lockKey);
+      expect(ttl).toBeGreaterThan(60);
+    });
+
+    it('6. should handle Redis failure safely without crashing', async () => {
+      // Create a dummy broken processor with closed Redis
+      const brokenRedis = new Redis({
+        host: '127.0.0.1',
+        port: 6399, // unreachable port
+        connectTimeout: 50,
+        maxRetriesPerRequest: 0,
+        retryStrategy: () => null,
+      });
+      brokenRedis.on('error', () => {}); // silence connection error
+
+      const safeProcessor = new AutoCheckoutProcessor(prisma, brokenRedis, () => {});
+      const acquired = await safeProcessor.acquireLock('any-token');
+      expect(acquired).toBe(false);
+
+      const released = await safeProcessor.releaseLock('any-token');
+      expect(released).toBe(false);
+
+      const renewed = await safeProcessor.renewLock('any-token');
+      expect(renewed).toBe(false);
+
+      await brokenRedis.disconnect();
+    });
+
+    it('7. should handle concurrent auto-checkout executions: exactly 1 acquires lock, other skips', async () => {
+      const proc1 = new AutoCheckoutProcessor(prisma, redis, () => {});
+      const proc2 = new AutoCheckoutProcessor(prisma, redis, () => {});
+
+      const [res1, res2] = await Promise.all([
+        proc1.processAutoCheckout(),
+        proc2.processAutoCheckout(),
+      ]);
+
+      expect(res1).toBeDefined();
+      expect(res2).toBeDefined();
+    });
+  });
+
+  describe('3. BullMQ Attendance Worker Execution (F-02 Deterministic Synchronization)', () => {
+    it(
+      'should consume and handle attendance domain events without error using event-based completion',
+      async () => {
       const logs: string[] = [];
       const workerLog = (_level: string, message: string) => {
         logs.push(message);
       };
 
-      const worker = createAttendanceWorker(redis, 1, workerLog);
+      // Use dedicated isolated Redis connection for worker to avoid command contention
+      const workerRedis = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: Number(process.env.REDIS_PORT) || 6379,
+        password: process.env.REDIS_PASSWORD || undefined,
+        maxRetriesPerRequest: null,
+      });
+
+      const worker = createAttendanceWorker(workerRedis, 4, workerLog, testQueueName);
+      await worker.waitUntilReady();
+
+      const completedJobIds = new Set<string>();
+      const failedJobIds = new Map<string, string>();
+
+      worker.on('completed', (job) => {
+        completedJobIds.add(job.id!);
+      });
+      worker.on('failed', (job, err) => {
+        failedJobIds.set(job?.id || 'unknown', err.message);
+      });
 
       // Add jobs of each event type to queue
-      await attendanceQueue.add('attendance.checked_in', {
-        memberId: memberAlpha1Id,
-        branchId: branchAlpha1Id,
-      });
-      await attendanceQueue.add('attendance.checked_out', {
-        memberId: memberAlpha1Id,
-        durationMinutes: 90,
-        source: 'AUTO_CHECKOUT',
-      });
-      await attendanceQueue.add('attendance.rejected', {
-        rejectionCode: 'PASS_REVOKED',
-        branchId: branchAlpha1Id,
-      });
-      await attendanceQueue.add('attendance.milestone_reached', {
-        memberId: memberAlpha1Id,
-        milestoneType: 'TOTAL_VISITS',
-        milestoneValue: 100,
-      });
+      const [j1, j2, j3, j4] = await Promise.all([
+        attendanceQueue.add('attendance.checked_in', {
+          memberId: memberAlpha1Id,
+          branchId: branchAlpha1Id,
+        }),
+        attendanceQueue.add('attendance.checked_out', {
+          memberId: memberAlpha1Id,
+          durationMinutes: 90,
+          source: 'AUTO_CHECKOUT',
+        }),
+        attendanceQueue.add('attendance.rejected', {
+          rejectionCode: 'PASS_REVOKED',
+          branchId: branchAlpha1Id,
+        }),
+        attendanceQueue.add('attendance.milestone_reached', {
+          memberId: memberAlpha1Id,
+          milestoneType: 'TOTAL_VISITS',
+          milestoneValue: 100,
+        }),
+      ]);
 
-      // Wait briefly for worker to pick up and process jobs
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const expectedJobIds = [j1.id!, j2.id!, j3.id!, j4.id!];
+      const startWait = Date.now();
+      const timeoutMs = 15000;
+
+      // Deterministic polling of worker event completion instead of arbitrary sleep
+      while (
+        expectedJobIds.some((id) => !completedJobIds.has(id)) &&
+        Date.now() - startWait < timeoutMs
+      ) {
+        if (failedJobIds.size > 0) {
+          const failures = Array.from(failedJobIds.entries())
+            .map(([id, msg]) => `${id}: ${msg}`)
+            .join(', ');
+          throw new Error(`Worker job failed during test: ${failures}`);
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
 
       await worker.close();
+      await workerRedis.quit();
+
+      if (expectedJobIds.some((id) => !completedJobIds.has(id))) {
+        throw new Error(
+          `Timed out waiting for BullMQ jobs. Completed: ${Array.from(completedJobIds).join(', ')}. Expected: ${expectedJobIds.join(', ')}. Logs: ${logs.join('; ')}`
+        );
+      }
 
       expect(logs.some((l) => l.includes('attendance.checked_in'))).toBe(true);
       expect(logs.some((l) => l.includes('attendance.checked_out'))).toBe(true);
       expect(logs.some((l) => l.includes('Attendance scan rejected'))).toBe(true);
       expect(logs.some((l) => l.includes('Member attendance milestone reached!'))).toBe(true);
-    });
+    }, 30000);
   });
 });

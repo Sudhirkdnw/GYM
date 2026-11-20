@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { PrismaClient, AttendanceStatus } from "@prisma/client";
 import Redis from "ioredis";
 import { isWithinOperatingHours, getLocalTimeAndDate } from "@gymos/shared-types";
@@ -10,14 +11,93 @@ export interface AutoCheckoutResult {
 
 export class AutoCheckoutProcessor {
   private isProcessing = false;
-  private readonly lockKey = "lock:worker:attendance:auto-checkout";
-  private readonly lockTtlSeconds = 300; // 5 minutes
+  readonly lockKey = "lock:worker:attendance:auto-checkout";
+  readonly lockTtlSeconds = 300; // 5 minutes
 
   constructor(
     private readonly prisma: PrismaClient,
     private readonly redis: Redis,
     private readonly log: LoggerFn,
   ) {}
+
+  /**
+   * Acquires the distributed lock atomically using a unique ownership token.
+   */
+  async acquireLock(
+    token: string,
+    ttlSeconds: number = this.lockTtlSeconds,
+  ): Promise<boolean> {
+    try {
+      const lockRes = await this.redis.set(
+        this.lockKey,
+        token,
+        "EX",
+        ttlSeconds,
+        "NX",
+      );
+      return lockRes === "OK";
+    } catch (err) {
+      this.log("ERROR", "Failed to acquire Redis auto-checkout lock", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Releases the distributed lock atomically using a Lua script that deletes
+   * the key only when its current value matches the execution's token.
+   */
+  async releaseLock(token: string): Promise<boolean> {
+    const releaseScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    try {
+      const res = await this.redis.eval(releaseScript, 1, this.lockKey, token);
+      return res === 1;
+    } catch (err) {
+      this.log("ERROR", "Failed to release Redis auto-checkout lock", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Extends the distributed lock TTL atomically using a Lua script that verifies
+   * token ownership before extending the expiration.
+   */
+  async renewLock(
+    token: string,
+    ttlSeconds: number = this.lockTtlSeconds,
+  ): Promise<boolean> {
+    const renewScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("expire", KEYS[1], ARGV[2])
+      else
+        return 0
+      end
+    `;
+    try {
+      const res = await this.redis.eval(
+        renewScript,
+        1,
+        this.lockKey,
+        token,
+        ttlSeconds,
+      );
+      return res === 1;
+    } catch (err) {
+      this.log("WARN", "Failed to renew Redis auto-checkout lock", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
 
   /**
    * Executes scheduled automatic check-out for expired or after-hours attendance sessions.
@@ -32,17 +112,13 @@ export class AutoCheckoutProcessor {
     let checkedOutCount = 0;
     let skippedCount = 0;
     let lockAcquired = false;
+    const lockToken = crypto.randomUUID();
+    let renewalTimer: NodeJS.Timeout | null = null;
 
     try {
-      // 1. Acquire Redis distributed lock
-      const lockRes = await this.redis.set(
-        this.lockKey,
-        "1",
-        "EX",
-        this.lockTtlSeconds,
-        "NX",
-      );
-      if (lockRes !== "OK") {
+      // 1. Acquire Redis distributed lock with unique CSPRNG ownership token
+      const acquired = await this.acquireLock(lockToken, this.lockTtlSeconds);
+      if (!acquired) {
         this.log(
           "DEBUG",
           "Auto-checkout lock held by another worker instance. Skipping run.",
@@ -50,6 +126,21 @@ export class AutoCheckoutProcessor {
         return { checkedOutCount: 0, skippedCount: 0 };
       }
       lockAcquired = true;
+
+      // Start lock renewal heartbeat (every 60s for 300s TTL)
+      renewalTimer = setInterval(async () => {
+        const renewed = await this.renewLock(lockToken, this.lockTtlSeconds);
+        if (!renewed) {
+          this.log(
+            "WARN",
+            "Auto-checkout lock renewal failed: ownership lost or key expired",
+            { lockToken },
+          );
+        }
+      }, 60_000);
+      if (renewalTimer.unref) {
+        renewalTimer.unref();
+      }
 
       // 2. Query active organizations safely
       const orgs = await this.prisma.$transaction(async (tx) => {
@@ -233,8 +324,12 @@ export class AutoCheckoutProcessor {
         error: err instanceof Error ? err.message : String(err),
       });
     } finally {
+      if (renewalTimer) {
+        clearInterval(renewalTimer);
+        renewalTimer = null;
+      }
       if (lockAcquired) {
-        await this.redis.del(this.lockKey).catch(() => {});
+        await this.releaseLock(lockToken);
       }
       this.isProcessing = false;
     }

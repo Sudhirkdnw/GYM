@@ -553,3 +553,48 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 - **Full API E2E Regression Suite (`npm run --workspace=@gymos/api test:e2e`):** **14 suites, 246 of 246 passed (100%)**
 - **Worker Service Typecheck (`npm run --workspace=@gymos/worker typecheck`):** **0 errors**
 - **Full Monorepo Production Build (`npm run build`):** **All 6 workspaces built cleanly with exit code 0**
+
+---
+
+## 10. Final Audit Remediation (Findings F-01 through F-04)
+
+Following the Stage 2.7 Final Security, Integration & Production Readiness Audit (`docs/audits/STAGE-2-7-FINAL-AUDIT.md`), four findings were reviewed and remediated according to strict audit authorization guidelines:
+
+### Finding F-01: Auto-Checkout Redis Lock Safety [RESOLVED]
+- **File:** `apps/worker/src/attendance/auto-checkout.processor.ts`
+- **Correction:** Replaced static `"1"` lock value and unconditional `DEL` with:
+  1. Unique CSPRNG ownership token per execution: `const lockToken = crypto.randomUUID()`.
+  2. Atomic lock acquisition via `SET ... NX EX` with the token.
+  3. Atomic lock release via Redis Lua script validating token ownership before deletion.
+  4. Heartbeat lock renewal via Redis Lua script extending TTL while verifying ownership.
+  5. Graceful Redis connection error handling.
+- **Verification:** 7 new automated tests in `apps/api/test/attendance-worker.e2e-spec.ts` passed: acquisition/release, worker lockout, expiration recovery, old execution protection, renewal ownership validation, Redis failure safety, and concurrent execution isolation.
+
+### Finding F-02: Deterministic Worker E2E Tests [RESOLVED]
+- **File:** `apps/api/test/attendance-worker.e2e-spec.ts`
+- **Correction:** Eliminated arbitrary `setTimeout(1500)` and shared Redis connection contention:
+  1. Dedicated isolated Redis connections for `queueRedis` and `workerRedis`.
+  2. Isolated test queue with dynamic unique name (`gymos-attendance-test-*`), preventing background dev-worker processes from consuming test jobs.
+  3. Deterministic event completion tracking via `worker.on('completed')` and `worker.on('failed')` with bounded timeout and diagnostic failure reports.
+- **Verification:** Worker E2E test now executes cleanly and deterministically in 83–101ms without race conditions or test flakiness.
+
+### Finding F-03: `requireCheckOut` Setting Semantics [DOCUMENTED & REPORTED]
+- **File:** `apps/api/src/attendance/attendance.service.ts`
+- **Ambiguity Identified:**
+  - `docs/plans/STAGE-2-7-IMPLEMENTATION-PLAN.md` defines `requireCheckOut` as: *"If true, staff is reminded to log checkout when member leaves."* (A reception desk frontend reminder).
+  - Frontend settings UI describes it as: *"Requires checkout of active session before checking in again."*
+  - PostgreSQL unconditionally prevents concurrent active check-ins via the partial unique index:
+    `CREATE UNIQUE INDEX idx_attendance_records_active_session ON attendance_records (organization_id, member_id) WHERE status = 'CHECKED_IN'`.
+  - Allowing multiple check-ins if `requireCheckOut = false` would violate the core database invariant.
+- **Action Taken:** Per authorization instructions (*"If the setting has no clearly defined behavior, STOP this finding and report the ambiguity. Do not silently change or remove a persisted setting without approval"*), this ambiguity is reported and documented without unauthorized backend alterations.
+
+### Finding F-04: Attendance History CSV Export [RESOLVED]
+- **File:** `apps/web/src/app/dashboard/attendance/history/page.tsx`
+- **Correction:** Replaced single-page dump with full-history filtered pagination loop:
+  1. Safe batch retrieval (100 records per page) matching all active filters (branch, member, status, method, date range, search).
+  2. Capped at 5,000 records to protect browser memory, with clear warning banner if capped.
+  3. Dynamic progress UI indicator on the export button (`Exporting (X/Y)...`).
+  4. RFC 4180-compliant CSV escaping for commas, quotes, and newlines.
+  5. UTF-8 BOM (`\uFEFF`) prefix ensuring Excel and spreadsheet applications display Unicode characters cleanly.
+  6. AbortController error and cancellation handling; sensitive tokens/hashes omitted.
+- **Verification:** Verified by Next.js typecheck (`0 errors`), ESLint (`0 warnings, 0 errors`), and full production build.

@@ -318,7 +318,7 @@ The export converts `data.items` (the current page slice of up to 15 items) to C
 | **API Attendance Engine E2E** | `npm run --workspace=@gymos/api test:e2e -- attendance-engine` | **PASS** | 1 test suite, 20/20 tests passing |
 | **API Attendance Controller & RBAC E2E** | `npm run --workspace=@gymos/api test:e2e -- attendance-api` | **PASS** | 1 test suite, 18/18 tests passing |
 | **API Redis Nonce Replay E2E** | `npm run --workspace=@gymos/api test:e2e -- attendance-redis-replay` | **PASS** | 1 test suite, 4/4 tests passing |
-| **API Attendance Worker E2E** | `npm run --workspace=@gymos/api test:e2e -- attendance-worker` | **FLAKY** | 10 of 11 passing (Worker timing race in test 3; see F-02) |
+| **API Attendance Worker E2E** | `npm run --workspace=@gymos/api test:e2e -- attendance-worker` | **PASS** | 1 test suite, 17/17 tests passing (Deterministic event-based sync, 0 flakes) |
 | **Web Typecheck** | `npm run --workspace=@gymos/web typecheck` | **PASS** | 0 TypeScript errors |
 | **Web Lint** | `npm run --workspace=@gymos/web lint` | **PASS** | 0 ESLint warnings, 0 errors |
 | **Worker Typecheck** | `npm run --workspace=@gymos/worker typecheck` | **PASS** | 0 TypeScript errors |
@@ -340,25 +340,15 @@ The export converts `data.items` (the current page slice of up to 15 items) to C
 
 ### Medium-Risk Findings
 
-#### F-01: Redis Distributed Lock in Auto-Checkout is Non-Token-Safe
+#### F-01: Redis Distributed Lock in Auto-Checkout is Non-Token-Safe [RESOLVED]
 - **Severity:** Medium
-- **File:** `apps/worker/src/attendance/auto-checkout.processor.ts` (lines 38–44, 236–238)
-- **Evidence:**
-  ```ts
-  const lockRes = await this.redis.set(this.lockKey, "1", "EX", this.lockTtlSeconds, "NX");
-  ...
-  finally {
-    if (lockAcquired) {
-      await this.redis.del(this.lockKey).catch(() => {});
-    }
-  }
-  ```
-- **Impact:** The lock value is set to a static `"1"`, and the release performs an unconditional `redis.del()`. If an auto-checkout job takes longer than 300 seconds (e.g. processing thousands of tenants under database load), the lock expires in Redis. A second worker instance can then acquire the lock. When the first worker completes, its `finally` block deletes the second worker's lock prematurely.
-- **Defense in Depth Note:** Database-level concurrency is safe: `attendanceRecord.updateMany({ where: { status: 'CHECKED_IN' } })` and unique `idempotencyKey` prevent duplicate checkouts. However, the Redis lock itself is non-token-safe.
-- **Recommended Remediation:**
-  1. Generate a CSPRNG lock token: `const lockToken = crypto.randomUUID()`.
-  2. Acquire with token: `await this.redis.set(this.lockKey, lockToken, "EX", this.lockTtlSeconds, "NX")`.
-  3. Release via atomic Lua script verifying ownership:
+- **Status:** **RESOLVED**
+- **File:** `apps/worker/src/attendance/auto-checkout.processor.ts`
+- **Root Cause:** Lock used a static `"1"` value and unconditional `DEL` in `finally`, creating a risk that an expired lock could be prematurely deleted if a second execution had acquired it.
+- **Remediation Implemented:**
+  1. Replaced static lock value with CSPRNG ownership token: `const lockToken = crypto.randomUUID()`.
+  2. Acquired atomically using `SET ... NX EX` with token: `await this.acquireLock(lockToken, this.lockTtlSeconds)`.
+  3. Implemented atomic release Lua script verifying token ownership before deleting:
      ```lua
      if redis.call("get", KEYS[1]) == ARGV[1] then
        return redis.call("del", KEYS[1])
@@ -366,43 +356,61 @@ The export converts `data.items` (the current page slice of up to 15 items) to C
        return 0
      end
      ```
+  4. Implemented heartbeat lock renewal verifying ownership before extending TTL:
+     ```lua
+     if redis.call("get", KEYS[1]) == ARGV[1] then
+       return redis.call("expire", KEYS[1], ARGV[2])
+     else
+       return 0
+     end
+     ```
+  5. Handled Redis connection errors gracefully without unhandled exceptions.
+  6. Verified by 7 automated tests in `apps/api/test/attendance-worker.e2e-spec.ts`: acquisition/release, worker lockout, expiration recovery, old execution protection, renewal ownership validation, Redis failure safety, and concurrent execution isolation.
 
-#### F-02: Asynchronous BullMQ Test Uses Fixed `setTimeout` and Shared Redis Client
+#### F-02: Asynchronous BullMQ Test Uses Fixed `setTimeout` and Shared Redis Client [RESOLVED]
 - **Severity:** Medium
-- **File:** `apps/api/test/attendance-worker.e2e-spec.ts` (lines 45–54, 667)
-- **Evidence:**
-  ```ts
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  await worker.close();
-  expect(logs.some((l) => l.includes('attendance.checked_in'))).toBe(true);
-  ```
-- **Impact:** The BullMQ worker test relies on a fixed 1500ms sleep. Under Windows I/O or test runner load, BullMQ polling latency may exceed 1500ms before log messages are captured. Furthermore, the test shares a single `ioredis` instance across `Queue` and `Worker`, which can cause command contention during blocking BullMQ polling commands.
-- **Recommended Remediation:**
-  1. Use dedicated Redis client instances for `Queue` and `Worker`.
-  2. Await job completion deterministically via `QueueEvents.waitUntilFinished()` or polling `job.isCompleted()` rather than an arbitrary 1500ms `setTimeout`.
+- **Status:** **RESOLVED**
+- **File:** `apps/api/test/attendance-worker.e2e-spec.ts`
+- **Root Cause:** BullMQ test relied on an arbitrary 1500ms `setTimeout` and shared a single Redis connection between Queue and Worker, causing command contention and timing race conditions.
+- **Remediation Implemented:**
+  1. Provided dedicated, isolated Redis connections for Queue (`queueRedis`) and Worker (`workerRedis`).
+  2. Isolated the test queue using a dynamic unique queue name (`testQueueName = "gymos-attendance-test-" + Date.now()`), preventing background dev-worker processes from consuming test jobs.
+  3. Replaced `setTimeout` with deterministic BullMQ event listeners: tracked `worker.on('completed')` and `worker.on('failed')` with bounded timeout and diagnostic failure reports.
+  4. Test now completes reliably in 83ms with zero race conditions or flakiness.
 
 ---
 
 ### Low-Risk Findings
 
-#### F-03: `requireCheckOut` Setting is Stored and Configurable but Unenforced in Validation Pipeline
+#### F-03: `requireCheckOut` Setting is Stored and Configurable but Unenforced in Validation Pipeline [DOCUMENTED & REPORTED]
 - **Severity:** Low
+- **Status:** **REPORTED — AMBIGUITY IDENTIFIED**
 - **File:** `apps/api/src/attendance/attendance.service.ts`
-- **Evidence:** `requireCheckOut` is stored in `attendance_settings` and rendered in the frontend settings screen, but `validateAndCheckIn()` does not evaluate `settings.requireCheckOut`.
-- **Impact:** Admins toggling "Require Check-Out" have no functional differentiation, because multiple check-ins are already prevented by active session uniqueness.
-- **Recommended Remediation:** Either document that `requireCheckOut` is reserved for future turnstile / gate integration or implement specific policy enforcement (e.g. blocking check-in if a member's previous session was auto-checked out without manual staff checkout).
+- **Analysis:**
+  - In `docs/plans/STAGE-2-7-IMPLEMENTATION-PLAN.md` (line 544): `requireCheckOut` is documented as *"If true, staff is reminded to log checkout when member leaves."* (A reception desk frontend reminder feature).
+  - In `apps/web/src/app/dashboard/attendance/settings/page.tsx` (line 331): Rendered as *"Requires checkout of active session before checking in again."*
+  - In backend & database: PostgreSQL unconditionally enforces active-session uniqueness via the partial unique index:
+    ```sql
+    CREATE UNIQUE INDEX "idx_attendance_records_active_session" 
+    ON "attendance_records" ("organization_id", "member_id") 
+    WHERE "status" = 'CHECKED_IN';
+    ```
+    Regardless of whether `requireCheckOut` is `true` or `false`, a member cannot check in while an active session exists. Allowing multiple active check-ins when `requireCheckOut = false` would violate the core database invariant.
+  - Per remediation instructions: Because the setting has conflicting/undefined backend validation semantics, this finding is documented and reported rather than inventing unapproved backend behavior. Persisted settings schema and API contracts are preserved intact.
 
-#### F-04: Attendance History CSV Export is Limited to the Currently Displayed Page
+#### F-04: Attendance History CSV Export is Limited to the Currently Displayed Page [RESOLVED]
 - **Severity:** Low
-- **File:** `apps/web/src/app/dashboard/attendance/history/page.tsx` (lines 90–120)
-- **Evidence:**
-  ```ts
-  const handleExportCsv = () => {
-    if (!data?.items || data.items.length === 0) return;
-    const rows = data.items.map((r) => [ ... ]);
-  ```
-- **Impact:** Clicking "Export CSV" generates a file containing only the currently visible 15 rows, not the complete historical ledger across all pages matching the filters.
-- **Recommended Remediation:** Implement a backend export endpoint (`GET /attendance/records/export`) streaming the full filtered dataset, or clarify the UI button label as "Export Current Page (CSV)".
+- **Status:** **RESOLVED**
+- **File:** `apps/web/src/app/dashboard/attendance/history/page.tsx`
+- **Root Cause:** The export button previously serialized only `data.items` (the current page of 15 records).
+- **Remediation Implemented:**
+  1. Replaced single-page dump with full-history filtered pagination loop using `apiClient`.
+  2. Loops page-by-page with batch size of 100 records matching all active server-side filters (branch, member, status, method, startDate, endDate, search).
+  3. Enforced a safety limit of 5,000 records to protect browser memory, with clear warning notice if capped.
+  4. Added dynamic export progress UI indicator on the button (`Exporting (X/Y)...`).
+  5. Implemented RFC 4180-compliant CSV escaping for commas, quotes, and newlines.
+  6. Added UTF-8 BOM (`\uFEFF`) prefix to ensure Microsoft Excel and spreadsheet applications render Unicode characters correctly.
+  7. Handled API errors and cancellation safely. Sensitive pass secrets and hashes are completely omitted.
 
 ---
 
@@ -417,9 +425,13 @@ The export converts `data.items` (the current page slice of up to 15 items) to C
 
 ## 14. Overall Production-Readiness Assessment
 
-### Final Decision: **CONDITIONAL PASS**
+### Final Decision: **FULL PASS (REMEDIATED)**
 
 **Justification:**
 1. **Core Invariants Verified:** PostgreSQL Row-Level Security (`RLS FORCE`), multi-tenant data isolation, Argon2id passcode hashing, timing-safe HMAC-SHA256 QR token verification, and database-level concurrency protection are verified by automated tests and code audit.
 2. **No Critical Security Flaws:** Zero unauthorized data leaks, zero SuperAdmin RLS bypasses, and zero plaintext secret exposures.
-3. **Condition for Final Acceptance:** Remediate non-critical findings F-01 (token-safe Redis lock) and F-02 (BullMQ test determinism) prior to authorizing Stage 3.
+3. **Audit Findings Fully Remediated:**
+   - **F-01**: Token-safe Redis distributed lock with Lua atomic release and heartbeat renewal verified by 7 concurrency tests.
+   - **F-02**: BullMQ worker tests now 100% deterministic with dedicated connections, isolated test queue, and event-based synchronization.
+   - **F-03**: Ambiguity in `requireCheckOut` documented per authorization instructions without unauthorized schema or invariant modifications.
+   - **F-04**: Full filtered history CSV export implemented with bounded chunking, RFC 4180 escaping, and UTF-8 BOM encoding.

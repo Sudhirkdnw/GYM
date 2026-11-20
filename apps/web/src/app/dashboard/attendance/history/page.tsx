@@ -24,6 +24,7 @@ import {
   RefreshCw,
   AlertCircle,
   ShieldAlert,
+  Loader2,
 } from "lucide-react";
 
 export default function AttendanceHistoryPage() {
@@ -43,6 +44,10 @@ export default function AttendanceHistoryPage() {
   const [endDate, setEndDate] = useState<string>("");
   const [page, setPage] = useState(1);
   const limit = 15;
+
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   const permissions = organization?.permissions || [];
   const canRead = permissions.includes(Permission.ATTENDANCE_READ);
@@ -86,48 +91,126 @@ export default function AttendanceHistoryPage() {
     fetchRecords();
   }, [authLoading, isAuthenticated, fetchRecords, router]);
 
-  // Export to CSV
-  const handleExportCsv = () => {
-    if (!data?.items || data.items.length === 0) return;
+  // Export to CSV across all matching paginated records
+  const handleExportCsv = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportProgress({ current: 0, total: 0 });
+    setExportNotice(null);
 
-    const headers = [
-      "ID",
-      "Member Name",
-      "Member Number",
-      "Branch",
-      "Plan",
-      "Check-In Time",
-      "Check-Out Time",
-      "Duration (min)",
-      "Status",
-      "Method",
-      "Verified By",
-      "Notes",
-    ];
+    try {
+      const MAX_EXPORT_LIMIT = 5000;
+      const batchLimit = 100;
+      let currentPage = 1;
+      let totalRecords = 0;
+      const allRecords: AttendanceRecordData[] = [];
 
-    const rows = data.items.map((r) => [
-      r.id,
-      `"${r.memberName.replace(/"/g, '""')}"`,
-      r.memberNumber,
-      `"${(r.branchName || "").replace(/"/g, '""')}"`,
-      `"${(r.planName || "").replace(/"/g, '""')}"`,
-      new Date(r.checkInTime).toLocaleString("en-IN"),
-      r.checkOutTime ? new Date(r.checkOutTime).toLocaleString("en-IN") : "Active",
-      r.durationMinutes ?? "-",
-      r.status,
-      r.method,
-      `"${(r.verifiedByName || "").replace(/"/g, '""')}"`,
-      `"${(r.notes || "").replace(/"/g, '""')}"`,
-    ]);
+      do {
+        const params = new URLSearchParams();
+        params.set("page", String(currentPage));
+        params.set("limit", String(batchLimit));
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `attendance_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        if (search.trim()) params.set("search", search.trim());
+        if (branchFilter !== "ALL") params.set("branchId", branchFilter);
+        if (statusFilter !== "ALL") params.set("status", statusFilter);
+        if (methodFilter !== "ALL") params.set("method", methodFilter);
+        if (startDate) params.set("startDate", startDate);
+        if (endDate) params.set("endDate", endDate);
+
+        const res = await apiClient<PaginatedResult<AttendanceRecordData>>(
+          `/attendance/records?${params.toString()}`
+        );
+
+        totalRecords = res.meta.total;
+        allRecords.push(...res.items);
+        setExportProgress({
+          current: allRecords.length,
+          total: Math.min(totalRecords, MAX_EXPORT_LIMIT),
+        });
+
+        if (res.items.length === 0 || currentPage >= res.meta.totalPages) {
+          break;
+        }
+        currentPage++;
+      } while (allRecords.length < totalRecords && allRecords.length < MAX_EXPORT_LIMIT);
+
+      if (allRecords.length === 0) {
+        setExportNotice("No attendance records found matching current filters.");
+        return;
+      }
+
+      if (totalRecords > MAX_EXPORT_LIMIT) {
+        setExportNotice(
+          `Export capped at ${MAX_EXPORT_LIMIT} records out of ${totalRecords} matching filters to prevent browser memory exhaustion.`
+        );
+      }
+
+      // Safe CSV value escaper
+      const escapeCsv = (val: unknown): string => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const headers = [
+        "Record ID",
+        "Member Name",
+        "Member Number",
+        "Branch",
+        "Membership Plan",
+        "Check-In Time",
+        "Check-Out Time",
+        "Duration (Minutes)",
+        "Attendance Status",
+        "Check-In Method",
+        "Verified By",
+        "Notes",
+      ];
+
+      const rows = allRecords.map((r) => [
+        escapeCsv(r.id),
+        escapeCsv(r.memberName),
+        escapeCsv(r.memberNumber),
+        escapeCsv(r.branchName || ""),
+        escapeCsv(r.planName || ""),
+        escapeCsv(new Date(r.checkInTime).toLocaleString("en-IN")),
+        escapeCsv(r.checkOutTime ? new Date(r.checkOutTime).toLocaleString("en-IN") : "Active"),
+        escapeCsv(r.durationMinutes ?? "-"),
+        escapeCsv(r.status),
+        escapeCsv(r.method),
+        escapeCsv(r.verifiedByName || ""),
+        escapeCsv(r.notes || ""),
+      ]);
+
+      // UTF-8 BOM prefix (\uFEFF) ensures proper Unicode rendering in Excel and spreadsheets
+      const csvContent =
+        "\uFEFF" +
+        [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `attendance_export_${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      if (err instanceof ApiClientError) {
+        setExportNotice(`Export failed: ${err.message}`);
+      } else {
+        setExportNotice(
+          (err as Error).message || "Failed to export attendance records"
+        );
+      }
+    } finally {
+      setIsExporting(false);
+      setExportProgress(null);
+    }
   };
 
   const getStatusBadge = (status: AttendanceStatus) => {
@@ -196,10 +279,22 @@ export default function AttendanceHistoryPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCsv}
-            disabled={items.length === 0}
+            disabled={isExporting || total === 0}
             className="text-xs gap-1.5"
+            title="Export all records matching current filters as CSV"
           >
-            <Download className="h-3.5 w-3.5" /> Export CSV
+            {isExporting ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {exportProgress && exportProgress.total > 0
+                  ? `Exporting (${exportProgress.current}/${exportProgress.total})...`
+                  : "Exporting..."}
+              </>
+            ) : (
+              <>
+                <Download className="h-3.5 w-3.5" /> Export Filtered History (CSV)
+              </>
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -219,6 +314,21 @@ export default function AttendanceHistoryPage() {
         <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 p-3 text-xs text-red-800 dark:text-red-200 flex items-center gap-2">
           <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {exportNotice && (
+        <div className="mb-4 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>{exportNotice}</span>
+          </div>
+          <button
+            onClick={() => setExportNotice(null)}
+            className="text-amber-600 hover:text-amber-800 dark:text-amber-300 font-semibold text-[10px]"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

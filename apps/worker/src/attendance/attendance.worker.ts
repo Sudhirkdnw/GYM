@@ -7,9 +7,10 @@ export function createAttendanceWorker(
   redisConnection: Redis,
   concurrency: number,
   log: LoggerFn,
+  queueName: string = QUEUES.ATTENDANCE,
 ): Worker {
   const worker = new Worker(
-    QUEUES.ATTENDANCE,
+    queueName,
     async (job: Job) => {
       const { name, data, id } = job;
       log("INFO", `Processing attendance queue event [${name}] id=${id}`, {
