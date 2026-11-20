@@ -10,6 +10,8 @@ import { PrismaService } from '../database/prisma.service';
 import { BranchContextService } from '../common/tenant/branch-context.service';
 import { QrTokenService } from './qr-token.service';
 import { PhysicalPasscodeService } from './physical-passcode.service';
+import { EnvelopeEncryptionService } from './encryption/envelope-encryption.service';
+import { RedisService } from '../common/redis/redis.service';
 import {
   AttendanceStatus,
   PassStatus,
@@ -101,6 +103,20 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
       withTenantContext: jest.fn().mockImplementation((_tenantId, cb) => cb(mockTx)),
     };
 
+    const mockEnvelopeEncryption = {
+      encrypt: jest.fn().mockReturnValue('enc:v1:mock'),
+      decrypt: jest.fn().mockReturnValue('mock-raw-secret'),
+      signWebPassToken: jest.fn().mockReturnValue('mock.webpass.token'),
+      verifyWebPassToken: jest.fn().mockReturnValue({ orgId, memberId, passId }),
+    };
+
+    const mockRedis = {
+      incrementRateLimit: jest.fn().mockResolvedValue(1),
+      resetRateLimit: jest.fn().mockResolvedValue(undefined),
+      consumeNonce: jest.fn().mockResolvedValue('ACQUIRED'),
+      deleteNonce: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
@@ -108,6 +124,8 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
         { provide: BranchContextService, useValue: mockBranchContext },
         { provide: QrTokenService, useValue: mockQrTokenService },
         { provide: PhysicalPasscodeService, useValue: mockPhysicalPasscodeService },
+        { provide: EnvelopeEncryptionService, useValue: mockEnvelopeEncryption },
+        { provide: RedisService, useValue: mockRedis },
       ],
     }).compile();
 

@@ -108,5 +108,57 @@ export class EnvelopeEncryptionService {
       );
     }
   }
+
+  /**
+   * Signs a public web pass bearer token containing { orgId, memberId, passId }.
+   * Formatted as <payloadB64url>.<signatureB64url>
+   */
+  signWebPassToken(payload: { orgId: string; memberId: string; passId: string }): string {
+    const payloadJson = JSON.stringify(payload);
+    const payloadB64 = Buffer.from(payloadJson, 'utf8').toString('base64url');
+    const signatureB64 = crypto
+      .createHmac('sha256', this.masterKey)
+      .update(payloadB64)
+      .digest('base64url');
+    return `${payloadB64}.${signatureB64}`;
+  }
+
+  /**
+   * Validates and decodes a public web pass bearer token.
+   * Enforces timing-safe HMAC signature verification.
+   */
+  verifyWebPassToken(token: string): { orgId: string; memberId: string; passId: string } {
+    if (!token || typeof token !== 'string') {
+      throw new Error('INVALID_WEB_PASS_TOKEN');
+    }
+    const parts = token.split('.');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      throw new Error('MALFORMED_WEB_PASS_TOKEN');
+    }
+    const payloadB64 = parts[0];
+    const signatureB64 = parts[1];
+    const expectedSignatureB64 = crypto
+      .createHmac('sha256', this.masterKey)
+      .update(payloadB64)
+      .digest('base64url');
+
+    const bufSig = Buffer.from(signatureB64, 'utf8');
+    const bufExp = Buffer.from(expectedSignatureB64, 'utf8');
+
+    if (bufSig.length !== bufExp.length || !crypto.timingSafeEqual(bufSig, bufExp)) {
+      throw new Error('INVALID_WEB_PASS_SIGNATURE');
+    }
+
+    try {
+      const json = Buffer.from(payloadB64, 'base64url').toString('utf8');
+      const payload = JSON.parse(json);
+      if (!payload.orgId || !payload.memberId || !payload.passId) {
+        throw new Error('MALFORMED_WEB_PASS_PAYLOAD');
+      }
+      return payload;
+    } catch {
+      throw new Error('MALFORMED_WEB_PASS_PAYLOAD');
+    }
+  }
 }
 

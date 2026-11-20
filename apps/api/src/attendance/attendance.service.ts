@@ -4,6 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -15,8 +16,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { BranchContextService } from '../common/tenant/branch-context.service';
+import { EnvelopeEncryptionService } from './encryption/envelope-encryption.service';
+import { RedisService } from '../common/redis/redis.service';
 import { QrTokenService } from './qr-token.service';
 import { PhysicalPasscodeService } from './physical-passcode.service';
+import { AttendanceHistoryQueryInput } from '@gymos/validation';
 import {
   AuthenticatedUserContext,
   CheckInRequest,
@@ -29,6 +33,8 @@ import {
   AttendanceRecordData,
   MemberAccessPassData,
   DynamicPassTokenResponse,
+  PublicPassResponse,
+  PaginatedResult,
   UserRole,
 } from '@gymos/shared-types';
 
@@ -39,6 +45,8 @@ export class AttendanceService {
     private readonly branchContextService: BranchContextService,
     private readonly qrTokenService: QrTokenService,
     private readonly physicalPasscodeService: PhysicalPasscodeService,
+    private readonly envelopeEncryptionService: EnvelopeEncryptionService,
+    private readonly redisService: RedisService,
   ) {}
 
   // =========================================================================
@@ -478,8 +486,26 @@ export class AttendanceService {
   async getLiveFloorSummary(
     organizationId: string,
     branchId: string,
+    user?: AuthenticatedUserContext,
   ): Promise<AttendanceFloorSummary> {
     return this.prisma.withTenantContext(organizationId, async (tx) => {
+      if (
+        user &&
+        (user.role === UserRole.RECEPTIONIST || user.role === UserRole.TRAINER)
+      ) {
+        const assignment = await tx.branchStaffAssignment.findFirst({
+          where: {
+            organizationId,
+            organizationUser: { userId: user.id },
+            branchId,
+            status: 'ACTIVE',
+          },
+        });
+        if (!assignment) {
+          throw new ForbiddenException('You do not have access to this branch');
+        }
+      }
+
       const activeRecords = await tx.attendanceRecord.findMany({
         where: {
           organizationId,
@@ -519,6 +545,128 @@ export class AttendanceService {
         peakTodayCount: Math.max(activeRecords.length, totalToday),
         totalCheckInsToday: totalToday,
       };
+    });
+  }
+
+  // =========================================================================
+  // 4B. ATTENDANCE HISTORY & RECORDS
+  // =========================================================================
+
+  async getAttendanceRecords(
+    organizationId: string,
+    query: AttendanceHistoryQueryInput,
+    user?: AuthenticatedUserContext,
+  ): Promise<PaginatedResult<AttendanceRecordData>> {
+    return this.prisma.withTenantContext(organizationId, async (tx) => {
+      const where: Prisma.AttendanceRecordWhereInput = {
+        organizationId,
+      };
+
+      if (
+        user &&
+        (user.role === UserRole.RECEPTIONIST || user.role === UserRole.TRAINER)
+      ) {
+        const userAssignments = await tx.branchStaffAssignment.findMany({
+          where: {
+            organizationId,
+            organizationUser: { userId: user.id },
+            status: 'ACTIVE',
+          },
+          select: { branchId: true },
+        });
+
+        const assignedBranchIds = userAssignments.map((a) => a.branchId);
+        if (query.branchId && !assignedBranchIds.includes(query.branchId)) {
+          throw new ForbiddenException('You do not have access to this branch');
+        }
+
+        where.branchId = query.branchId ? query.branchId : { in: assignedBranchIds };
+      } else if (query.branchId) {
+        where.branchId = query.branchId;
+      }
+
+      if (query.memberId) {
+        where.memberId = query.memberId;
+      }
+
+      if (query.status) {
+        where.status = query.status as AttendanceStatus;
+      }
+
+      if (query.method) {
+        where.method = query.method as AttendanceMethod;
+      }
+
+      if (query.startDate || query.endDate) {
+        where.checkInTime = {};
+        if (query.startDate) {
+          where.checkInTime.gte = new Date(`${query.startDate}T00:00:00.000Z`);
+        }
+        if (query.endDate) {
+          where.checkInTime.lte = new Date(`${query.endDate}T23:59:59.999Z`);
+        }
+      }
+
+      if (query.search && query.search.trim()) {
+        const term = query.search.trim();
+        where.OR = [
+          { member: { firstName: { contains: term, mode: 'insensitive' } } },
+          { member: { lastName: { contains: term, mode: 'insensitive' } } },
+          { member: { memberNumber: { contains: term, mode: 'insensitive' } } },
+          { member: { phone: { contains: term, mode: 'insensitive' } } },
+        ];
+      }
+
+      const page = Math.max(1, query.page || 1);
+      const limit = Math.min(100, Math.max(1, query.limit || 20));
+      const skip = (page - 1) * limit;
+
+      const sortBy = query.sortBy || 'checkInTime';
+      const sortOrder = query.sortOrder || 'desc';
+
+      const [total, records] = await Promise.all([
+        tx.attendanceRecord.count({ where }),
+        tx.attendanceRecord.findMany({
+          where,
+          include: {
+            branch: { select: { id: true, name: true } },
+            member: {
+              select: {
+                id: true,
+                memberNumber: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                profilePhotoKey: true,
+              },
+            },
+            membership: {
+              select: {
+                id: true,
+                plan: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { [sortBy]: sortOrder },
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      const mapped = records.map((r) => this.mapRecordToDto(r));
+      const totalPages = Math.ceil(total / limit) || 1;
+      return {
+        items: mapped,
+        data: mapped,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1,
+        },
+      } as any;
     });
   }
 
@@ -668,6 +816,197 @@ export class AttendanceService {
         token: dynamicToken.token,
         expiresAt: dynamicToken.expiresAt,
         refreshIntervalSeconds: dynamicToken.refreshIntervalSeconds,
+      };
+    });
+  }
+
+  async revokePassByMemberId(
+    organizationId: string,
+    memberId: string,
+    reason: string,
+    user: AuthenticatedUserContext,
+    issueReplacement = false,
+  ): Promise<MemberAccessPassData> {
+    return this.prisma.withTenantContext(organizationId, async (tx) => {
+      const pass = await tx.memberAccessPass.findUnique({
+        where: { memberId },
+      });
+
+      if (!pass || pass.organizationId !== organizationId) {
+        throw new NotFoundException('Member access pass not found');
+      }
+
+      const revoked = await this.revokePass(organizationId, pass.id, reason, user);
+
+      if (issueReplacement) {
+        await this.issuePass(organizationId, memberId, false);
+      }
+
+      return revoked;
+    });
+  }
+
+  async generateSignedWebPassToken(
+    organizationId: string,
+    memberId: string,
+  ): Promise<{ passToken: string; webPassUrl: string }> {
+    return this.prisma.withTenantContext(organizationId, async (tx) => {
+      let pass = await tx.memberAccessPass.findUnique({
+        where: { memberId },
+      });
+
+      if (!pass || pass.organizationId !== organizationId) {
+        const issued = await this.issuePass(organizationId, memberId, false);
+        pass = await tx.memberAccessPass.findUnique({
+          where: { id: issued.pass.id },
+        });
+      }
+
+      if (!pass || pass.status !== PassStatus.ACTIVE) {
+        throw new ForbiddenException('Member access pass is not active');
+      }
+
+      const passToken = this.envelopeEncryptionService.signWebPassToken({
+        orgId: organizationId,
+        memberId,
+        passId: pass.id,
+      });
+
+      return {
+        passToken,
+        webPassUrl: `/p/${passToken}`,
+      };
+    });
+  }
+
+  async resolvePublicWebPass(passToken: string): Promise<PublicPassResponse> {
+    let tokenPayload: { orgId: string; memberId: string; passId: string };
+    try {
+      tokenPayload = this.envelopeEncryptionService.verifyWebPassToken(passToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired web pass token');
+    }
+
+    const { orgId, memberId, passId } = tokenPayload;
+
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const pass = await tx.memberAccessPass.findUnique({
+        where: { id: passId },
+      });
+
+      if (!pass || pass.organizationId !== orgId || pass.memberId !== memberId) {
+        throw new NotFoundException('Access pass not found');
+      }
+
+      if (pass.status !== PassStatus.ACTIVE) {
+        throw new ForbiddenException({
+          statusCode: HttpStatus.FORBIDDEN,
+          error: 'Forbidden',
+          message: `Access pass is ${pass.status.toLowerCase()}`,
+          code: pass.status === 'SUSPENDED' ? 'PASS_SUSPENDED' : 'PASS_REVOKED',
+        });
+      }
+
+      const member = await tx.member.findUnique({
+        where: { id: memberId },
+        select: {
+          firstName: true,
+          memberNumber: true,
+          profilePhotoKey: true,
+        },
+      });
+
+      if (!member) {
+        throw new NotFoundException('Member not found');
+      }
+
+      const rawSecret = this.qrTokenService.decryptSigningSecret(
+        pass.hmacSecretEncrypted,
+      );
+
+      const dynamicToken = this.qrTokenService.generateDynamicToken(
+        memberId,
+        orgId,
+        pass.id,
+        rawSecret,
+      );
+
+      return {
+        member: {
+          firstName: member.firstName,
+          memberNumber: member.memberNumber,
+          photoUrl: member.profilePhotoKey,
+        },
+        pass: {
+          status: pass.status as any,
+          passCodeMasked: pass.passCodeMasked,
+        },
+        dynamicToken: {
+          token: dynamicToken.token,
+          expiresAt: dynamicToken.expiresAt,
+          refreshIntervalSeconds: dynamicToken.refreshIntervalSeconds,
+        },
+      };
+    });
+  }
+
+  async refreshPublicWebPass(
+    passToken: string,
+    clientIp?: string,
+  ): Promise<{ dynamicToken: DynamicPassTokenResponse }> {
+    let tokenPayload: { orgId: string; memberId: string; passId: string };
+    try {
+      tokenPayload = this.envelopeEncryptionService.verifyWebPassToken(passToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired web pass token');
+    }
+
+    const { orgId, memberId, passId } = tokenPayload;
+
+    const rateLimitKey = `webpass:refresh:${passId}${clientIp ? `:${clientIp}` : ''}`;
+    const count = await this.redisService.incrementRateLimit(rateLimitKey, 60);
+    if (count > 10) {
+      throw new HttpException(
+        'Too many pass refresh requests. Please wait before retrying.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const pass = await tx.memberAccessPass.findUnique({
+        where: { id: passId },
+      });
+
+      if (!pass || pass.organizationId !== orgId || pass.memberId !== memberId) {
+        throw new NotFoundException('Access pass not found');
+      }
+
+      if (pass.status !== PassStatus.ACTIVE) {
+        throw new ForbiddenException({
+          statusCode: HttpStatus.FORBIDDEN,
+          error: 'Forbidden',
+          message: `Access pass is ${pass.status.toLowerCase()}`,
+          code: pass.status === 'SUSPENDED' ? 'PASS_SUSPENDED' : 'PASS_REVOKED',
+        });
+      }
+
+      const rawSecret = this.qrTokenService.decryptSigningSecret(
+        pass.hmacSecretEncrypted,
+      );
+
+      const dynamicToken = this.qrTokenService.generateDynamicToken(
+        memberId,
+        orgId,
+        pass.id,
+        rawSecret,
+      );
+
+      return {
+        dynamicToken: {
+          token: dynamicToken.token,
+          expiresAt: dynamicToken.expiresAt,
+          refreshIntervalSeconds: dynamicToken.refreshIntervalSeconds,
+        },
       };
     });
   }

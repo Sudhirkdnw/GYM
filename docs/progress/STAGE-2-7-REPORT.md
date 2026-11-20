@@ -307,3 +307,90 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 - **Real PostgreSQL & Redis Attendance Engine E2E (`apps/api/test/attendance-engine.e2e-spec.ts`):** **1 suite, 20 of 20 passed (100%)**
 - **Full API E2E Regression Suite (`apps/api/test/`):** **12 suites, 217 of 217 passed (100%)**
 - **Monorepo Build Status:** Clean compilation across all workspaces (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).
+
+---
+
+## 6. Step 5: Attendance Controller & RBAC Matrix Implementation Report
+
+**Milestone:** Step 5 — Attendance Controller & RBAC Matrix  
+**Status:** Completed & Fully Verified  
+**Date:** 2026-11-20  
+
+### A. Endpoints Implemented
+
+1. **Check-In Endpoints:**
+   - `POST /api/v1/attendance/scan` (Primary QR/passcode check-in)
+   - `POST /api/v1/attendance/check-in` (Alias)
+   - Guarded by `@RequirePermissions(Permission.ATTENDANCE_CHECKIN)`
+
+2. **Manual Check-In Endpoints:**
+   - `POST /api/v1/attendance/manual` (Staff manual check-in)
+   - `POST /api/v1/attendance/manual-check-in` (Alias)
+   - Guarded by `@RequirePermissions(Permission.ATTENDANCE_MANUAL)`
+   - Passes `method: AttendanceMethod.MANUAL_STAFF` to validation engine
+
+3. **Check-Out Endpoints:**
+   - `POST /api/v1/attendance/:id/checkout` (URL param check-out)
+   - `POST /api/v1/attendance/check-out` (Body payload check-out)
+   - Guarded by `@RequirePermissions(Permission.ATTENDANCE_CHECKOUT)`
+   - Idempotent and atomic check-out calculation
+
+4. **Live Floor Occupancy Endpoints:**
+   - `GET /api/v1/attendance/floor`
+   - `GET /api/v1/attendance/live` (Alias)
+   - Guarded by `@RequirePermissions(Permission.ATTENDANCE_FLOOR_READ)`
+   - Resolves `branchId` from query or authenticated branch context; enforces branch authorization for staff roles
+
+5. **Attendance Records & History Endpoints:**
+   - `GET /api/v1/attendance/records`
+   - `GET /api/v1/attendance/history` (Alias)
+   - Guarded by `@RequirePermissions(Permission.ATTENDANCE_READ)`
+   - Full filtering (`branchId`, `memberId`, `status`, `method`, date range `startDate`/`endDate`, `search`, pagination and sorting)
+   - Branch scoping: enforces staff can only view records for their assigned branches
+
+6. **Attendance Settings Endpoints:**
+   - `GET /api/v1/attendance/settings` (`@RequirePermissions(Permission.ATTENDANCE_READ)`)
+   - `PATCH /api/v1/attendance/settings` (`@RequirePermissions(Permission.ATTENDANCE_SETTINGS_MANAGE)`)
+   - `PUT /api/v1/attendance/settings` (Alias)
+
+7. **Member Access Pass Management:**
+   - `POST /api/v1/attendance/members/:memberId/pass/issue` (`@RequirePermissions(Permission.ATTENDANCE_PASS_MANAGE)`)
+   - `POST /api/v1/attendance/passes/issue` (Body alias)
+   - `POST /api/v1/attendance/members/:memberId/pass/revoke` (`@RequirePermissions(Permission.ATTENDANCE_PASS_MANAGE)`)
+   - `POST /api/v1/attendance/passes/:id/revoke` (Pass ID alias)
+   - `GET /api/v1/attendance/members/:memberId/pass` (`@RequirePermissions(Permission.ATTENDANCE_READ)`)
+   - `GET /api/v1/attendance/members/:memberId/pass/token` (`@RequirePermissions(Permission.ATTENDANCE_READ)`)
+   - `GET /api/v1/attendance/members/:memberId/pass/web-link` (`@RequirePermissions(Permission.ATTENDANCE_READ)`)
+
+8. **Public Mobile Web Pass Flow:**
+   - `GET /api/v1/attendance/public/pass/:passToken`: `@Public()` view endpoint
+     - Returns minimal member PII (`firstName`, `memberNumber`, `photoUrl`), pass status, and rolling dynamic token
+     - Strict response headers: `Cache-Control: no-store, no-cache, must-revalidate` and `Referrer-Policy: no-referrer`
+     - Cryptographically validates HMAC-SHA256 signature on bearer pass token
+   - `POST /api/v1/attendance/public/pass/:passToken/refresh`: `@Public()` refresh endpoint
+     - Atomic Redis rate-limiting: maximum 10 requests per minute per pass / client IP
+     - Generates fresh dynamic rolling QR token and sets security headers
+
+### B. RBAC Matrix Verification
+
+- **`GYM_OWNER` & `GYM_ADMIN`:** Full attendance management permissions (`ATTENDANCE_READ`, `ATTENDANCE_CHECKIN`, `ATTENDANCE_MANUAL`, `ATTENDANCE_CHECKOUT`, `ATTENDANCE_FLOOR_READ`, `ATTENDANCE_SETTINGS_MANAGE`, `ATTENDANCE_PASS_MANAGE`).
+- **`RECEPTIONIST`:** Check-in, manual, check-out, live floor, records, pass issue/revoke. **Strictly denied** `ATTENDANCE_SETTINGS_MANAGE` (HTTP 403 on PATCH/PUT settings).
+- **`TRAINER`:** Read records and live floor occupancy only (`ATTENDANCE_READ`, `ATTENDANCE_FLOOR_READ`). **Strictly denied** check-in, manual check-in, check-out, pass management, and settings (HTTP 403).
+- **`MEMBER`:** **Strict ZERO** staff attendance permissions (Deny by default HTTP 403 on all staff endpoints).
+- **`SUPER_ADMIN`:** Zero tenant attendance permissions (Deny by default HTTP 403 on all tenant endpoints, no automatic RLS bypass).
+
+### C. Security & Isolation Controls
+
+1. **Multi-Tenant Boundary:** `organizationId` is strictly resolved server-side from `@CurrentTenant()`; client-supplied tenant overrides in request bodies are ignored.
+2. **Branch Authorization:** Staff queries for live floor or history records validate that the requested `branchId` is among their active `BranchStaffAssignment` records.
+3. **Public Pass Bearer Security:** Pass tokens contain `{ orgId, memberId, passId }` signed with HMAC-SHA256 using the master key. Tampered or corrupted tokens fail with HTTP 401. Revoked passes fail with HTTP 403.
+4. **Thin Controller Design:** Zero duplicated business or validation logic in `AttendanceController`; full 14-step check-in pipeline remains centralized in `AttendanceService`.
+
+### D. Automated Test Results
+
+- **Attendance Controller Unit Tests (`attendance.controller.spec.ts`):** **25 of 25 passed (100%)**
+- **Full API Unit Test Suite (`npm run --workspace=@gymos/api test`):** **6 suites, 120 of 120 passed (100%)**
+- **Attendance Controller & RBAC Matrix HTTP E2E Tests (`attendance-api.e2e-spec.ts`):** **18 of 18 passed (100%)**
+- **Full API E2E Test Suite (`npm run --workspace=@gymos/api test:e2e`):** **13 suites, 235 of 235 passed (100%)**
+- **Full Monorepo Production Build (`npm run build`):** **Clean compilation with exit code 0 across all 6 workspaces** (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).
+

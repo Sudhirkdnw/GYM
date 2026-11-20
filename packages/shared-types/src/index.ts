@@ -207,6 +207,15 @@ export enum Permission {
   MEMBER_CREDIT_MANAGE = 'member_credit.manage',
   FINANCIAL_REPORT_READ = 'financial_report.read',
 
+  // Stage 2.7: Attendance Management & QR Check-In Permissions
+  ATTENDANCE_READ = 'attendance.read',
+  ATTENDANCE_CHECKIN = 'attendance.checkin',
+  ATTENDANCE_MANUAL = 'attendance.manual',
+  ATTENDANCE_CHECKOUT = 'attendance.checkout',
+  ATTENDANCE_FLOOR_READ = 'attendance.floor.read',
+  ATTENDANCE_SETTINGS_MANAGE = 'attendance.settings.manage',
+  ATTENDANCE_PASS_MANAGE = 'attendance.pass.manage',
+
   ORGANIZATION_MEMBERSHIPS_READ = 'organization.memberships.read',
   ORGANIZATION_MEMBERSHIPS_MANAGE = 'organization.memberships.manage',
   ORGANIZATION_ATTENDANCE_READ = 'organization.attendance.read',
@@ -269,6 +278,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_CREDIT_READ,
     Permission.MEMBER_CREDIT_MANAGE,
     Permission.FINANCIAL_REPORT_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_CHECKIN,
+    Permission.ATTENDANCE_MANUAL,
+    Permission.ATTENDANCE_CHECKOUT,
+    Permission.ATTENDANCE_FLOOR_READ,
+    Permission.ATTENDANCE_SETTINGS_MANAGE,
+    Permission.ATTENDANCE_PASS_MANAGE,
   ],
   [UserRole.GYM_ADMIN]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -314,6 +330,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_CREDIT_READ,
     Permission.MEMBER_CREDIT_MANAGE,
     Permission.FINANCIAL_REPORT_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_CHECKIN,
+    Permission.ATTENDANCE_MANUAL,
+    Permission.ATTENDANCE_CHECKOUT,
+    Permission.ATTENDANCE_FLOOR_READ,
+    Permission.ATTENDANCE_SETTINGS_MANAGE,
+    Permission.ATTENDANCE_PASS_MANAGE,
   ],
   [UserRole.RECEPTIONIST]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -327,7 +350,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_STATUS_MANAGE,
     Permission.ORGANIZATION_MEMBERSHIPS_READ,
     Permission.ORGANIZATION_ATTENDANCE_READ,
-    Permission.ORGANIZATION_ATTENDANCE_MANAGE,
     Permission.ORGANIZATION_PAYMENTS_READ,
     Permission.ORGANIZATION_PAYMENTS_MANAGE,
     Permission.MEMBER_PROFILE_READ,
@@ -342,6 +364,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PAYMENT_READ,
     Permission.PAYMENT_RECORD,
     Permission.MEMBER_CREDIT_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_CHECKIN,
+    Permission.ATTENDANCE_MANUAL,
+    Permission.ATTENDANCE_CHECKOUT,
+    Permission.ATTENDANCE_FLOOR_READ,
+    Permission.ATTENDANCE_PASS_MANAGE,
   ],
   [UserRole.TRAINER]: [
     Permission.ORGANIZATION_DASHBOARD_READ,
@@ -349,14 +377,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ORGANIZATION_MEMBERS_READ,
     Permission.MEMBER_READ,
     Permission.ORGANIZATION_ATTENDANCE_READ,
-    Permission.ORGANIZATION_ATTENDANCE_MANAGE,
+    Permission.ATTENDANCE_READ,
+    Permission.ATTENDANCE_FLOOR_READ,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
     Permission.MEMBERSHIP_PLAN_READ,
     Permission.MEMBER_SUBSCRIPTION_READ,
   ],
   [UserRole.MEMBER]: [
-    Permission.ORGANIZATION_ATTENDANCE_READ,
     Permission.MEMBER_PROFILE_READ,
     Permission.MEMBER_PROFILE_UPDATE,
     Permission.MEMBER_SUBSCRIPTION_READ,
@@ -1127,7 +1155,7 @@ export interface AttendanceFloorSummary {
 }
 
 export interface AttendanceSettingsUpdate {
-  branchId?: string;
+  branchId?: string | null;
   allowCheckInWithDues?: boolean;
   maxOverdueGraceDays?: number;
   cooldownMinutes?: number;
@@ -1159,5 +1187,19 @@ export interface AttendanceAnalyticsData {
   topAttendees: { memberId: string; name: string; memberNumber: string; visitCount: number }[];
   averageVisitDurationMinutes: number;
 }
+
+export interface PublicPassResponse {
+  member: {
+    firstName: string;
+    memberNumber: string;
+    photoUrl?: string | null;
+  };
+  pass: {
+    status: PassStatus;
+    passCodeMasked?: string | null;
+  };
+  dynamicToken: DynamicPassTokenResponse;
+}
+
 
 
