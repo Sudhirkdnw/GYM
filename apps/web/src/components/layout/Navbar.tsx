@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Dumbbell, LogOut, Building2, User, Users, CreditCard, Receipt, QrCode } from "lucide-react";
 import { Button } from "../ui/button";
 import { useAuth } from "@/lib/auth-context";
@@ -8,7 +9,13 @@ import { BranchSelector } from "./BranchSelector";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Navbar() {
+  const pathname = usePathname();
   const { user, organization, isAuthenticated, logout } = useAuth();
+
+  // Hide global navbar inside authenticated dashboard and public pass views
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/pass")) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur">
