@@ -57,10 +57,10 @@ export class QrTokenService {
   /**
    * Generates new cryptographic credentials for a member access pass.
    */
-  generatePassCredentials(
+  async generatePassCredentials(
     organizationId: string,
     generatePhysicalBadge = false,
-  ): GeneratedPassCredentials {
+  ): Promise<GeneratedPassCredentials> {
     // 1. Generate 32-byte CSPRNG secret for dynamic HMAC signing
     const rawHmacSecret = crypto.randomBytes(this.rawSecretBytes).toString('hex');
     const hmacSecretEncrypted = this.envelopeEncryptionService.encrypt(rawHmacSecret);
@@ -73,7 +73,7 @@ export class QrTokenService {
     if (generatePhysicalBadge) {
       const rawPhysicalPasscode = this.physicalPasscodeService.generatePasscode();
       const passCodeSalt = this.physicalPasscodeService.generateSalt();
-      const passCodeHash = this.physicalPasscodeService.hashPasscode(
+      const passCodeHash = await this.physicalPasscodeService.hashPasscode(
         rawPhysicalPasscode,
         passCodeSalt,
         organizationId,
@@ -156,6 +156,55 @@ export class QrTokenService {
       expiresAt,
       refreshIntervalSeconds: this.refreshIntervalSeconds,
     };
+  }
+
+  /**
+   * Decodes an unverified dynamic token payload to identify the associated pass.
+   * Does NOT verify the cryptographic signature. Signature verification MUST be performed
+   * via parseAndVerifyDynamicToken once the pass secret has been resolved.
+   */
+  decodeTokenPayloadUnverified(token: string): QrTokenPayload {
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestException('INVALID_TOKEN: Token must be a non-empty string');
+    }
+
+    if (!token.startsWith(this.tokenPrefix)) {
+      throw new BadRequestException('INVALID_TOKEN_FORMAT: Missing GYMOS:V1 prefix');
+    }
+
+    const tokenBody = token.slice(this.tokenPrefix.length);
+    const parts = tokenBody.split('.');
+
+    if (parts.length !== 3) {
+      throw new BadRequestException('INVALID_TOKEN_FORMAT: Expected 3 compact segments');
+    }
+
+    const payloadB64 = parts[1];
+    if (!payloadB64) {
+      throw new BadRequestException('INVALID_TOKEN_FORMAT: Malformed compact segments');
+    }
+
+    try {
+      const payload: QrTokenPayload = JSON.parse(
+        Buffer.from(payloadB64, 'base64url').toString('utf8'),
+      );
+
+      if (
+        !payload.sub ||
+        !payload.org ||
+        !payload.pid ||
+        !payload.iat ||
+        !payload.exp ||
+        !payload.nce
+      ) {
+        throw new BadRequestException('MALFORMED_TOKEN_PAYLOAD: Missing mandatory claims');
+      }
+
+      return payload;
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('CORRUPTED_TOKEN_PAYLOAD: Unable to decode payload');
+    }
   }
 
   /**

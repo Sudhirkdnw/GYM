@@ -3,8 +3,8 @@
 
 **Stage:** 2.7 — Attendance Management & QR Check-In System  
 **Baseline Commit:** `e1f9f46`  
-**Current Milestone:** Step 3 — Cryptographic QR Token Service  
-**Current Status:** STEP 3 COMPLETED & VERIFIED (Awaiting Step 4 Authorization)
+**Current Milestone:** Step 4 — Check-In Validation Engine  
+**Current Status:** STEP 4 COMPLETED & VERIFIED (Awaiting Step 5 Authorization)
 
 ---
 
@@ -21,7 +21,7 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 | **Step 1** | Database Migration, Enums & PostgreSQL RLS | **COMPLETED** | `d57757e` | 4 tables created; RLS `ENABLE` + `FORCE` with zero SuperAdmin bypass; partial unique index verified against concurrent transactions; 193/193 regression tests passed. |
 | **Step 2** | Shared Types, DTOs & Zod Validation Schemas | **COMPLETED** | `af1c673` | Comprehensive domain contracts in `@gymos/shared-types`; zero secret leakage; strict Zod validation in `@gymos/validation`; 29 unit tests passed; all workspaces build clean; 193/193 regression tests passed. |
 | **Step 3** | QR Cryptographic Token Service | **COMPLETED** | `5c554e8` | AES-256-GCM envelope encryption (`enc:v1:`); HMAC-SHA256 dynamic tokens (90s expiry, 5s skew, constant-time compare); Redis atomic nonce replay prevention (NX, 180s TTL, fail-closed on Redis failure); salted SHA-256 physical passcodes (16-char unambiguous alphabet); 23 unit tests + 4 live Redis E2E integration tests; 197/197 regression tests passed. |
-| **Step 4** | Attendance Service & Validation Engine | *PENDING* | — | *Awaiting authorization* |
+| **Step 4** | Attendance Service & Validation Engine | **COMPLETED** | *(pending)* | Authoritative 14-step check-in pipeline; membership validity & freeze checks; branch scoping (`SINGLE_BRANCH`, `MULTI_BRANCH`, `ALL_BRANCHES`); overdue dues policy (`BLOCK_CHECKIN` 402, `ALLOW_WITH_WARNING`, `ALLOW`); anti-passback cooldown; Argon2id physical badge security (31-char alphabet, rate limiting); live PostgreSQL concurrency verification (10 parallel scans -> 1 success, 9 fail with 409 `ALREADY_CHECKED_IN`); 23 unit tests + 16 real DB E2E tests; 213/213 regression tests passed. |
 | **Step 5** | Attendance Controller & RBAC Matrix | *PENDING* | — | *Awaiting authorization* |
 | **Step 6** | Worker Outbox & Auto-Checkout Routine | *PENDING* | — | *Awaiting authorization* |
 | **Step 7** | Frontend Screens (Scanner, Live Floor, Ledger) | *PENDING* | — | *Awaiting authorization* |
@@ -162,3 +162,86 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
   - API Unit Tests: **4 test suites, 57 of 57 tests passed (100%)**.
   - Full E2E Test Suite: **11 test suites, 197 of 197 tests passed (100%)**.
   - Monorepo Compilation: All packages and applications compiled with exit code `0`.
+
+---
+
+## 6. Step 4 Detailed Implementation
+
+### A. Physical Passcode Security Correction
+- **Unambiguous 31-Character Alphabet:**
+  - Documented alphabet: `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (length = 31).
+  - Strictly excludes:
+    - Digits: `0`, `1`
+    - Letters: `I`, `L`, `O` (and lowercase equivalents)
+  - Character entropy: $31^{16} \approx 2.76 \times 10^{23} \approx 77.9$ bits of cryptographic entropy.
+  - Verified via automated unit tests: alphabet length strictly 31, and all 5 forbidden characters confirmed absent.
+- **Argon2id One-Way Hashing:**
+  - Uses `argon2` (^0.45.2) with OWASP-recommended parameters:
+    - `type: argon2.argon2id`
+    - `memoryCost: 19456` (19 MiB)
+    - `timeCost: 2` (2 iterations)
+    - `parallelism: 1` (1 thread)
+    - `salt`: 16-byte cryptographically secure random buffer (`crypto.randomBytes(16)`).
+  - Formatted hash: `$argon2id$v=19$m=19456,t=2,p=1$...` (97 characters, fits within `@db.VarChar(128)`).
+  - Backward compatibility: `verifyPasscode` detects `$argon2` vs legacy SHA-256 (64 hex characters) and verifies accordingly using timing-safe comparisons.
+- **Rate-Limiting Integration:**
+  - Redis-backed sliding window: `attendance:ratelimit:passcode:<orgId>:<identifier>`.
+  - Enforces max 5 failed attempts per 15-minute window (900 seconds).
+  - Exceeding the threshold throws 429 `PASSCODE_RATE_LIMITED`.
+  - Resets automatically upon successful verification.
+
+### B. 14-Step Authoritative Check-In Validation Sequence (`AttendanceService`)
+1. **Resolve Authenticated Staff Identity & Tenant Context:** Rejects pure `MEMBER` users from operating scanner (`ForbiddenException`).
+2. **Validate Selected Branch Authorization:** Verifies branch existence, `ACTIVE` status, and active staff assignment (via `BranchContextService.validateBranchAccess`).
+3. **Validate Credential:**
+   - Dynamic QR (`GYMOS:V1:`): Decodes unverified payload to resolve `pid` (pass ID), fetches pass, decrypts HMAC secret (`AES-256-GCM`), verifies HMAC-SHA256 signature, expiry, and clock skew.
+   - Physical Badge (`GYMOS:PASS:` or raw passcode): Performs $O(1)$ candidate pass lookup by masked pattern (`A7K9-****-****-Q4V6`), checks Redis rate limit, and evaluates Argon2id verification.
+   - Manual Staff: Direct member lookup with staff context validation.
+4. **Verify Pass Status:** Rejects `SUSPENDED` (403) or `REVOKED` (403) passes.
+5. **Verify Member Status:** Member must be `ACTIVE`. Rejects `SUSPENDED` or `INACTIVE` profiles.
+6. **Resolve Organization/Branch Timezone:** Computes local calendar date (`YYYY-MM-DD`) and local time (`HH:mm`) using `Intl.DateTimeFormat`.
+7. **Verify Active Membership Status:** Queries active subscriptions. Rejects if none exist (`NO_ACTIVE_MEMBERSHIP`).
+8. **Verify Inclusive Start/End Dates:** Enforces `startDate <= localDate` and `endDate >= localDate`.
+9. **Check Active Freeze Periods:** Rejects check-in if an active freeze is in effect on `localDate` (`MEMBERSHIP_FROZEN`).
+10. **Verify Branch Access Scope:**
+    - `SINGLE_BRANCH`: Enforces `homeBranchId === branchId`.
+    - `MULTI_BRANCH`: Enforces `homeBranchId === branchId` OR branch is in `membership_plan_branches`.
+    - `ALL_BRANCHES`: Permitted at all organization branches.
+11. **Configurable Financial Overdue Dues Policy:**
+    - Evaluates non-voided invoices with `balanceDue > 0` and `dueDate < localDate` or `status = 'OVERDUE'`.
+    - `BLOCK_CHECKIN`: If overdue days exceed `maxOverdueGraceDays` and `allowCheckInWithDues = false`, throws 402 `OVERDUE_PAYMENT_BLOCKED`.
+    - `ALLOW_WITH_WARNING`: If overdue within grace period or `allowCheckInWithDues = true`, attaches `duesNotice`.
+    - `ALLOW`: If balance due is zero or invoices are paid/future-dated.
+    - Completely ignores `VOID` invoices.
+12. **Operating Hours Policy:** Supports both normal windows (e.g. 05:00 - 23:00) and overnight windows (e.g. 21:00 - 05:00). Rejects if off-hours check-in is disabled (`OUTSIDE_OPERATING_HOURS`).
+13. **Anti-Passback Cooldown & Active Session Check:** Rejects rapid duplicate check-ins within `cooldownMinutes` (409 `COOLDOWN_ACTIVE`) and blocks already checked-in members (409 `ALREADY_CHECKED_IN`).
+14. **Atomic Check-In Transaction & Outbox Event:** Inserts `AttendanceRecord` inside PostgreSQL tenant transaction, updates pass `lastScannedAt`, writes `attendance.checked_in` outbox event, and catches partial unique index violation `23505` (`ALREADY_CHECKED_IN`).
+
+### C. Check-Out & Live Headcount Routine
+- **Check-Out (`checkOut`):**
+  - Authoritatively transitions `CHECKED_IN` -> `CHECKED_OUT`.
+  - Calculates `durationMinutes` accurately.
+  - Emits `attendance.checked_out` outbox event.
+  - Idempotent: Subsequent checkout calls gracefully return the existing record without duplicate updates.
+- **Live Floor Headcount (`getLiveFloorSummary`):**
+  - Aggregates active occupants with real-time headcount and today's total visits.
+
+### D. Concurrency & Concurrency Race Protection
+- **Live PostgreSQL Verification:** Tested with 10 simultaneous threads querying check-in for the same member:
+  - **Exactly 1 transaction succeeded (status 201 / CHECKED_IN)**.
+  - **9 concurrent attempts failed with 409 `ALREADY_CHECKED_IN`** via PostgreSQL error `23505` / Prisma `P2002` mapping.
+
+### E. Test Execution & Build Results
+- **Attendance Unit Tests (`apps/api/src/attendance/`):** **77 of 77 passed (100%)**.
+  - `attendance-validation.spec.ts`: 29 passed.
+  - `qr-token.service.spec.ts`: 25 passed.
+  - `attendance.service.spec.ts`: 23 passed.
+- **Real PostgreSQL E2E Suite (`apps/api/test/attendance-engine.e2e-spec.ts`):** **16 of 16 passed (100%)**.
+- **Full API Unit Test Suite:** **5 test suites, 82 of 82 tests passed (100%)**.
+- **Full E2E Regression Suite:** **12 test suites, 213 of 213 tests passed (100%)**.
+- **Monorepo Build Status:** All workspaces compiled cleanly with exit code `0`:
+  - `@gymos/shared-types`: `tsc -b` passed.
+  - `@gymos/validation`: `tsc -b` passed.
+  - `@gymos/api`: `nest build` passed.
+  - `@gymos/worker`: `tsc` passed.
+  - `@gymos/web`: `next build` passed (26 routes compiled).

@@ -140,34 +140,63 @@ describe('Stage 2.7 Step 3: Cryptographic QR Token & Security Services', () => {
   });
 
   describe('PhysicalPasscodeService', () => {
+    it('should strictly exclude 0, 1, I, L, O and have exactly 31 characters in alphabet', () => {
+      const alphabet = passcodeService.getAlphabet();
+      expect(alphabet).toHaveLength(31);
+      expect(alphabet).toBe('23456789ABCDEFGHJKMNPQRSTUVWXYZ');
+
+      // Specifically check that forbidden characters are absent
+      const forbidden = ['0', '1', 'I', 'L', 'O', 'i', 'l', 'o'];
+      for (const char of forbidden) {
+        expect(alphabet.includes(char)).toBe(false);
+      }
+    });
+
     it('should generate a 16-character passcode using unambiguous alphabet', () => {
       const passcode = passcodeService.generatePasscode();
       // Format: XXXX-XXXX-XXXX-XXXX
-      expect(passcode).toMatch(/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
-      expect(passcode).not.toMatch(/[01OIoi]/); // Never contains 0, 1, O, I
+      expect(passcode).toMatch(/^[2-9A-HJ-KM-NP-Z]{4}-[2-9A-HJ-KM-NP-Z]{4}-[2-9A-HJ-KM-NP-Z]{4}-[2-9A-HJ-KM-NP-Z]{4}$/);
+      expect(passcode).not.toMatch(/[01OILoil]/); // Never contains 0, 1, O, I, L
     });
 
-    it('should verify matching passcode using constant-time hash comparison', () => {
+    it('should verify matching passcode using Argon2id hash', async () => {
       const passcode = passcodeService.generatePasscode();
       const salt = passcodeService.generateSalt();
-      const hash = passcodeService.hashPasscode(passcode, salt, orgId);
+      const hash = await passcodeService.hashPasscode(passcode, salt, orgId);
 
-      const isValid = passcodeService.verifyPasscode(passcode, hash, salt, orgId);
+      expect(hash.startsWith('$argon2id$')).toBe(true);
+      expect(hash.length).toBeLessThanOrEqual(128);
+
+      const isValid = await passcodeService.verifyPasscode(passcode, hash, salt, orgId);
       expect(isValid).toBe(true);
 
-      const isInvalid = passcodeService.verifyPasscode('WRONG-CODE-1234', hash, salt, orgId);
+      const isInvalid = await passcodeService.verifyPasscode('WRONG-CODE-1234', hash, salt, orgId);
       expect(isInvalid).toBe(false);
     });
 
-    it('should be tenant-bound: same passcode and salt in different org produces different hash', () => {
+    it('should support legacy SHA-256 hashes for backward compatibility', async () => {
+      const passcode = passcodeService.generatePasscode();
+      const salt = passcodeService.generateSalt();
+      const legacyHash = passcodeService.hashPasscodeSha256(passcode, salt, orgId);
+
+      expect(legacyHash).toHaveLength(64); // 64 hex characters
+
+      const isValid = await passcodeService.verifyPasscode(passcode, legacyHash, salt, orgId);
+      expect(isValid).toBe(true);
+
+      const isInvalid = await passcodeService.verifyPasscode('WRONG-CODE-1234', legacyHash, salt, orgId);
+      expect(isInvalid).toBe(false);
+    });
+
+    it('should be tenant-bound: same passcode and salt in different org produces different verification', async () => {
       const passcode = passcodeService.generatePasscode();
       const salt = passcodeService.generateSalt();
 
-      const hashOrgAlpha = passcodeService.hashPasscode(passcode, salt, orgId);
-      const hashOrgBeta = passcodeService.hashPasscode(passcode, salt, otherOrgId);
+      const hashOrgAlpha = await passcodeService.hashPasscode(passcode, salt, orgId);
+      const hashOrgBeta = await passcodeService.hashPasscode(passcode, salt, otherOrgId);
 
       expect(hashOrgAlpha).not.toBe(hashOrgBeta);
-      expect(passcodeService.verifyPasscode(passcode, hashOrgAlpha, salt, otherOrgId)).toBe(false);
+      expect(await passcodeService.verifyPasscode(passcode, hashOrgAlpha, salt, otherOrgId)).toBe(false);
     });
 
     it('should correctly mask a physical passcode for UI display', () => {
@@ -380,13 +409,13 @@ describe('Stage 2.7 Step 3: Cryptographic QR Token & Security Services', () => {
   });
 
   describe('QrTokenService: Pass Credentials & Secret Rotation', () => {
-    it('should generate encrypted pass credentials with optional physical badge', () => {
-      const creds = qrTokenService.generatePassCredentials(orgId, true);
+    it('should generate encrypted pass credentials with optional physical badge', async () => {
+      const creds = await qrTokenService.generatePassCredentials(orgId, true);
 
       expect(creds.hmacSecretEncrypted.startsWith('enc:v1:')).toBe(true);
       expect(creds.passCodeHash).toBeDefined();
       expect(creds.passCodeSalt).toBeDefined();
-      expect(creds.passCodeMasked).toMatch(/^[2-9A-HJ-NP-Z]{4}-\*\*\*\*-\*\*\*\*-[2-9A-HJ-NP-Z]{4}$/);
+      expect(creds.passCodeMasked).toMatch(/^[2-9A-HJ-KM-NP-Z]{4}-\*\*\*\*-\*\*\*\*-[2-9A-HJ-KM-NP-Z]{4}$/);
       expect(creds.rawPhysicalPasscode).toBeDefined();
 
       const decrypted = qrTokenService.decryptSigningSecret(creds.hmacSecretEncrypted);

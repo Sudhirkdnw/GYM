@@ -107,11 +107,51 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Clears a nonce (primarily used for test teardown).
+   * Clears a nonce (primarily used for test teardown or rollback on transient database failure).
    */
   async deleteNonce(orgId: string, nonce: string): Promise<void> {
     if (this.client) {
       await this.client.del(`attendance:nonce:${orgId}:${nonce}`).catch(() => {});
+    }
+  }
+
+  /**
+   * Atomically increments a rate limit counter with a TTL.
+   * Key pattern: attendance:ratelimit:<key>
+   *
+   * @param key - Identifier (e.g. orgId:passId or orgId:branchId)
+   * @param ttlSeconds - Window duration in seconds
+   * @returns Current count after increment
+   */
+  async incrementRateLimit(key: string, ttlSeconds: number): Promise<number> {
+    if (!this.client) {
+      throw new Error('REDIS_UNAVAILABLE: Redis client is not initialized');
+    }
+
+    try {
+      if (this.client.status === 'wait') {
+        await this.client.connect();
+      }
+      const redisKey = `attendance:ratelimit:${key}`;
+      const count = await this.client.incr(redisKey);
+      if (count === 1) {
+        await this.client.expire(redisKey, ttlSeconds);
+      }
+      return count;
+    } catch (error) {
+      this.logger.error(
+        `Failed to execute rate limit increment: ${(error as Error).message}`,
+      );
+      throw new Error(`REDIS_RATE_LIMIT_FAILED: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Resets / clears a rate limit counter upon successful action.
+   */
+  async resetRateLimit(key: string): Promise<void> {
+    if (this.client) {
+      await this.client.del(`attendance:ratelimit:${key}`).catch(() => {});
     }
   }
 }
