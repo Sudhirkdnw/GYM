@@ -394,3 +394,76 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 - **Full API E2E Test Suite (`npm run --workspace=@gymos/api test:e2e`):** **13 suites, 235 of 235 passed (100%)**
 - **Full Monorepo Production Build (`npm run build`):** **Clean compilation with exit code 0 across all 6 workspaces** (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).
 
+---
+
+## 7. Step 6: Worker Outbox Events & Auto-Checkout Background Job Implementation Report
+
+**Milestone:** Step 6 — Worker Outbox Events & Auto-Checkout Background Job  
+**Status:** Completed & Fully Verified  
+**Date:** 2026-11-20  
+
+### A. Architectural Scope & Objectives Delivered
+
+1. **BullMQ Queue Infrastructure:**
+   - Registered `QUEUES.ATTENDANCE = "gymos-attendance"` in `@gymos/config`.
+   - Initialized `attendanceQueue` and `attendanceWorker` in `apps/worker/src/main.ts`.
+   - Bounded retries: 5 attempts with exponential backoff (initial delay: 2000ms), `removeOnComplete: 100`, `removeOnFail: 500`.
+
+2. **Attendance Transactional Outbox Event Dispatcher:**
+   - Implemented `AttendanceOutboxDispatcher` (`apps/worker/src/attendance/attendance-outbox.dispatcher.ts`).
+   - Scans and polls `PENDING` events in batches of 50 ordered by `createdAt: "asc"`.
+   - **Strict Per-Tenant Isolation:** Iterates active organizations, setting `SET LOCAL app.current_tenant_id = '${org.id}'` within each transaction. Zero cross-tenant data exposure.
+   - Publishes all 4 attendance domain event types:
+     - `attendance.checked_in`
+     - `attendance.checked_out`
+     - `attendance.rejected`
+     - `attendance.milestone_reached`
+   - On successful queue ingestion, updates status to `PUBLISHED` and sets `processedAt`.
+   - On delivery failure, increments `retryCount`, records `lastError`, and marks as `FAILED` once `retryCount >= 5`.
+   - Replay prevention / idempotency: uses `event.idempotencyKey` as the BullMQ `jobId`.
+
+3. **Scheduled Automatic Checkout Background Job:**
+   - Implemented `AutoCheckoutProcessor` (`apps/worker/src/attendance/auto-checkout.processor.ts`).
+   - **Distributed Concurrency Lock:** Acquired via Redis `SET lock:worker:attendance:auto-checkout 1 EX 300 NX` (5-minute TTL). Automatically skipped if another worker instance holds the lock; cleanly released in `finally`.
+   - **Tenant Context Loop:** Iterates all active organizations under individual PostgreSQL transactions enforcing `SET LOCAL app.current_tenant_id = '${org.id}'`.
+   - **Operating Hours & Timezone Awareness:**
+     - Uses `getLocalTimeAndDate(now, timezone)` with fallback to UTC if timezone is invalid.
+     - Evaluates branch-level settings first with fallback to organization-level defaults (`autoCheckOutHours`, `operatingHoursStart`, `operatingHoursEnd`, `allowOffHoursCheckIn`).
+     - Evaluates operating hours closure with `isWithinOperatingHours` (supporting normal, overnight, and 24-hour windows).
+     - Identifies inactive branches and immediately checks out active sessions.
+   - **Atomic Conditional UPDATE (`WHERE id = $id AND organization_id = $orgId AND status = 'CHECKED_IN'`):**
+     - Eliminates race conditions with concurrent staff manual checkout. If staff manually checked out the member simultaneously, the query touches 0 rows and skips cleanly without emitting duplicate events.
+     - Sets status to `AUTO_CHECKED_OUT`, calculates elapsed `durationMinutes`, and appends audit trail to `notes` (`"System auto-checkout due to duration limit"`, `"System auto-checkout due to branch closing"`, or `"System auto-checkout due to branch deactivation"`).
+     - Atomically creates `attendance.checked_out` transactional outbox event with `source: "AUTO_CHECKOUT"` and unique idempotency key.
+   - **Strict Idempotency:** Subsequent executions on already checked out records result in 0 updates.
+
+4. **BullMQ Attendance Worker Event Handler:**
+   - Implemented `createAttendanceWorker` (`apps/worker/src/attendance/attendance.worker.ts`).
+   - Handles `attendance.checked_in`, `attendance.checked_out`, `attendance.rejected`, and `attendance.milestone_reached`.
+   - Sanitized, structured logging with zero sensitive member data or tokens logged.
+
+5. **API Outbox Event Generation Hardening:**
+   - In `apps/api/src/attendance/attendance.service.ts`:
+     - Added `attendance.milestone_reached` event emission upon reaching total visit thresholds (10, 50, 100, 250, 500).
+     - Enhanced `AttendanceService.checkIn` to catch domain validation rejections and emit `attendance.rejected` outbox events with rejection code, reason, method, and timestamp in an isolated tenant transaction before re-throwing.
+
+### B. Automated Test Results
+
+- **Attendance Worker E2E Suite (`attendance-worker.e2e-spec.ts`):** **11 of 11 passed (100%)**
+  - Outbox event publishing and transition to `PUBLISHED` (2 of 2 jobs).
+  - Outbox bounded retries and `FAILED` transition on 5th failure.
+  - Strict tenant isolation under RLS during outbox dispatching.
+  - Duration limit auto-checkout and outbox generation.
+  - Idempotent repeated execution (0 double checkouts).
+  - Manual staff checkout vs worker auto-checkout race resolution.
+  - Operating hours closure auto-checkout with branch timezone calculation.
+  - Inactive branch auto-checkout.
+  - Redis distributed locking (`lock:worker:attendance:auto-checkout`).
+  - Cross-tenant session protection under RLS.
+  - BullMQ attendance worker consumption of all 4 domain event types.
+- **All Attendance E2E Suites (`npm run --workspace=@gymos/api test:e2e -- attendance`):** **4 suites, 53 of 53 passed (100%)**
+- **Full API Unit Test Suite (`npm run --workspace=@gymos/api test`):** **6 suites, 120 of 120 passed (100%)**
+- **Full API E2E Regression Suite (`npm run --workspace=@gymos/api test:e2e`):** **14 suites, 246 of 246 passed (100%)**
+- **Full Monorepo Production Build (`npm run build`):** **Clean compilation with exit code 0 across all 6 workspaces** (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).
+
+

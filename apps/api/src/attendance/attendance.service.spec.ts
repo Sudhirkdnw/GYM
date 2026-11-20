@@ -193,6 +193,7 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
         findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(5),
         create: jest.fn().mockImplementation((args) => ({
           id: 'rec-123',
           ...args.data,

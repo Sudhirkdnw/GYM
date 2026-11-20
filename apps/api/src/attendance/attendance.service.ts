@@ -55,7 +55,7 @@ export class AttendanceService {
 
   /**
    * Authoritative entrypoint for member check-in validation.
-   * Alias for validateAndCheckIn.
+   * Dispatches validation and records rejection outbox events if validation fails.
    */
   async checkIn(
     organizationId: string,
@@ -63,7 +63,43 @@ export class AttendanceService {
     dto: CheckInRequest | ManualCheckInRequest,
     user: AuthenticatedUserContext,
   ): Promise<CheckInResponse> {
-    return this.validateAndCheckIn(organizationId, branchId, dto, user);
+    try {
+      return await this.validateAndCheckIn(organizationId, branchId, dto, user);
+    } catch (err: any) {
+      if (err instanceof HttpException) {
+        const response: any = err.getResponse();
+        const rejectionCode = response?.code || (typeof response === 'string' ? response : err.name);
+        const rejectionReason = response?.message || err.message;
+
+        await this.prisma
+          .withTenantContext(organizationId, async (tx) => {
+            const memberId = 'memberId' in dto ? dto.memberId : null;
+            const maybeMethod = (dto as unknown as { method?: AttendanceMethod }).method;
+            const method = maybeMethod || AttendanceMethod.MANUAL_STAFF;
+            await tx.attendanceOutboxEvent.create({
+              data: {
+                organizationId,
+                aggregateId: memberId || branchId,
+                eventType: 'attendance.rejected',
+                payload: {
+                  branchId,
+                  memberId,
+                  rejectionCode,
+                  rejectionReason,
+                  method,
+                  rejectedAt: new Date().toISOString(),
+                  verifiedById: user?.id ?? null,
+                },
+                idempotencyKey: `attendance_rejected_${branchId}_${Date.now()}_${Math.random()
+                  .toString(36)
+                  .substring(2, 9)}`,
+              },
+            });
+          })
+          .catch(() => {});
+      }
+      throw err;
+    }
   }
 
   /**
@@ -224,6 +260,33 @@ export class AttendanceService {
             idempotencyKey: `attendance_checkin_${record.id}`,
           },
         });
+
+        // Milestone Outbox Event (visits milestone: 10, 50, 100, 250, 500)
+        const totalVisits = await tx.attendanceRecord.count({
+          where: {
+            organizationId,
+            memberId: member.id,
+            status: { in: [AttendanceStatus.CHECKED_IN, AttendanceStatus.CHECKED_OUT, AttendanceStatus.AUTO_CHECKED_OUT] },
+          },
+        });
+        const milestones = [10, 50, 100, 250, 500];
+        if (milestones.includes(totalVisits)) {
+          await tx.attendanceOutboxEvent.create({
+            data: {
+              organizationId,
+              aggregateId: member.id,
+              eventType: 'attendance.milestone_reached',
+              payload: {
+                memberId: member.id,
+                branchId,
+                milestoneType: 'TOTAL_VISITS',
+                milestoneValue: totalVisits,
+                reachedAt: now.toISOString(),
+              },
+              idempotencyKey: `attendance_milestone_visits_${member.id}_${totalVisits}`,
+            },
+          });
+        }
 
         return {
           success: true,

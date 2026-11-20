@@ -4,6 +4,9 @@ import Redis from "ioredis";
 import { PrismaClient } from "@prisma/client";
 import { QUEUES, APP_CONFIG } from "@gymos/config";
 import { workerEnvSchema } from "@gymos/validation";
+import { AttendanceOutboxDispatcher } from "./attendance/attendance-outbox.dispatcher";
+import { AutoCheckoutProcessor } from "./attendance/auto-checkout.processor";
+import { createAttendanceWorker } from "./attendance/attendance.worker";
 
 function log(level: string, message: string, meta?: Record<string, unknown>) {
   const payload = {
@@ -67,6 +70,11 @@ async function bootstrap() {
     connection: redisConnection,
   });
 
+  // Attendance Event Queue for publishing attendance outbox items
+  const attendanceQueue = new Queue(QUEUES.ATTENDANCE, {
+    connection: redisConnection,
+  });
+
   // BullMQ Worker for Notifications
   const notificationWorker = new Worker(
     QUEUES.NOTIFICATIONS,
@@ -121,6 +129,13 @@ async function bootstrap() {
     },
   );
 
+  // BullMQ Worker for Attendance
+  const attendanceWorker = createAttendanceWorker(
+    redisConnection,
+    env.WORKER_CONCURRENCY || APP_CONFIG.DEFAULT_WORKER_CONCURRENCY,
+    log,
+  );
+
   notificationWorker.on("completed", (job) => {
     log("INFO", `Job completed: id=${job?.id} name=${job?.name}`);
   });
@@ -151,7 +166,18 @@ async function bootstrap() {
     });
   });
 
-  log("INFO", `Worker active and listening on queues: ${QUEUES.NOTIFICATIONS}, ${QUEUES.MEMBERSHIPS}, ${QUEUES.BILLING}`);
+  log("INFO", `Worker active and listening on queues: ${QUEUES.NOTIFICATIONS}, ${QUEUES.MEMBERSHIPS}, ${QUEUES.BILLING}, ${QUEUES.ATTENDANCE}`);
+
+  const attendanceOutboxDispatcher = new AttendanceOutboxDispatcher(
+    prisma,
+    attendanceQueue,
+    log,
+  );
+  const autoCheckoutProcessor = new AutoCheckoutProcessor(
+    prisma,
+    redisConnection,
+    log,
+  );
 
   // Helper to fetch active organizations
   const getActiveOrganizations = async (): Promise<{ id: string; name: string }[]> => {
@@ -416,22 +442,34 @@ async function bootstrap() {
 
   const outboxInterval = setInterval(dispatchOutboxEvents, 5000);
   const billingOutboxInterval = setInterval(dispatchBillingOutboxEvents, 5000);
+  const attendanceOutboxInterval = setInterval(
+    () => attendanceOutboxDispatcher.dispatchPendingEvents(),
+    5000,
+  );
   const expiryInterval = setInterval(processExpiredMemberships, 60000);
   const overdueInterval = setInterval(processOverdueInvoices, 60000);
+  const autoCheckoutInterval = setInterval(
+    () => autoCheckoutProcessor.processAutoCheckout(),
+    30 * 60 * 1000,
+  );
 
   // Graceful Shutdown
   const shutdown = async (signal: string) => {
     log("INFO", `Received ${signal}. Gracefully stopping worker...`);
     clearInterval(outboxInterval);
     clearInterval(billingOutboxInterval);
+    clearInterval(attendanceOutboxInterval);
     clearInterval(expiryInterval);
     clearInterval(overdueInterval);
+    clearInterval(autoCheckoutInterval);
     try {
       await notificationWorker.close();
       await membershipWorker.close();
       await billingWorker.close();
+      await attendanceWorker.close();
       await membershipQueue.close();
       await billingQueue.close();
+      await attendanceQueue.close();
       await redisConnection.quit();
       await prisma.$disconnect();
       log("INFO", "Worker, Redis, and Prisma connections closed successfully");

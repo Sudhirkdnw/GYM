@@ -9,6 +9,7 @@
   "moduleNameMapper": {
     "^@gymos/shared-types$": "<rootDir>/../../../packages/shared-types/src",
     "^@gymos/validation$": "<rootDir>/../../../packages/validation/src",
-    "^@gymos/config$": "<rootDir>/../../../packages/config/src"
+    "^@gymos/config$": "<rootDir>/../../../packages/config/src",
+    "^@gymos/worker/(.*)$": "<rootDir>/../../worker/src/$1"
   }
 }

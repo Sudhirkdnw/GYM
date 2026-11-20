@@ -17,6 +17,7 @@ export const QUEUES = {
   AUDIT_LOGS: "gymos-audit-logs",
   BILLING: "gymos-billing",
   REPORTS: "gymos-reports",
+  ATTENDANCE: "gymos-attendance",
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

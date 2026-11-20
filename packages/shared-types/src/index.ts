@@ -1201,5 +1201,71 @@ export interface PublicPassResponse {
   dynamicToken: DynamicPassTokenResponse;
 }
 
+/**
+ * Evaluates whether a local time string ('HH:mm') falls within operating hours.
+ * Handles normal daytime windows, overnight windows (e.g. 20:00 - 06:00), and 24-hour operation (start === end).
+ */
+export function isWithinOperatingHours(
+  localTime: string,
+  start: string,
+  end: string,
+): boolean {
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  const current = toMinutes(localTime);
+  const s = toMinutes(start);
+  const e = toMinutes(end);
+
+  if (s === e) {
+    return true; // 24-hour operation
+  }
+
+  if (s < e) {
+    // Normal window within same day (e.g. 05:00 - 23:00)
+    return current >= s && current <= e;
+  } else {
+    // Overnight window (e.g. 20:00 - 06:00)
+    return current >= s || current <= e;
+  }
+}
+
+/**
+ * Returns formatted local time ('HH:mm') and local date ('YYYY-MM-DD') for a given UTC Date and IANA timezone.
+ * Gracefully falls back to UTC if timezone is invalid or unrecognized.
+ */
+export function getLocalTimeAndDate(
+  utcDate: Date,
+  timeZone: string,
+): { localDate: string; localTime: string } {
+  try {
+    const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const localTime = timeFormatter.format(utcDate);
+
+    const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const localDate = dateFormatter.format(utcDate);
+
+    return { localDate, localTime };
+  } catch {
+    // Fallback to UTC
+    const localTime = utcDate.toISOString().slice(11, 16);
+    const localDate = utcDate.toISOString().slice(0, 10);
+    return { localDate, localTime };
+  }
+}
+
+
 
 
