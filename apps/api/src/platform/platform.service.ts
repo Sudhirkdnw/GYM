@@ -196,6 +196,9 @@ export class PlatformService {
           features: {
             include: { feature: true },
           },
+          _count: {
+            select: { subscriptions: true },
+          },
         },
       });
 
@@ -209,6 +212,7 @@ export class PlatformService {
         currency: p.currency,
         isActive: p.isActive,
         isPublic: p.isPublic,
+        assignedGymsCount: p._count.subscriptions,
         features: p.features.map((f) => ({
           featureKey: f.featureKey,
           domain: f.feature.domain,
@@ -217,6 +221,195 @@ export class PlatformService {
           numericQuota: f.numericQuota,
         })),
       }));
+    });
+  }
+
+  /**
+   * Get plan by ID including its features.
+   */
+  async getPlanById(planId: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const p = await tx.saasPlan.findUnique({
+        where: { id: planId },
+        include: {
+          features: {
+            include: { feature: true },
+          },
+          _count: {
+            select: { subscriptions: true },
+          },
+        },
+      });
+      if (!p) {
+        throw new NotFoundException(`Plan with ID ${planId} not found`);
+      }
+      return {
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        description: p.description,
+        monthlyPrice: Number(p.monthlyPrice),
+        annualPrice: Number(p.annualPrice),
+        currency: p.currency,
+        isActive: p.isActive,
+        isPublic: p.isPublic,
+        assignedGymsCount: p._count.subscriptions,
+        features: p.features.map((f) => ({
+          featureKey: f.featureKey,
+          domain: f.feature.domain,
+          name: f.feature.name,
+          isEnabled: f.isEnabled,
+          numericQuota: f.numericQuota,
+        })),
+      };
+    });
+  }
+
+  /**
+   * Create a new custom SaaS pricing plan with feature allocations.
+   */
+  async createPlan(data: any) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const code = String(data.code || '')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-');
+
+      if (!code) {
+        throw new BadRequestException('Plan code is required');
+      }
+
+      const existing = await tx.saasPlan.findUnique({ where: { code } });
+      if (existing) {
+        throw new BadRequestException(`A plan with code "${code}" already exists`);
+      }
+
+      const plan = await tx.saasPlan.create({
+        data: {
+          code,
+          name: data.name,
+          description: data.description || null,
+          monthlyPrice: data.monthlyPrice !== undefined ? Number(data.monthlyPrice) : 0,
+          annualPrice: data.annualPrice !== undefined ? Number(data.annualPrice) : 0,
+          currency: data.currency || 'INR',
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : true,
+          sortOrder: data.sortOrder || 0,
+        },
+      });
+
+      // Populate features
+      const catalog = await tx.featureCatalog.findMany();
+      const featuresMap: Record<string, { isEnabled: boolean; numericQuota?: number | null }> = {};
+
+      if (Array.isArray(data.features)) {
+        for (const f of data.features) {
+          featuresMap[f.featureKey] = {
+            isEnabled: Boolean(f.isEnabled),
+            numericQuota: f.numericQuota !== undefined ? f.numericQuota : null,
+          };
+        }
+      }
+
+      for (const cat of catalog) {
+        const item = featuresMap[cat.key];
+        await tx.saasPlanFeature.create({
+          data: {
+            planId: plan.id,
+            featureKey: cat.key,
+            isEnabled: item ? item.isEnabled : false,
+            numericQuota: item?.numericQuota !== undefined ? item.numericQuota : null,
+          },
+        });
+      }
+
+      return this.getPlanById(plan.id);
+    });
+  }
+
+  /**
+   * Update an existing SaaS plan and its feature allocations.
+   */
+  async updatePlan(planId: string, data: any) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const plan = await tx.saasPlan.findUnique({ where: { id: planId } });
+      if (!plan) {
+        throw new NotFoundException(`Plan with ID ${planId} not found`);
+      }
+
+      await tx.saasPlan.update({
+        where: { id: planId },
+        data: {
+          name: data.name !== undefined ? data.name : plan.name,
+          description: data.description !== undefined ? data.description : plan.description,
+          monthlyPrice: data.monthlyPrice !== undefined ? Number(data.monthlyPrice) : plan.monthlyPrice,
+          annualPrice: data.annualPrice !== undefined ? Number(data.annualPrice) : plan.annualPrice,
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : plan.isActive,
+          isPublic: data.isPublic !== undefined ? Boolean(data.isPublic) : plan.isPublic,
+        },
+      });
+
+      // Update features if provided
+      if (Array.isArray(data.features)) {
+        for (const f of data.features) {
+          await tx.saasPlanFeature.upsert({
+            where: {
+              unique_plan_feature: {
+                planId,
+                featureKey: f.featureKey,
+              },
+            },
+            update: {
+              isEnabled: Boolean(f.isEnabled),
+              numericQuota: f.numericQuota !== undefined ? f.numericQuota : null,
+            },
+            create: {
+              planId,
+              featureKey: f.featureKey,
+              isEnabled: Boolean(f.isEnabled),
+              numericQuota: f.numericQuota !== undefined ? f.numericQuota : null,
+            },
+          });
+        }
+      }
+
+      // Invalidate cache for all gyms enrolled on this plan
+      const subs = await tx.organizationSubscription.findMany({
+        where: { planId },
+        select: { organizationId: true },
+      });
+      for (const s of subs) {
+        await this.entitlementService.invalidateCache(s.organizationId);
+      }
+
+      return this.getPlanById(planId);
+    });
+  }
+
+  /**
+   * Delete or archive a SaaS plan.
+   */
+  async deletePlan(planId: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const plan = await tx.saasPlan.findUnique({ where: { id: planId } });
+      if (!plan) {
+        throw new NotFoundException(`Plan with ID ${planId} not found`);
+      }
+
+      const activeGymsCount = await tx.organizationSubscription.count({
+        where: { planId },
+      });
+
+      if (activeGymsCount > 0) {
+        throw new BadRequestException(
+          `Cannot delete plan "${plan.name}" because ${activeGymsCount} gym(s) are currently subscribed to it. Please reassign them to another plan first, or set this plan to Inactive.`,
+        );
+      }
+
+      await tx.saasPlanFeature.deleteMany({ where: { planId } });
+      await tx.saasPlan.delete({ where: { id: planId } });
+
+      return { success: true, deletedId: planId, name: plan.name };
     });
   }
 

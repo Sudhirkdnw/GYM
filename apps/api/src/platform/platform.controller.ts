@@ -66,6 +66,33 @@ export class PlatformController {
   }
 
   /**
+   * Create a new custom SaaS subscription plan with configurable features and quotas.
+   */
+  @Post('plans')
+  async createPlan(@Body() body: any) {
+    return this.platformService.createPlan(body);
+  }
+
+  /**
+   * Update an existing SaaS subscription plan's pricing, features, and quotas.
+   */
+  @Patch('plans/:id')
+  async updatePlan(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: any,
+  ) {
+    return this.platformService.updatePlan(id, body);
+  }
+
+  /**
+   * Delete or archive a SaaS subscription plan.
+   */
+  @Delete('plans/:id')
+  async deletePlan(@Param('id', ParseUUIDPipe) id: string) {
+    return this.platformService.deletePlan(id);
+  }
+
+  /**
    * List all 49 features in the GymOS catalog grouped by category.
    */
   @Get('features')

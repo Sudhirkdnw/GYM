@@ -12,8 +12,13 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, organization, isAuthenticated, logout } = useAuth();
 
-  // Hide global navbar inside authenticated dashboard and public pass views
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/pass")) {
+  // Hide global navbar inside authenticated dashboard, platform console, select-organization, and public pass views
+  if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/platform") ||
+    pathname.startsWith("/pass") ||
+    pathname.startsWith("/select-organization")
+  ) {
     return null;
   }
 
