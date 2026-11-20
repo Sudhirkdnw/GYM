@@ -962,3 +962,202 @@ export interface BranchPerformanceData {
   invoicesCount: number;
 }
 
+/**
+ * Stage 2.7: Attendance Management & QR Check-In Contracts
+ */
+
+export enum AttendanceMethod {
+  QR_SCAN = 'QR_SCAN',
+  MANUAL_STAFF = 'MANUAL_STAFF',
+  KIOSK = 'KIOSK',
+  RFID_CARD = 'RFID_CARD',
+}
+
+export enum AttendanceStatus {
+  CHECKED_IN = 'CHECKED_IN',
+  CHECKED_OUT = 'CHECKED_OUT',
+  AUTO_CHECKED_OUT = 'AUTO_CHECKED_OUT',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PassStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  REVOKED = 'REVOKED',
+}
+
+export interface AttendanceRecordData {
+  id: string;
+  organizationId: string;
+  branchId: string;
+  branchName?: string;
+  memberId: string;
+  memberNumber: string;
+  memberName: string;
+  memberPhotoUrl?: string | null;
+  membershipId?: string | null;
+  planName?: string | null;
+  checkInTime: string;
+  checkOutTime?: string | null;
+  durationMinutes?: number | null;
+  method: AttendanceMethod;
+  status: AttendanceStatus;
+  verifiedById?: string | null;
+  verifiedByName?: string | null;
+  notes?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MemberAccessPassData {
+  id: string;
+  organizationId: string;
+  memberId: string;
+  passCodeMasked?: string | null;
+  status: PassStatus;
+  issuedAt: string;
+  revokedAt?: string | null;
+  revocationReason?: string | null;
+  lastScannedAt?: string | null;
+  lastScannedBranchId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceSettingsData {
+  id: string;
+  organizationId: string;
+  branchId?: string | null;
+  allowCheckInWithDues: boolean;
+  maxOverdueGraceDays: number;
+  cooldownMinutes: number;
+  requireCheckOut: boolean;
+  autoCheckOutHours: number;
+  operatingHoursStart: string;
+  operatingHoursEnd: string;
+  allowOffHoursCheckIn: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceOutboxEventData {
+  id: string;
+  organizationId: string;
+  aggregateId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  status: OutboxStatus;
+  retryCount: number;
+  lastError?: string | null;
+  processedAt?: string | null;
+  idempotencyKey: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CheckInRequest {
+  branchId: string;
+  qrToken: string;
+  method?: AttendanceMethod;
+  notes?: string;
+}
+
+export interface ManualCheckInRequest {
+  branchId: string;
+  memberId: string;
+  notes?: string;
+}
+
+export interface CheckInResponse {
+  success: boolean;
+  record?: AttendanceRecordData;
+  member: {
+    id: string;
+    memberNumber: string;
+    firstName: string;
+    lastName: string;
+    photoUrl?: string | null;
+    phone: string;
+  };
+  membership?: {
+    id: string;
+    planName: string;
+    endDate: string;
+    daysRemaining: number;
+  } | null;
+  duesNotice?: {
+    hasDues: boolean;
+    overdueAmount: number;
+    invoiceNumber?: string;
+  } | null;
+  rejectionCode?: string;
+  rejectionReason?: string;
+}
+
+export interface CheckOutRequest {
+  attendanceId: string;
+  notes?: string;
+}
+
+export interface CheckOutResponse {
+  success: boolean;
+  record: AttendanceRecordData;
+  durationMinutes: number;
+}
+
+export interface AttendanceRecordFilters {
+  branchId?: string;
+  memberId?: string;
+  status?: AttendanceStatus;
+  method?: AttendanceMethod;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AttendanceFloorSummary {
+  currentCount: number;
+  capacity?: number;
+  activeSessions: AttendanceRecordData[];
+  peakTodayCount: number;
+  totalCheckInsToday: number;
+}
+
+export interface AttendanceSettingsUpdate {
+  branchId?: string;
+  allowCheckInWithDues?: boolean;
+  maxOverdueGraceDays?: number;
+  cooldownMinutes?: number;
+  requireCheckOut?: boolean;
+  autoCheckOutHours?: number;
+  operatingHoursStart?: string;
+  operatingHoursEnd?: string;
+  allowOffHoursCheckIn?: boolean;
+}
+
+export interface PassIssueRequest {
+  generatePhysicalBadge?: boolean;
+}
+
+export interface PassRevokeRequest {
+  reason: string;
+  issueReplacement?: boolean;
+}
+
+export interface DynamicPassTokenResponse {
+  token: string;
+  expiresAt: string;
+  refreshIntervalSeconds: number;
+}
+
+export interface AttendanceAnalyticsData {
+  hourlyDistribution: { hour: number; count: number }[];
+  dayOfWeekDistribution: { day: string; count: number }[];
+  topAttendees: { memberId: string; name: string; memberNumber: string; visitCount: number }[];
+  averageVisitDurationMinutes: number;
+}
+
+

@@ -9,8 +9,8 @@ module.exports = {
   coverageDirectory: "../coverage",
   testEnvironment: "node",
   moduleNameMapper: {
-    "^@gymos/shared-types$": "<rootDir>/../../packages/shared-types/src",
-    "^@gymos/validation$": "<rootDir>/../../packages/validation/src",
-    "^@gymos/config$": "<rootDir>/../../packages/config/src",
+    "^@gymos/shared-types$": "<rootDir>/../../../packages/shared-types/src",
+    "^@gymos/validation$": "<rootDir>/../../../packages/validation/src",
+    "^@gymos/config$": "<rootDir>/../../../packages/config/src",
   },
 };

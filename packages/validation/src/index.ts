@@ -689,6 +689,98 @@ export const duesQuerySchema = z.object({
 
 export type DuesQueryInput = z.infer<typeof duesQuerySchema>;
 
+/**
+ * Stage 2.7: Attendance Management & QR Check-In Schemas
+ */
+
+export const attendanceMethodEnum = z.enum([
+  'QR_SCAN',
+  'MANUAL_STAFF',
+  'KIOSK',
+  'RFID_CARD',
+]);
+
+export const attendanceStatusEnum = z.enum([
+  'CHECKED_IN',
+  'CHECKED_OUT',
+  'AUTO_CHECKED_OUT',
+  'CANCELLED',
+]);
+
+export const passStatusEnum = z.enum([
+  'ACTIVE',
+  'SUSPENDED',
+  'REVOKED',
+]);
+
+export const checkInSchema = z.object({
+  branchId: z.string().uuid('Valid Branch ID is required'),
+  qrToken: z.string().min(5, 'QR token is required').max(500, 'QR token exceeds maximum length'),
+  method: attendanceMethodEnum.default('QR_SCAN'),
+  notes: z.string().max(255, 'Notes cannot exceed 255 characters').optional(),
+});
+
+export type CheckInInput = z.infer<typeof checkInSchema>;
+
+export const manualCheckInSchema = z.object({
+  branchId: z.string().uuid('Valid Branch ID is required'),
+  memberId: z.string().uuid('Valid Member ID is required'),
+  notes: z.string().max(255, 'Notes cannot exceed 255 characters').optional(),
+});
+
+export type ManualCheckInInput = z.infer<typeof manualCheckInSchema>;
+
+export const checkOutSchema = z.object({
+  attendanceId: z.string().uuid('Valid Attendance ID is required'),
+  notes: z.string().max(255, 'Notes cannot exceed 255 characters').optional(),
+});
+
+export type CheckOutInput = z.infer<typeof checkOutSchema>;
+
+export const attendanceHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().positive('Page must be a positive integer').default(1),
+  limit: z.coerce.number().int().positive('Limit must be a positive integer').max(100, 'Limit cannot exceed 100').default(20),
+  branchId: z.string().uuid('Valid Branch ID is required').optional().or(z.literal('')),
+  memberId: z.string().uuid('Valid Member ID is required').optional().or(z.literal('')),
+  status: attendanceStatusEnum.optional(),
+  method: attendanceMethodEnum.optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format').optional().or(z.literal('')),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional().or(z.literal('')),
+  search: z.string().max(100, 'Search query cannot exceed 100 characters').optional(),
+  sortBy: z.enum(['checkInTime', 'checkOutTime', 'durationMinutes', 'status']).default('checkInTime'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type AttendanceHistoryQueryInput = z.infer<typeof attendanceHistoryQuerySchema>;
+
+export const updateAttendanceSettingsSchema = z.object({
+  branchId: z.string().uuid('Valid Branch ID is required').optional().nullable(),
+  allowCheckInWithDues: z.boolean().default(false),
+  maxOverdueGraceDays: z.coerce.number().int().min(0, 'Grace days cannot be negative').max(90, 'Grace days cannot exceed 90').default(0),
+  cooldownMinutes: z.coerce.number().int().min(1, 'Cooldown must be at least 1 minute').max(120, 'Cooldown cannot exceed 120 minutes').default(10),
+  requireCheckOut: z.boolean().default(false),
+  autoCheckOutHours: z.coerce.number().int().min(1, 'Auto-checkout must be at least 1 hour').max(24, 'Auto-checkout cannot exceed 24 hours').default(3),
+  operatingHoursStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Operating hours start must be in HH:mm format (00:00 - 23:59)').default('05:00'),
+  operatingHoursEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Operating hours end must be in HH:mm format (00:00 - 23:59)').default('23:00'),
+  allowOffHoursCheckIn: z.boolean().default(false),
+});
+
+export type UpdateAttendanceSettingsInput = z.infer<typeof updateAttendanceSettingsSchema>;
+
+export const issueMemberPassSchema = z.object({
+  generatePhysicalBadge: z.boolean().default(false),
+});
+
+export type IssueMemberPassInput = z.infer<typeof issueMemberPassSchema>;
+
+export const revokeMemberPassSchema = z.object({
+  reason: z.string().min(3, 'Reason must be at least 3 characters').max(255, 'Reason cannot exceed 255 characters'),
+  issueReplacement: z.boolean().default(false),
+});
+
+export type RevokeMemberPassInput = z.infer<typeof revokeMemberPassSchema>;
+
+
 
 
 
