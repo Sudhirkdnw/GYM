@@ -126,7 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
     setOrganization(res.organization || null);
 
-    if (res.organization) {
+    if (res.user?.isSuperAdmin) {
+      router.push("/platform");
+    } else if (res.organization) {
       await refreshBranches();
       router.push("/dashboard");
     } else {
@@ -146,7 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
     setOrganization(res.organization || null);
 
-    if (res.organization) {
+    if (res.user?.isSuperAdmin) {
+      router.push("/platform");
+    } else if (res.organization) {
       await refreshBranches();
       router.push("/dashboard");
     } else {
