@@ -6,6 +6,7 @@ import { PrismaService } from '../src/database/prisma.service';
 import { AttendanceService } from '../src/attendance/attendance.service';
 import { QrTokenService } from '../src/attendance/qr-token.service';
 import { PhysicalPasscodeService } from '../src/attendance/physical-passcode.service';
+import { RedisService } from '../src/common/redis/redis.service';
 import {
   UserRole,
   TenantStatus,
@@ -28,6 +29,7 @@ describe('Stage 2.7 Step 4: Real PostgreSQL Attendance Engine Integration Suite'
   let attendanceService: AttendanceService;
   let qrTokenService: QrTokenService;
   let physicalPasscodeService: PhysicalPasscodeService;
+  let redisService: RedisService;
 
   // Organizations
   let orgAlphaId: string;
@@ -67,6 +69,7 @@ describe('Stage 2.7 Step 4: Real PostgreSQL Attendance Engine Integration Suite'
     attendanceService = app.get(AttendanceService);
     qrTokenService = app.get(QrTokenService);
     physicalPasscodeService = app.get(PhysicalPasscodeService);
+    redisService = app.get(RedisService);
 
     // =======================================================================
     // SEED DATABASE FOR E2E INTEGRATION
@@ -834,6 +837,48 @@ describe('Stage 2.7 Step 4: Real PostgreSQL Attendance Engine Integration Suite'
         ),
       ).rejects.toThrow(/Invalid badge passcode credential/);
     });
+
+    it('should lock out physical badge verification after 5 failed attempts (PASSCODE_RATE_LIMITED) with zero raw code in Redis', async () => {
+      const attackingPasscode = 'B3K8-M2P7-W4X9-Q6V1';
+      // Attempts 1 to 5: rejected with INVALID_PASSCODE
+      for (let i = 1; i <= 5; i++) {
+        await expect(
+          attendanceService.validateAndCheckIn(
+            orgAlphaId,
+            branchAlpha1Id,
+            { branchId: branchAlpha1Id, qrToken: attackingPasscode },
+            staffAlpha1,
+          ),
+        ).rejects.toThrow(/Invalid badge passcode credential/);
+      }
+
+      // 6th attempt: rejected with 429 PASSCODE_RATE_LIMITED
+      await expect(
+        attendanceService.validateAndCheckIn(
+          orgAlphaId,
+          branchAlpha1Id,
+          { branchId: branchAlpha1Id, qrToken: attackingPasscode },
+          staffAlpha1,
+        ),
+      ).rejects.toMatchObject({
+        status: 429,
+        response: expect.objectContaining({
+          code: 'PASSCODE_RATE_LIMITED',
+        }),
+      });
+
+      // Verify Redis: raw passcode is NEVER stored in keys
+      const client = redisService.getClient();
+      const keys = await client.keys('*passcode*');
+      expect(keys.length).toBeGreaterThan(0);
+      for (const k of keys) {
+        expect(k.includes(attackingPasscode)).toBe(false);
+        expect(k.includes('B3K8')).toBe(false);
+      }
+
+      // Cleanup rate limit
+      await physicalPasscodeService.resetBadgeRateLimit(orgAlphaId, attackingPasscode);
+    });
   });
 
   describe('6. Cross-Tenant Isolation & RLS Security', () => {
@@ -866,6 +911,164 @@ describe('Stage 2.7 Step 4: Real PostgreSQL Attendance Engine Integration Suite'
       );
 
       expect(rows.length).toBe(0); // RLS filtered out all rows because session variable was not set
+    });
+  });
+
+  describe('7. Operating Hours Enforcement in Real DB', () => {
+    it('should reject check-in when current local time is outside branch operating hours', async () => {
+      // Configure branch Alpha 1 settings with closed hours (e.g. 01:00 to 02:00)
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        const existing = await tx.attendanceSettings.findFirst({
+          where: {
+            organizationId: orgAlphaId,
+            branchId: branchAlpha1Id,
+          },
+        });
+        if (existing) {
+          await tx.attendanceSettings.update({
+            where: { id: existing.id },
+            data: {
+              operatingHoursStart: '01:00',
+              operatingHoursEnd: '02:00',
+              allowOffHoursCheckIn: false,
+            },
+          });
+        } else {
+          await tx.attendanceSettings.create({
+            data: {
+              organizationId: orgAlphaId,
+              branchId: branchAlpha1Id,
+              operatingHoursStart: '01:00',
+              operatingHoursEnd: '02:00',
+              allowOffHoursCheckIn: false,
+              allowCheckInWithDues: false,
+            },
+          });
+        }
+      });
+
+      const dynamicToken = qrTokenService.generateDynamicToken(
+        memberActiveId,
+        orgAlphaId,
+        activePass.id,
+        activePassSecret,
+      );
+
+      await expect(
+        attendanceService.checkIn(
+          orgAlphaId,
+          branchAlpha1Id,
+          { branchId: branchAlpha1Id, qrToken: dynamicToken.token },
+          staffAlpha1,
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: expect.objectContaining({
+          code: 'OUTSIDE_OPERATING_HOURS',
+        }),
+      });
+    });
+
+    it('should permit check-in when allowOffHoursCheckIn is true even if outside hours', async () => {
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        const existing = await tx.attendanceSettings.findFirst({
+          where: {
+            organizationId: orgAlphaId,
+            branchId: branchAlpha1Id,
+          },
+        });
+        if (existing) {
+          await tx.attendanceSettings.update({
+            where: { id: existing.id },
+            data: {
+              allowOffHoursCheckIn: true,
+            },
+          });
+        }
+      });
+
+      // Clear cooldown
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        await tx.attendanceRecord.updateMany({
+          where: { memberId: memberActiveId },
+          data: { checkInTime: new Date(Date.now() - 60 * 60 * 1000) },
+        });
+      });
+
+      const dynamicToken = qrTokenService.generateDynamicToken(
+        memberActiveId,
+        orgAlphaId,
+        activePass.id,
+        activePassSecret,
+      );
+
+      const res = await attendanceService.checkIn(
+        orgAlphaId,
+        branchAlpha1Id,
+        { branchId: branchAlpha1Id, qrToken: dynamicToken.token },
+        staffAlpha1,
+      );
+
+      expect(res.success).toBe(true);
+
+      // Cleanup
+      await attendanceService.checkOut(orgAlphaId, res.record!.id, staffAlpha1);
+    });
+
+    it('should admit when operating hours are 24 hours (start === end)', async () => {
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        const existing = await tx.attendanceSettings.findFirst({
+          where: {
+            organizationId: orgAlphaId,
+            branchId: branchAlpha1Id,
+          },
+        });
+        if (existing) {
+          await tx.attendanceSettings.update({
+            where: { id: existing.id },
+            data: {
+              operatingHoursStart: '00:00',
+              operatingHoursEnd: '00:00',
+              allowOffHoursCheckIn: false,
+            },
+          });
+        }
+      });
+
+      // Clear cooldown
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        await tx.attendanceRecord.updateMany({
+          where: { memberId: memberActiveId },
+          data: { checkInTime: new Date(Date.now() - 60 * 60 * 1000) },
+        });
+      });
+
+      const dynamicToken = qrTokenService.generateDynamicToken(
+        memberActiveId,
+        orgAlphaId,
+        activePass.id,
+        activePassSecret,
+      );
+
+      const res = await attendanceService.checkIn(
+        orgAlphaId,
+        branchAlpha1Id,
+        { branchId: branchAlpha1Id, qrToken: dynamicToken.token },
+        staffAlpha1,
+      );
+
+      expect(res.success).toBe(true);
+
+      // Cleanup & reset settings back to normal
+      await attendanceService.checkOut(orgAlphaId, res.record!.id, staffAlpha1);
+      await prisma.withTenantContext(orgAlphaId, async (tx) => {
+        await tx.attendanceSettings.deleteMany({
+          where: {
+            organizationId: orgAlphaId,
+            branchId: branchAlpha1Id,
+          },
+        });
+      });
     });
   });
 });

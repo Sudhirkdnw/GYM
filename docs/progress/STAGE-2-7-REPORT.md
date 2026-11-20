@@ -22,6 +22,7 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
 | **Step 2** | Shared Types, DTOs & Zod Validation Schemas | **COMPLETED** | `af1c673` | Comprehensive domain contracts in `@gymos/shared-types`; zero secret leakage; strict Zod validation in `@gymos/validation`; 29 unit tests passed; all workspaces build clean; 193/193 regression tests passed. |
 | **Step 3** | QR Cryptographic Token Service | **COMPLETED** | `5c554e8` | AES-256-GCM envelope encryption (`enc:v1:`); HMAC-SHA256 dynamic tokens (90s expiry, 5s skew, constant-time compare); Redis atomic nonce replay prevention (NX, 180s TTL, fail-closed on Redis failure); salted SHA-256 physical passcodes (16-char unambiguous alphabet); 23 unit tests + 4 live Redis E2E integration tests; 197/197 regression tests passed. |
 | **Step 4** | Attendance Service & Validation Engine | **COMPLETED** | `dc78fcc` | Authoritative 14-step check-in pipeline; membership validity & freeze checks; branch scoping (`SINGLE_BRANCH`, `MULTI_BRANCH`, `ALL_BRANCHES`); overdue dues policy (`BLOCK_CHECKIN` 402, `ALLOW_WITH_WARNING`, `ALLOW`); anti-passback cooldown; Argon2id physical badge security (31-char alphabet, rate limiting); live PostgreSQL concurrency verification (10 parallel scans -> 1 success, 9 fail with 409 `ALREADY_CHECKED_IN`); 23 unit tests + 16 real DB E2E tests; 213/213 regression tests passed. |
+| **Step 4 Final Gap Verification** | Operating Hours & Rate-Limit Hardening | **COMPLETED** | `b91541f` | Operating hours boundaries (opening/closing/overnight/24-hr) and timezone enforcement; two-tier HMAC derived badge rate limiting (zero raw code in Redis/logs); reusable atomic/idempotent checkout & floor summary; 95/95 unit tests + 217/217 E2E tests passed. |
 | **Step 5** | Attendance Controller & RBAC Matrix | *PENDING* | — | *Awaiting authorization* |
 | **Step 6** | Worker Outbox & Auto-Checkout Routine | *PENDING* | — | *Awaiting authorization* |
 | **Step 7** | Frontend Screens (Scanner, Live Floor, Ledger) | *PENDING* | — | *Awaiting authorization* |
@@ -245,3 +246,64 @@ Stage 2.7 establishes a zero-hardware-cost, multi-tenant QR attendance check-in 
   - `@gymos/api`: `nest build` passed.
   - `@gymos/worker`: `tsc` passed.
   - `@gymos/web`: `next build` passed (26 routes compiled).
+
+---
+
+## 7. Step 4 Final Gap Verification & Hardening
+
+### A. Point 1: Operating Hours Enforcement Findings & Implementation
+- **Inspection & Verification:**
+  - Branch override vs organization default precedence verified in `AttendanceService.resolveSettings`: Branch settings override organization defaults, which in turn override system defaults (`05:00` - `23:00`).
+  - Timezone handling: Resolves effective timezone via `branch.timezone || org.timezone || 'UTC'`. Local date and local time (`HH:mm`) are formatted using `Intl.DateTimeFormat`.
+  - Boundary behavior: Opening boundary and closing boundary are strictly inclusive (`localTime >= start && localTime <= end`).
+  - Overnight operating hours: Fully supported when `start > end` (e.g. `20:00` to `04:00`, evaluating `localTime >= start || localTime <= end`).
+  - 24-hour operation: When `start === end` (e.g. `00:00` to `00:00`), `isWithinOperatingHours` evaluates to `true` admitting check-ins at all times.
+  - Closed-day behavior: Not present in the applied database schema (`attendance_settings` table stores `operating_hours_start`, `operating_hours_end`, `allow_off_hours_check_in`). No migrations altered per instructions.
+  - Added public `checkIn` entrypoint method in `AttendanceService` as an alias to `validateAndCheckIn`.
+  - Enhanced `getLiveFloorSummary` to compute local midnight using `getLocalMidnightUtc(timezone)` rather than UTC midnight, aligning floor headcount and today's total visits with the branch's local calendar day.
+
+### B. Point 2: Physical Badge Rate-Limit Security Findings & Implementation
+- **Redis Key Privacy & Derivation:**
+  - Raw badge passcodes are **strictly prohibited** from Redis keys, log statements, and metrics.
+  - Implemented `getDerivedBadgeRateLimitId(organizationId, rawPasscode)` using HMAC-SHA256 keyed on `organizationId` over `badge-ratelimit:${normalizedCode}` (yielding a 32-hex character irreversible token).
+  - Derived Redis key format: `attendance:ratelimit:passcode:badge:${organizationId}:${derivedId}`.
+- **Two-Tier Defense:**
+  - **Tier 1 (Badge-Specific):** Maximum 5 failed attempts per 15-minute window (900s TTL). Exceeding threshold throws HTTP 429 `PASSCODE_RATE_LIMITED`.
+  - **Tier 2 (Terminal/Branch):** Maximum 25 failed attempts per 15-minute window (900s TTL) on `attendance:ratelimit:passcode:terminal:${organizationId}:${branchId}` to prevent brute-force code spraying across multiple badges. Exceeding threshold throws HTTP 429 `TERMINAL_RATE_LIMITED`.
+  - **Successful Verification Reset:** Upon successful badge passcode verification, `resetBadgeRateLimit` immediately deletes the badge counter in Redis.
+  - **Cross-Tenant Isolation:** The same passcode in different organizations yields entirely different HMAC identifiers and isolated Redis keys.
+
+### C. Point 3: Checkout & Live Floor Summary Scope Verification
+- **Service Reusability:** Confirmed `checkOut` and `getLiveFloorSummary` are modular, public methods on `AttendanceService` with zero controller or frontend coupling.
+- **Atomic & Idempotent Checkout:** Checkout executes inside a single PostgreSQL tenant transaction (`withTenantContext`). If the record is already in `CHECKED_OUT` or `AUTO_CHECKED_OUT` status, it returns the current state immediately without modifying data or emitting duplicate outbox events.
+- **No Premature Controllers:** Confirmed no controller or UI route has been introduced prematurely. Step 5 will cleanly expose these service methods via `AttendanceController`.
+
+### D. Files Modified
+1. `apps/api/src/attendance/physical-passcode.service.ts`:
+   - Added `getDerivedBadgeRateLimitId(organizationId, rawPasscode)`
+   - Added `checkBadgeRateLimit(organizationId, rawPasscode, maxAttempts, windowSeconds)`
+   - Added `checkTerminalRateLimit(organizationId, branchId, maxAttempts, windowSeconds)`
+   - Added `resetBadgeRateLimit(organizationId, rawPasscode)`
+   - Added `resetTerminalRateLimit(organizationId, branchId)`
+   - Updated `checkRateLimit` and `resetRateLimit` to dispatch based on UUID vs passcode format.
+2. `apps/api/src/attendance/attendance.service.ts`:
+   - Added `checkIn` public alias entrypoint
+   - Integrated `checkTerminalRateLimit`, `checkBadgeRateLimit`, and `resetBadgeRateLimit` in `resolveMemberAndPass`
+   - Updated `isWithinOperatingHours` (public, 24-hour support)
+   - Added `getLocalMidnightUtc(timezone)` and updated `getLiveFloorSummary` to compute start-of-day in branch timezone.
+3. `apps/api/src/attendance/qr-token.service.spec.ts`:
+   - Added `Rate-Limit Security & Privacy` test suite (HMAC derivation without raw code, 5-attempt badge lockout, 900s TTL, reset on success, cross-tenant isolation, 25-attempt terminal limit).
+4. `apps/api/src/attendance/attendance.service.spec.ts`:
+   - Added comprehensive tests for `isWithinOperatingHours` (opening boundary, closing boundary, outside-hours, overnight, 24-hour), branch settings override precedence, timezone message formatting, and `checkIn` entrypoint.
+5. `apps/api/test/attendance-engine.e2e-spec.ts`:
+   - Added live PostgreSQL + Redis test for physical badge lockout (HTTP 429 `PASSCODE_RATE_LIMITED`) with direct Redis inspection verifying no raw code in keys.
+   - Added Section 7 for Operating Hours Enforcement in real PostgreSQL (outside-hours 403 rejection, off-hours override allowance, and 24-hour admission).
+6. `apps/api/src/billing/billing.service.ts`:
+   - Hardened automatic LIFO allocation reversal during refunds by sorting allocations descending by invoice creation timestamp and invoice number, ensuring deterministic LIFO ordering regardless of PostgreSQL physical heap scan order.
+
+### E. Tests Executed & Actual Results
+- **Attendance Unit Tests (`apps/api/src/attendance/`):** **3 suites, 90 of 90 passed (100%)**
+- **Full API Unit Test Suite (`apps/api/`):** **5 suites, 95 of 95 passed (100%)**
+- **Real PostgreSQL & Redis Attendance Engine E2E (`apps/api/test/attendance-engine.e2e-spec.ts`):** **1 suite, 20 of 20 passed (100%)**
+- **Full API E2E Regression Suite (`apps/api/test/`):** **12 suites, 217 of 217 passed (100%)**
+- **Monorepo Build Status:** Clean compilation across all workspaces (`@gymos/config`, `@gymos/shared-types`, `@gymos/validation`, `@gymos/api`, `@gymos/web`, `@gymos/worker`).

@@ -149,20 +149,42 @@ export class PhysicalPasscodeService {
   }
 
   /**
-   * Rate-limiting check for physical badge verification attempts.
+   * Computes an HMAC-SHA256 derived identifier for badge-specific rate limiting.
+   * Plaintext badge passcodes are NEVER used in Redis keys, logs, or metrics.
+   */
+  getDerivedBadgeRateLimitId(
+    organizationId: string,
+    rawPasscode: string,
+  ): string {
+    const normalized = this.normalizePasscode(rawPasscode);
+    return crypto
+      .createHmac('sha256', organizationId)
+      .update(`badge-ratelimit:${normalized}`)
+      .digest('hex')
+      .slice(0, 32);
+  }
+
+  /**
+   * Rate-limiting check for a specific physical badge passcode attempt.
+   * Uses derived HMAC identifier to ensure raw passcode is NEVER stored in Redis keys or logged.
    * Throws 429 TooManyRequests if more than 5 failed attempts occur within 15 minutes.
    */
-  async checkRateLimit(
+  async checkBadgeRateLimit(
     organizationId: string,
-    identifier: string,
+    rawPasscode: string,
     maxAttempts = 5,
     windowSeconds = 900,
   ): Promise<void> {
     if (!this.redisService) return;
 
+    const derivedId = this.getDerivedBadgeRateLimitId(
+      organizationId,
+      rawPasscode,
+    );
+
     try {
       const attempts = await this.redisService.incrementRateLimit(
-        `passcode:${organizationId}:${identifier}`,
+        `passcode:badge:${organizationId}:${derivedId}`,
         windowSeconds,
       );
 
@@ -180,9 +202,104 @@ export class PhysicalPasscodeService {
       }
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      // If Redis is unreachable, allow check to proceed or fail-closed based on policy
-      // Here we log and fail-closed if required
     }
+  }
+
+  /**
+   * Terminal / Branch scanner rate limiting.
+   * Prevents attacker from attempting to brute-force multiple different badge codes
+   * at a single branch scanner terminal.
+   */
+  async checkTerminalRateLimit(
+    organizationId: string,
+    branchId: string,
+    maxAttempts = 25,
+    windowSeconds = 900,
+  ): Promise<void> {
+    if (!this.redisService) return;
+
+    try {
+      const attempts = await this.redisService.incrementRateLimit(
+        `passcode:terminal:${organizationId}:${branchId}`,
+        windowSeconds,
+      );
+
+      if (attempts > maxAttempts) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            error: 'Too Many Requests',
+            message:
+              'Terminal passcode attempt rate limit exceeded. Verification locked for 15 minutes.',
+            code: 'TERMINAL_RATE_LIMITED',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+    }
+  }
+
+  /**
+   * Resets the badge-specific rate limit counter upon successful verification.
+   */
+  async resetBadgeRateLimit(
+    organizationId: string,
+    rawPasscode: string,
+  ): Promise<void> {
+    if (!this.redisService) return;
+    const derivedId = this.getDerivedBadgeRateLimitId(
+      organizationId,
+      rawPasscode,
+    );
+    await this.redisService.resetRateLimit(
+      `passcode:badge:${organizationId}:${derivedId}`,
+    );
+  }
+
+  /**
+   * Resets the terminal rate limit counter.
+   */
+  async resetTerminalRateLimit(
+    organizationId: string,
+    branchId: string,
+  ): Promise<void> {
+    if (!this.redisService) return;
+    await this.redisService.resetRateLimit(
+      `passcode:terminal:${organizationId}:${branchId}`,
+    );
+  }
+
+  /**
+   * Rate-limiting check for physical badge verification attempts.
+   * Dispatches to terminal or badge rate limit based on identifier format.
+   * Raw passcodes are never embedded in Redis keys.
+   */
+  async checkRateLimit(
+    organizationId: string,
+    identifier: string,
+    maxAttempts = 5,
+    windowSeconds = 900,
+  ): Promise<void> {
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        identifier,
+      );
+    if (isUuid) {
+      return this.checkTerminalRateLimit(
+        organizationId,
+        identifier,
+        25,
+        windowSeconds,
+      );
+    }
+    return this.checkBadgeRateLimit(
+      organizationId,
+      identifier,
+      maxAttempts,
+      windowSeconds,
+    );
   }
 
   /**
@@ -192,10 +309,14 @@ export class PhysicalPasscodeService {
     organizationId: string,
     identifier: string,
   ): Promise<void> {
-    if (!this.redisService) return;
-    await this.redisService.resetRateLimit(
-      `passcode:${organizationId}:${identifier}`,
-    );
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        identifier,
+      );
+    if (isUuid) {
+      return this.resetTerminalRateLimit(organizationId, identifier);
+    }
+    return this.resetBadgeRateLimit(organizationId, identifier);
   }
 
   /**

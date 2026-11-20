@@ -1253,10 +1253,18 @@ export class BillingService {
           );
         }
       } else {
-        // Automatic LIFO Reversal across active allocations
+        // Automatic LIFO Reversal across active allocations:
+        // Deterministic LIFO ordering: sort by invoice creation time (most recent invoice first)
         let remainingRefundToDistribute = requestedRefund;
 
-        for (const targetAlloc of [...payment.allocations].reverse()) {
+        const sortedAllocations = [...payment.allocations].sort((a, b) => {
+          const timeA = new Date(a.invoice?.createdAt || a.createdAt).getTime();
+          const timeB = new Date(b.invoice?.createdAt || b.createdAt).getTime();
+          if (timeA !== timeB) return timeB - timeA; // Descending (most recent first for LIFO)
+          return (b.invoice?.invoiceNumber || '').localeCompare(a.invoice?.invoiceNumber || '');
+        });
+
+        for (const targetAlloc of sortedAllocations) {
           if (remainingRefundToDistribute.lte(0)) break;
 
           const existingReversed = targetAlloc.reversals.reduce((sum, r) => sum.add(r.amount), new Prisma.Decimal(0));

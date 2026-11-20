@@ -46,6 +46,19 @@ export class AttendanceService {
   // =========================================================================
 
   /**
+   * Authoritative entrypoint for member check-in validation.
+   * Alias for validateAndCheckIn.
+   */
+  async checkIn(
+    organizationId: string,
+    branchId: string,
+    dto: CheckInRequest | ManualCheckInRequest,
+    user: AuthenticatedUserContext,
+  ): Promise<CheckInResponse> {
+    return this.validateAndCheckIn(organizationId, branchId, dto, user);
+  }
+
+  /**
    * Executes the 14-step authoritative server-side check-in validation sequence.
    * Atomic, multi-tenant, concurrency-safe, and fail-closed.
    */
@@ -481,8 +494,16 @@ export class AttendanceService {
         orderBy: { checkInTime: 'desc' },
       });
 
-      const todayStart = new Date();
-      todayStart.setUTCHours(0, 0, 0, 0);
+      const branch = await tx.branch.findUnique({
+        where: { id: branchId },
+        select: { timezone: true },
+      });
+      const org = await tx.organization.findUnique({
+        where: { id: organizationId },
+        select: { timezone: true },
+      });
+      const timezone = branch?.timezone || org?.timezone || 'UTC';
+      const todayStart = this.getLocalMidnightUtc(timezone);
 
       const totalToday = await tx.attendanceRecord.count({
         where: {
@@ -806,7 +827,18 @@ export class AttendanceService {
       }
     }
 
-    await this.physicalPasscodeService.checkRateLimit(organizationId, branchId);
+    // Two-tier rate limiting:
+    // 1. Terminal / Branch level rate limit (prevents rapid code spraying)
+    await this.physicalPasscodeService.checkTerminalRateLimit(
+      organizationId,
+      branchId,
+    );
+    // 2. Badge-specific rate limit (prevents targeted brute-force on a single badge)
+    // Uses HMAC derived identifier; raw code is NEVER in Redis keys or logs
+    await this.physicalPasscodeService.checkBadgeRateLimit(
+      organizationId,
+      cleanCode,
+    );
 
     let pass: any = null;
 
@@ -854,7 +886,11 @@ export class AttendanceService {
       });
     }
 
-    await this.physicalPasscodeService.resetRateLimit(organizationId, branchId);
+    // Reset badge-specific rate limit upon successful verification
+    await this.physicalPasscodeService.resetBadgeRateLimit(
+      organizationId,
+      cleanCode,
+    );
 
     if (pass.status === PassStatus.REVOKED) {
       throw new ForbiddenException({
@@ -1205,16 +1241,51 @@ export class AttendanceService {
     }
   }
 
-  private isWithinOperatingHours(
+  getLocalMidnightUtc(timezone: string, date: Date = new Date()): Date {
+    try {
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        timeZoneName: 'longOffset',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const parts = fmt.formatToParts(date);
+      const y = parts.find((p) => p.type === 'year')?.value;
+      const m = parts.find((p) => p.type === 'month')?.value;
+      const d = parts.find((p) => p.type === 'day')?.value;
+      const tzPart =
+        parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT';
+      let offset = 'Z';
+      if (tzPart.startsWith('GMT+') || tzPart.startsWith('GMT-')) {
+        offset = tzPart.replace('GMT', '');
+      }
+      return new Date(`${y}-${m}-${d}T00:00:00.000${offset}`);
+    } catch {
+      const fallback = new Date(date);
+      fallback.setUTCHours(0, 0, 0, 0);
+      return fallback;
+    }
+  }
+
+  isWithinOperatingHours(
     localTime: string,
     start: string,
     end: string,
   ): boolean {
-    if (start <= end) {
-      return localTime >= start && localTime <= end;
+    const s = (start || '00:00').trim();
+    const e = (end || '23:59').trim();
+    const t = localTime.trim();
+
+    if (s === e) {
+      // 24-hour gym operation (e.g. 00:00 to 00:00 or identical boundaries)
+      return true;
+    }
+    if (s < e) {
+      return t >= s && t <= e;
     } else {
-      // Overnight window (e.g. 21:00 to 05:00)
-      return localTime >= start || localTime <= end;
+      // Overnight window (e.g. 20:00 to 04:00)
+      return t >= s || t <= e;
     }
   }
 

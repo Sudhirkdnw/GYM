@@ -89,6 +89,9 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
     mockPhysicalPasscodeService = {
       checkRateLimit: jest.fn().mockResolvedValue(undefined),
       resetRateLimit: jest.fn().mockResolvedValue(undefined),
+      checkTerminalRateLimit: jest.fn().mockResolvedValue(undefined),
+      checkBadgeRateLimit: jest.fn().mockResolvedValue(undefined),
+      resetBadgeRateLimit: jest.fn().mockResolvedValue(undefined),
       maskPasscode: jest.fn().mockReturnValue('A7K9-****-****-Q4V6'),
       verifyPasscode: jest.fn().mockResolvedValue(true),
     };
@@ -296,6 +299,47 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
   });
 
   describe('3. Operating Hours Enforcement', () => {
+    describe('isWithinOperatingHours unit logic', () => {
+      it('should admit at exact opening boundary (inclusive)', () => {
+        expect(service.isWithinOperatingHours('06:00', '06:00', '22:00')).toBe(true);
+      });
+
+      it('should admit at exact closing boundary (inclusive)', () => {
+        expect(service.isWithinOperatingHours('22:00', '06:00', '22:00')).toBe(true);
+      });
+
+      it('should reject one minute before opening boundary', () => {
+        expect(service.isWithinOperatingHours('05:59', '06:00', '22:00')).toBe(false);
+      });
+
+      it('should reject one minute after closing boundary', () => {
+        expect(service.isWithinOperatingHours('22:01', '06:00', '22:00')).toBe(false);
+      });
+
+      it('should support overnight operating hours (e.g. 20:00 to 04:00)', () => {
+        // Opening boundary
+        expect(service.isWithinOperatingHours('20:00', '20:00', '04:00')).toBe(true);
+        // Closing boundary
+        expect(service.isWithinOperatingHours('04:00', '20:00', '04:00')).toBe(true);
+        // Late evening inside
+        expect(service.isWithinOperatingHours('23:45', '20:00', '04:00')).toBe(true);
+        // Early morning inside
+        expect(service.isWithinOperatingHours('02:30', '20:00', '04:00')).toBe(true);
+        // Outside before opening
+        expect(service.isWithinOperatingHours('19:59', '20:00', '04:00')).toBe(false);
+        // Outside after closing
+        expect(service.isWithinOperatingHours('04:01', '20:00', '04:00')).toBe(false);
+        // Afternoon outside
+        expect(service.isWithinOperatingHours('14:00', '20:00', '04:00')).toBe(false);
+      });
+
+      it('should treat start === end as 24-hour operation (admit at any time)', () => {
+        expect(service.isWithinOperatingHours('00:00', '00:00', '00:00')).toBe(true);
+        expect(service.isWithinOperatingHours('12:34', '00:00', '00:00')).toBe(true);
+        expect(service.isWithinOperatingHours('23:59', '00:00', '00:00')).toBe(true);
+      });
+    });
+
     it('should reject check-in outside operating hours when off-hours not permitted', async () => {
       mockTx.attendanceSettings.findFirst.mockResolvedValueOnce({
         id: 'org-settings',
@@ -320,7 +364,73 @@ describe('Stage 2.7 Step 4: AttendanceService & Validation Engine', () => {
           { branchId, qrToken: 'GYMOS:V1:valid-token' },
           staffUser,
         ),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toMatchObject({
+        status: 403,
+        response: expect.objectContaining({
+          code: 'OUTSIDE_OPERATING_HOURS',
+        }),
+      });
+    });
+
+    it('should prioritize branch override settings over organization defaults', async () => {
+      // Branch override allows 24-hour checkin
+      mockTx.attendanceSettings.findUnique.mockResolvedValueOnce({
+        id: 'branch-settings',
+        organizationId: orgId,
+        branchId,
+        allowCheckInWithDues: false,
+        maxOverdueGraceDays: 0,
+        cooldownMinutes: 10,
+        requireCheckOut: false,
+        autoCheckOutHours: 3,
+        operatingHoursStart: '00:00',
+        operatingHoursEnd: '00:00', // 24-hour branch override
+        allowOffHoursCheckIn: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const settings = await service.resolveSettings(mockTx, orgId, branchId);
+      expect(settings.id).toBe('branch-settings');
+      expect(settings.operatingHoursStart).toBe('00:00');
+    });
+
+    it('should format rejection message with branch timezone', async () => {
+      mockBranchContext.validateBranchAccess.mockResolvedValueOnce({
+        ...branchData,
+        timezone: 'Asia/Kolkata',
+      });
+
+      mockTx.attendanceSettings.findFirst.mockResolvedValueOnce({
+        id: 'org-settings',
+        organizationId: orgId,
+        branchId: null,
+        allowCheckInWithDues: false,
+        maxOverdueGraceDays: 0,
+        cooldownMinutes: 10,
+        requireCheckOut: false,
+        autoCheckOutHours: 3,
+        operatingHoursStart: '02:00',
+        operatingHoursEnd: '03:00', // closed
+        allowOffHoursCheckIn: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        service.checkIn(
+          orgId,
+          branchId,
+          { branchId, qrToken: 'GYMOS:V1:valid-token' },
+          staffUser,
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: expect.objectContaining({
+          code: 'OUTSIDE_OPERATING_HOURS',
+          message: expect.stringContaining('(Asia/Kolkata)'),
+        }),
+      });
     });
   });
 

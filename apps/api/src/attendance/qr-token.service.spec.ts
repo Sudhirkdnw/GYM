@@ -34,10 +34,10 @@ describe('Stage 2.7 Step 3: Cryptographic QR Token & Security Services', () => {
     } as unknown as ConfigService;
 
     encryptionService = new EnvelopeEncryptionService(configService);
-    passcodeService = new PhysicalPasscodeService();
 
     // In-memory nonce store for RedisService mock
     const nonceStore = new Set<string>();
+    const rateLimitStore = new Map<string, number>();
 
     redisService = {
       consumeNonce: jest.fn().mockImplementation(async (oid: string, nce: string) => {
@@ -51,7 +51,17 @@ describe('Stage 2.7 Step 3: Cryptographic QR Token & Security Services', () => {
       deleteNonce: jest.fn().mockImplementation(async (oid: string, nce: string) => {
         nonceStore.delete(`${oid}:${nce}`);
       }),
+      incrementRateLimit: jest.fn().mockImplementation(async (key: string, _ttl: number) => {
+        const count = (rateLimitStore.get(key) || 0) + 1;
+        rateLimitStore.set(key, count);
+        return count;
+      }),
+      resetRateLimit: jest.fn().mockImplementation(async (key: string) => {
+        rateLimitStore.delete(key);
+      }),
     } as unknown as jest.Mocked<RedisService>;
+
+    passcodeService = new PhysicalPasscodeService(redisService);
 
     qrTokenService = new QrTokenService(
       redisService,
@@ -202,6 +212,79 @@ describe('Stage 2.7 Step 3: Cryptographic QR Token & Security Services', () => {
     it('should correctly mask a physical passcode for UI display', () => {
       const masked = passcodeService.maskPasscode('A7K9-W3M2-X8P1-Q4V6');
       expect(masked).toBe('A7K9-****-****-Q4V6');
+    });
+
+    describe('Rate-Limit Security & Privacy', () => {
+      const testCode = 'B2C3-D4E5-F6G7-H8J9';
+
+      it('should compute HMAC-SHA256 derived identifier without exposing raw passcode', () => {
+        const derivedId = passcodeService.getDerivedBadgeRateLimitId(orgId, testCode);
+        expect(derivedId).toHaveLength(32); // 32 hex chars (128 bits)
+        expect(/^[0-9a-f]{32}$/.test(derivedId)).toBe(true);
+
+        // Crucial verification: raw code is NOT present in derived identifier
+        expect(derivedId.includes(testCode)).toBe(false);
+        expect(derivedId.includes('B2C3')).toBe(false);
+      });
+
+      it('should enforce badge-specific rate limiting on repeated failed attempts (max 5)', async () => {
+        // Attempts 1 to 5 should succeed without error
+        for (let i = 1; i <= 5; i++) {
+          await expect(passcodeService.checkBadgeRateLimit(orgId, testCode)).resolves.not.toThrow();
+        }
+
+        // 6th attempt should throw 429 PASSCODE_RATE_LIMITED
+        await expect(passcodeService.checkBadgeRateLimit(orgId, testCode)).rejects.toMatchObject({
+          status: 429,
+          response: expect.objectContaining({
+            code: 'PASSCODE_RATE_LIMITED',
+          }),
+        });
+
+        // Verify Redis was called with derived identifier and 900s TTL (never raw passcode)
+        const calls = (redisService.incrementRateLimit as jest.Mock).mock.calls;
+        const lastCall = calls[calls.length - 1];
+        expect(lastCall[0]).toMatch(/^passcode:badge:/);
+        expect(lastCall[0].includes(testCode)).toBe(false);
+        expect(lastCall[1]).toBe(900); // 15-minute lockout duration
+      });
+
+      it('should reset badge rate limit on successful verification reset', async () => {
+        await passcodeService.resetBadgeRateLimit(orgId, testCode);
+
+        expect(redisService.resetRateLimit).toHaveBeenCalledWith(
+          expect.stringMatching(/^passcode:badge:/),
+        );
+        // Ensure reset key does not embed raw passcode
+        const resetKey = (redisService.resetRateLimit as jest.Mock).mock.calls[0][0];
+        expect(resetKey.includes(testCode)).toBe(false);
+
+        // After reset, checking rate limit succeeds again
+        await expect(passcodeService.checkBadgeRateLimit(orgId, testCode)).resolves.not.toThrow();
+      });
+
+      it('should isolate rate limiting across tenants (cross-tenant isolation)', async () => {
+        const idAlpha = passcodeService.getDerivedBadgeRateLimitId(orgId, testCode);
+        const idBeta = passcodeService.getDerivedBadgeRateLimitId(otherOrgId, testCode);
+
+        // Same badge code across different orgs produces completely different derived IDs
+        expect(idAlpha).not.toBe(idBeta);
+      });
+
+      it('should enforce terminal-level rate limiting (max 25 attempts)', async () => {
+        const branchId = '44444444-4444-4444-4444-444444444444';
+
+        for (let i = 1; i <= 25; i++) {
+          await expect(passcodeService.checkTerminalRateLimit(orgId, branchId)).resolves.not.toThrow();
+        }
+
+        await expect(passcodeService.checkTerminalRateLimit(orgId, branchId)).rejects.toMatchObject({
+          status: 429,
+          response: expect.objectContaining({
+            code: 'TERMINAL_RATE_LIMITED',
+          }),
+        });
+      });
     });
   });
 
