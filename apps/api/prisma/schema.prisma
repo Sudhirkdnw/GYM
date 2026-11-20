@@ -195,6 +195,32 @@ enum CreditEntryType {
   @@map("credit_entry_type")
 }
 
+enum AttendanceMethod {
+  QR_SCAN
+  MANUAL_STAFF
+  KIOSK
+  RFID_CARD
+
+  @@map("attendance_method")
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  AUTO_CHECKED_OUT
+  CANCELLED
+
+  @@map("attendance_status")
+}
+
+enum PassStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+
+  @@map("pass_status")
+}
+
 /// Organization represents an isolated Gym Tenant in GymOS
 model Organization {
   id                      String                    @id @default(uuid()) @map("id") @db.Uuid
@@ -242,6 +268,10 @@ model Organization {
   billingSequences        OrganizationBillingSequence[]
   memberCreditAccounts    MemberCreditAccount[]
   memberCreditEntries     MemberCreditEntry[]
+  attendanceRecords       AttendanceRecord[]
+  memberAccessPasses      MemberAccessPass[]
+  attendanceSettings      AttendanceSettings[]
+  attendanceOutboxEvents  AttendanceOutboxEvent[]
 
   @@map("organizations")
 }
@@ -325,6 +355,8 @@ model Branch {
   homeMemberships  MemberMembership[]
   invoices         Invoice[]
   payments         Payment[]
+  attendanceRecords AttendanceRecord[]
+  attendanceSettings AttendanceSettings[]
 
   @@unique([organizationId, slug], name: "unique_org_branch_slug")
   @@unique([organizationId, branchCode], name: "unique_org_branch_code")
@@ -474,6 +506,8 @@ model Member {
   invoices                     Invoice[]
   payments                     Payment[]
   creditAccounts               MemberCreditAccount[]
+  accessPass                   MemberAccessPass?
+  attendanceRecords            AttendanceRecord[]
 
   @@unique([organizationId, memberNumber], name: "unique_org_member_number")
   @@index([organizationId], map: "idx_members_org_id")
@@ -627,6 +661,7 @@ model MemberMembership {
   freezes               MembershipFreeze[]
   history               MembershipHistory[]
   invoiceItems          InvoiceItem[]
+  attendanceRecords     AttendanceRecord[]
 
   @@index([organizationId], map: "idx_member_memberships_org")
   @@index([organizationId, memberId], map: "idx_member_memberships_member")
@@ -999,5 +1034,118 @@ model MemberCreditEntry {
 
   @@index([organizationId, creditAccountId], map: "idx_credit_entries_account")
   @@map("member_credit_entries")
+}
+
+/// MemberAccessPass stores cryptographic credentials and hashed badge codes
+model MemberAccessPass {
+  id                    String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String        @map("organization_id") @db.Uuid
+  memberId              String        @unique @map("member_id") @db.Uuid
+  
+  passCodeHash          String?       @map("pass_code_hash") @db.VarChar(128)
+  passCodeSalt          String?       @map("pass_code_salt") @db.VarChar(64)
+  passCodeMasked        String?       @map("pass_code_masked") @db.VarChar(32)
+  
+  hmacSecretEncrypted   String        @map("hmac_secret_encrypted") @db.VarChar(255)
+  status                PassStatus    @default(ACTIVE) @map("status")
+  
+  issuedAt              DateTime      @default(now()) @map("issued_at") @db.Timestamptz
+  revokedAt             DateTime?     @map("revoked_at") @db.Timestamptz
+  revokedById           String?       @map("revoked_by_id") @db.Uuid
+  revocationReason      String?       @map("revocation_reason") @db.VarChar(255)
+  lastScannedAt         DateTime?     @map("last_scanned_at") @db.Timestamptz
+  lastScannedBranchId   String?       @map("last_scanned_branch_id") @db.Uuid
+  
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member                Member        @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, memberId], name: "unique_org_member_pass")
+  @@index([organizationId, passCodeHash], map: "idx_passes_org_code_hash")
+  @@index([organizationId, status], map: "idx_passes_org_status")
+  @@map("member_access_passes")
+}
+
+/// AttendanceRecord stores individual member visit sessions
+model AttendanceRecord {
+  id                    String            @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  branchId              String            @map("branch_id") @db.Uuid
+  memberId              String            @map("member_id") @db.Uuid
+  membershipId          String?           @map("membership_id") @db.Uuid
+  
+  checkInTime           DateTime          @default(now()) @map("check_in_time") @db.Timestamptz
+  checkOutTime          DateTime?         @map("check_out_time") @db.Timestamptz
+  durationMinutes       Int?              @map("duration_minutes")
+  
+  method                AttendanceMethod  @default(QR_SCAN) @map("method")
+  status                AttendanceStatus  @default(CHECKED_IN) @map("status")
+  
+  verifiedById          String?           @map("verified_by_id") @db.Uuid
+  notes                 String?           @map("notes") @db.VarChar(255)
+  rejectionReason       String?           @map("rejection_reason") @db.VarChar(255)
+  
+  createdAt             DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  branch                Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  member                Member            @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  membership            MemberMembership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, branchId, checkInTime], map: "idx_attendance_org_branch_time")
+  @@index([organizationId, memberId, checkInTime], map: "idx_attendance_org_member_time")
+  @@index([organizationId, status, checkInTime], map: "idx_attendance_org_status_time")
+  @@map("attendance_records")
+}
+
+/// AttendanceSettings stores branch-level and organization-wide check-in policies
+model AttendanceSettings {
+  id                    String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String        @map("organization_id") @db.Uuid
+  branchId              String?       @map("branch_id") @db.Uuid
+  
+  allowCheckInWithDues  Boolean       @default(false) @map("allow_check_in_with_dues")
+  maxOverdueGraceDays   Int           @default(0) @map("max_overdue_grace_days")
+  cooldownMinutes       Int           @default(10) @map("cooldown_minutes")
+  requireCheckOut       Boolean       @default(false) @map("require_check_out")
+  autoCheckOutHours     Int           @default(3) @map("auto_check_out_hours")
+  operatingHoursStart   String        @default("05:00") @map("operating_hours_start") @db.VarChar(10)
+  operatingHoursEnd     String        @default("23:00") @map("operating_hours_end") @db.VarChar(10)
+  allowOffHoursCheckIn  Boolean       @default(false) @map("allow_off_hours_check_in")
+  
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch                Branch?       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, branchId], name: "unique_org_branch_attendance_settings")
+  @@map("attendance_settings")
+}
+
+/// AttendanceOutboxEvent implements the Transactional Outbox Pattern for check-in events
+model AttendanceOutboxEvent {
+  id                    String        @id @default(uuid()) @map("id") @db.Uuid
+  organizationId        String        @map("organization_id") @db.Uuid
+  aggregateId           String        @map("aggregate_id") @db.VarChar(100)
+  eventType             String        @map("event_type") @db.VarChar(100)
+  payload               Json          @map("payload")
+  status                OutboxStatus  @default(PENDING) @map("status")
+  retryCount            Int           @default(0) @map("retry_count")
+  lastError             String?       @map("last_error") @db.Text
+  processedAt           DateTime?     @map("processed_at") @db.Timestamptz
+  idempotencyKey        String        @unique @map("idempotency_key") @db.VarChar(200)
+
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status], map: "idx_attendance_outbox_org_status")
+  @@index([status, createdAt], map: "idx_attendance_outbox_status_created")
+  @@map("attendance_outbox_events")
 }
 
