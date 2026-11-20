@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, use } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import {
   ArrowLeft,
@@ -12,10 +13,6 @@ import {
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface EntitlementDetailPageProps {
-  params: Promise<{ orgId: string }>;
-}
 
 interface FeatureCatalogItem {
   key: string;
@@ -55,11 +52,9 @@ interface EntitlementResponse {
   catalog: FeatureCatalogItem[];
 }
 
-export default function GymEntitlementsConfigPage({
-  params,
-}: EntitlementDetailPageProps) {
-  const resolvedParams = use(params);
-  const orgId = resolvedParams.orgId;
+export default function GymEntitlementsConfigPage() {
+  const routeParams = useParams();
+  const orgId = routeParams.orgId as string;
 
   const [data, setData] = useState<EntitlementResponse | null>(null);
   const [featureStates, setFeatureStates] = useState<Record<string, boolean>>({});
