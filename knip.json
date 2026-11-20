@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/overview/configuration-schema.json",
+  "ignoreBinaries": ["eslint"],
   "workspaces": {
     "apps/api": {
       "entry": ["src/main.ts", "test/**/*.ts"],
