@@ -1492,22 +1492,32 @@ export class BillingService {
           organizationId,
           creditAccountId: account.id,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'asc' },
       });
 
-      return entries.map((e) => ({
-        id: e.id,
-        organizationId: e.organizationId,
-        creditAccountId: e.creditAccountId,
-        entryType: e.entryType as CreditEntryType,
-        amount: Number(e.amount),
-        referenceType: e.referenceType,
-        referenceId: e.referenceId,
-        description: e.description,
-        idempotencyKey: e.idempotencyKey,
-        createdById: e.createdById,
-        createdAt: e.createdAt.toISOString(),
-      }));
+      let running = 0;
+      const computed = entries.map((e) => {
+        const balanceBefore = running;
+        running += Number(e.amount);
+        const balanceAfter = running;
+        return {
+          id: e.id,
+          organizationId: e.organizationId,
+          creditAccountId: e.creditAccountId,
+          entryType: e.entryType as CreditEntryType,
+          amount: Number(e.amount),
+          balanceBefore,
+          balanceAfter,
+          referenceType: e.referenceType,
+          referenceId: e.referenceId,
+          description: e.description,
+          idempotencyKey: e.idempotencyKey,
+          createdById: e.createdById,
+          createdAt: e.createdAt.toISOString(),
+        };
+      });
+
+      return computed.reverse();
     });
   }
 

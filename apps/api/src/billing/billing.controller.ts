@@ -7,7 +7,6 @@ import {
   Body,
   Headers,
   UseGuards,
-  BadRequestException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -78,7 +77,7 @@ export class BillingController {
       user.id,
       user.role || UserRole.MEMBER,
       dto,
-      idempotencyKey || dto.idempotencyKey,
+      idempotencyKey,
     );
   }
 
@@ -162,7 +161,7 @@ export class BillingController {
       user.id,
       user.role || UserRole.MEMBER,
       dto,
-      idempotencyKey || dto.idempotencyKey,
+      idempotencyKey,
     );
   }
 
@@ -211,58 +210,13 @@ export class BillingController {
       user.role || UserRole.MEMBER,
       paymentId,
       dto,
-      idempotencyKey || dto.idempotencyKey,
+      idempotencyKey,
     );
   }
 
   // ===========================================================================
   // 3. MEMBER CREDITS
   // ===========================================================================
-
-  @Get('credits')
-  @RequirePermissions(Permission.MEMBER_CREDIT_READ)
-  async getMemberCreditsList(
-    @CurrentTenant() organizationId: string,
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ): Promise<PaginatedResult<MemberCreditAccountData>> {
-    return this.billingService.getMemberCreditsList(organizationId, {
-      search,
-      page: page ? parseInt(page, 10) : 1,
-      limit: limit ? parseInt(limit, 10) : 20,
-    });
-  }
-
-  @Get('credits/:memberId/ledger')
-  @RequirePermissions(Permission.MEMBER_CREDIT_READ)
-  async getCreditsLedger(
-    @CurrentTenant() organizationId: string,
-    @Param('memberId') memberId: string,
-  ): Promise<MemberCreditEntryData[]> {
-    return this.billingService.getMemberCreditLedger(organizationId, memberId);
-  }
-
-  @Post('credits/deposit')
-  @RequirePermissions(Permission.MEMBER_CREDIT_MANAGE)
-  async depositCreditDirect(
-    @CurrentTenant() organizationId: string,
-    @CurrentUser() user: AuthenticatedUserContext,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
-    @Body(new ZodValidationPipe(depositCreditSchema)) dto: DepositCreditInput,
-  ): Promise<MemberCreditAccountData> {
-    if (!dto.memberId) {
-      throw new BadRequestException('Member ID is required to deposit credit');
-    }
-    return this.billingService.depositCredit(
-      organizationId,
-      user.id,
-      user.role || UserRole.MEMBER,
-      dto.memberId,
-      dto,
-      idempotencyKey,
-    );
-  }
 
   @Get('members/:memberId/credits')
   @RequirePermissions(Permission.MEMBER_CREDIT_READ)
@@ -339,8 +293,7 @@ export class BillingController {
     );
   }
 
-  @Get('reports/kpi')
-  @Get('reports/kpis')
+  @Get(['reports/kpi', 'reports/kpis'])
   @RequirePermissions(Permission.FINANCIAL_REPORT_READ)
   async getFinancialKpis(
     @CurrentTenant() organizationId: string,

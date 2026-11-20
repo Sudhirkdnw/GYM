@@ -153,45 +153,62 @@ async function bootstrap() {
 
   log("INFO", `Worker active and listening on queues: ${QUEUES.NOTIFICATIONS}, ${QUEUES.MEMBERSHIPS}, ${QUEUES.BILLING}`);
 
-  // Outbox Dispatcher loop (polls PENDING membership_outbox_events)
+  // Helper to fetch active organizations
+  const getActiveOrganizations = async (): Promise<{ id: string; name: string }[]> => {
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
+      return tx.organization.findMany({
+        where: { status: "ACTIVE" },
+        select: { id: true, name: true },
+      });
+    });
+  };
+
+  // Outbox Dispatcher loop (polls PENDING membership_outbox_events with tenant context)
   let isDispatching = false;
   const dispatchOutboxEvents = async () => {
     if (isDispatching) return;
     isDispatching = true;
     try {
-      const pendingEvents = await prisma.membershipOutboxEvent.findMany({
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "asc" },
-        take: 50,
-      });
-
-      for (const event of pendingEvents) {
-        try {
-          await membershipQueue.add(event.eventType, event.payload, {
-            jobId: event.idempotencyKey,
-            removeOnComplete: 100,
-            removeOnFail: 500,
+      const orgs = await getActiveOrganizations();
+      for (const org of orgs) {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
+          const pendingEvents = await tx.membershipOutboxEvent.findMany({
+            where: { organizationId: org.id, status: "PENDING" },
+            orderBy: { createdAt: "asc" },
+            take: 50,
           });
 
-          await prisma.membershipOutboxEvent.update({
-            where: { id: event.id },
-            data: {
-              status: "PUBLISHED",
-              processedAt: new Date(),
-            },
-          });
-          log("INFO", `Dispatched outbox event ${event.eventType} (${event.id})`);
-        } catch (dispatchErr) {
-          const errMsg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
-          await prisma.membershipOutboxEvent.update({
-            where: { id: event.id },
-            data: {
-              retryCount: { increment: 1 },
-              lastError: errMsg,
-              status: event.retryCount >= 5 ? "FAILED" : "PENDING",
-            },
-          });
-        }
+          for (const event of pendingEvents) {
+            try {
+              await membershipQueue.add(event.eventType, event.payload as object, {
+                jobId: event.idempotencyKey,
+                removeOnComplete: 100,
+                removeOnFail: 500,
+              });
+
+              await tx.membershipOutboxEvent.update({
+                where: { id: event.id },
+                data: {
+                  status: "PUBLISHED",
+                  processedAt: new Date(),
+                },
+              });
+              log("INFO", `Dispatched outbox event ${event.eventType} (${event.id}) for org ${org.id}`);
+            } catch (dispatchErr) {
+              const errMsg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
+              await tx.membershipOutboxEvent.update({
+                where: { id: event.id },
+                data: {
+                  retryCount: { increment: 1 },
+                  lastError: errMsg,
+                  status: event.retryCount >= 5 ? "FAILED" : "PENDING",
+                },
+              });
+            }
+          }
+        });
       }
     } catch (err) {
       log("ERROR", "Outbox dispatcher error", {
@@ -202,7 +219,7 @@ async function bootstrap() {
     }
   };
 
-  // Expiry Processor loop (daily/periodic check for expired memberships)
+  // Expiry Processor loop (daily/periodic check for expired memberships with tenant context)
   let isExpiring = false;
   const processExpiredMemberships = async () => {
     if (isExpiring) return;
@@ -210,55 +227,62 @@ async function bootstrap() {
     try {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
+      const orgs = await getActiveOrganizations();
 
-      const expiredMemberships = await prisma.memberMembership.findMany({
-        where: {
-          status: "ACTIVE",
-          endDate: { lt: today },
-        },
-        select: { id: true, organizationId: true, memberId: true, endDate: true },
-        take: 100,
-      });
-
-      for (const sub of expiredMemberships) {
-        try {
-          await prisma.memberMembership.update({
-            where: { id: sub.id },
-            data: { status: "EXPIRED" },
-          });
-
-          await prisma.membershipHistory.create({
-            data: {
-              organizationId: sub.organizationId,
-              membershipId: sub.id,
-              action: "EXPIRED",
-              newState: { status: "EXPIRED" },
-              reason: "Automatic worker expiry processing",
+      for (const org of orgs) {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
+          const expiredMemberships = await tx.memberMembership.findMany({
+            where: {
+              organizationId: org.id,
+              status: "ACTIVE",
+              endDate: { lt: today },
             },
+            select: { id: true, organizationId: true, memberId: true, endDate: true },
+            take: 100,
           });
 
-          const dateStr = sub.endDate instanceof Date ? sub.endDate.toISOString().split("T")[0] : String(sub.endDate);
-          await prisma.membershipOutboxEvent.create({
-            data: {
-              organizationId: sub.organizationId,
-              aggregateId: sub.id,
-              eventType: "membership.expired",
-              idempotencyKey: `outbox_membership_expired_${sub.id}_${dateStr}`,
-              payload: {
-                membershipId: sub.id,
-                memberId: sub.memberId,
-                organizationId: sub.organizationId,
-                status: "EXPIRED",
-              },
-              status: "PENDING",
-            },
-          });
-          log("INFO", `Expired membership ${sub.id} for member ${sub.memberId}`);
-        } catch (subErr) {
-          log("ERROR", `Failed to expire membership ${sub.id}`, {
-            error: subErr instanceof Error ? subErr.message : String(subErr),
-          });
-        }
+          for (const sub of expiredMemberships) {
+            try {
+              await tx.memberMembership.update({
+                where: { id: sub.id },
+                data: { status: "EXPIRED" },
+              });
+
+              await tx.membershipHistory.create({
+                data: {
+                  organizationId: sub.organizationId,
+                  membershipId: sub.id,
+                  action: "EXPIRED",
+                  newState: { status: "EXPIRED" },
+                  reason: "Automatic worker expiry processing",
+                },
+              });
+
+              const dateStr = sub.endDate instanceof Date ? sub.endDate.toISOString().split("T")[0] : String(sub.endDate);
+              await tx.membershipOutboxEvent.create({
+                data: {
+                  organizationId: sub.organizationId,
+                  aggregateId: sub.id,
+                  eventType: "membership.expired",
+                  idempotencyKey: `outbox_membership_expired_${sub.id}_${dateStr}`,
+                  payload: {
+                    membershipId: sub.id,
+                    memberId: sub.memberId,
+                    organizationId: sub.organizationId,
+                    status: "EXPIRED",
+                  },
+                  status: "PENDING",
+                },
+              });
+              log("INFO", `Expired membership ${sub.id} for member ${sub.memberId} in org ${org.id}`);
+            } catch (subErr) {
+              log("ERROR", `Failed to expire membership ${sub.id}`, {
+                error: subErr instanceof Error ? subErr.message : String(subErr),
+              });
+            }
+          }
+        });
       }
     } catch (err) {
       log("ERROR", "Expiry processor error", {
@@ -269,45 +293,51 @@ async function bootstrap() {
     }
   };
 
-  // Billing Outbox Dispatcher loop (polls PENDING billing_outbox_events)
+  // Billing Outbox Dispatcher loop (polls PENDING billing_outbox_events with tenant context)
   let isDispatchingBilling = false;
   const dispatchBillingOutboxEvents = async () => {
     if (isDispatchingBilling) return;
     isDispatchingBilling = true;
     try {
-      const pendingEvents = await prisma.billingOutboxEvent.findMany({
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "asc" },
-        take: 50,
-      });
-
-      for (const event of pendingEvents) {
-        try {
-          await billingQueue.add(event.eventType, event.payload as object, {
-            jobId: event.idempotencyKey,
-            removeOnComplete: 100,
-            removeOnFail: 500,
+      const orgs = await getActiveOrganizations();
+      for (const org of orgs) {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
+          const pendingEvents = await tx.billingOutboxEvent.findMany({
+            where: { organizationId: org.id, status: "PENDING" },
+            orderBy: { createdAt: "asc" },
+            take: 50,
           });
 
-          await prisma.billingOutboxEvent.update({
-            where: { id: event.id },
-            data: {
-              status: "PUBLISHED",
-              processedAt: new Date(),
-            },
-          });
-          log("INFO", `Dispatched billing outbox event ${event.eventType} (${event.id})`);
-        } catch (dispatchErr) {
-          const errMsg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
-          await prisma.billingOutboxEvent.update({
-            where: { id: event.id },
-            data: {
-              retryCount: { increment: 1 },
-              lastError: errMsg,
-              status: event.retryCount >= 5 ? "FAILED" : "PENDING",
-            },
-          });
-        }
+          for (const event of pendingEvents) {
+            try {
+              await billingQueue.add(event.eventType, event.payload as object, {
+                jobId: event.idempotencyKey,
+                removeOnComplete: 100,
+                removeOnFail: 500,
+              });
+
+              await tx.billingOutboxEvent.update({
+                where: { id: event.id },
+                data: {
+                  status: "PUBLISHED",
+                  processedAt: new Date(),
+                },
+              });
+              log("INFO", `Dispatched billing outbox event ${event.eventType} (${event.id}) for org ${org.id}`);
+            } catch (dispatchErr) {
+              const errMsg = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr);
+              await tx.billingOutboxEvent.update({
+                where: { id: event.id },
+                data: {
+                  retryCount: { increment: 1 },
+                  lastError: errMsg,
+                  status: event.retryCount >= 5 ? "FAILED" : "PENDING",
+                },
+              });
+            }
+          }
+        });
       }
     } catch (err) {
       log("ERROR", "Billing outbox dispatcher error", {
@@ -318,7 +348,7 @@ async function bootstrap() {
     }
   };
 
-  // Overdue Invoice Processor (periodic check for past-due invoices)
+  // Overdue Invoice Processor (periodic check for past-due invoices with tenant context)
   let isCheckingDues = false;
   const processOverdueInvoices = async () => {
     if (isCheckingDues) return;
@@ -326,47 +356,54 @@ async function bootstrap() {
     try {
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
+      const orgs = await getActiveOrganizations();
 
-      const overdueInvoices = await prisma.invoice.findMany({
-        where: {
-          status: { in: ["ISSUED", "PARTIALLY_PAID"] },
-          dueDate: { lt: today },
-          balanceDue: { gt: 0 },
-        },
-        select: { id: true, organizationId: true, memberId: true, invoiceNumber: true, balanceDue: true, dueDate: true },
-        take: 100,
-      });
-
-      for (const inv of overdueInvoices) {
-        try {
-          await prisma.invoice.update({
-            where: { id: inv.id },
-            data: { status: "OVERDUE" },
-          });
-
-          const dateStr = inv.dueDate.toISOString().slice(0, 10);
-          await prisma.billingOutboxEvent.create({
-            data: {
-              organizationId: inv.organizationId,
-              aggregateId: inv.id,
-              eventType: "billing.dues.reminder_triggered",
-              idempotencyKey: `outbox_overdue_${inv.id}_${dateStr}`,
-              payload: {
-                invoiceId: inv.id,
-                invoiceNumber: inv.invoiceNumber,
-                memberId: inv.memberId,
-                balanceDue: Number(inv.balanceDue),
-                status: "OVERDUE",
-              },
-              status: "PENDING",
+      for (const org of orgs) {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${org.id}';`);
+          const overdueInvoices = await tx.invoice.findMany({
+            where: {
+              organizationId: org.id,
+              status: { in: ["ISSUED", "PARTIALLY_PAID"] },
+              dueDate: { lt: today },
+              balanceDue: { gt: 0 },
             },
+            select: { id: true, organizationId: true, memberId: true, invoiceNumber: true, balanceDue: true, dueDate: true },
+            take: 100,
           });
-          log("INFO", `Marked invoice ${inv.invoiceNumber} as OVERDUE for member ${inv.memberId}`);
-        } catch (invErr) {
-          log("ERROR", `Failed to mark invoice ${inv.id} as overdue`, {
-            error: invErr instanceof Error ? invErr.message : String(invErr),
-          });
-        }
+
+          for (const inv of overdueInvoices) {
+            try {
+              await tx.invoice.update({
+                where: { id: inv.id },
+                data: { status: "OVERDUE" },
+              });
+
+              const dateStr = inv.dueDate.toISOString().slice(0, 10);
+              await tx.billingOutboxEvent.create({
+                data: {
+                  organizationId: inv.organizationId,
+                  aggregateId: inv.id,
+                  eventType: "billing.dues.reminder_triggered",
+                  idempotencyKey: `outbox_overdue_${inv.id}_${dateStr}`,
+                  payload: {
+                    invoiceId: inv.id,
+                    invoiceNumber: inv.invoiceNumber,
+                    memberId: inv.memberId,
+                    balanceDue: Number(inv.balanceDue),
+                    status: "OVERDUE",
+                  },
+                  status: "PENDING",
+                },
+              });
+              log("INFO", `Marked invoice ${inv.invoiceNumber} as OVERDUE for member ${inv.memberId} in org ${org.id}`);
+            } catch (invErr) {
+              log("ERROR", `Failed to mark invoice ${inv.id} as overdue`, {
+                error: invErr instanceof Error ? invErr.message : String(invErr),
+              });
+            }
+          }
+        });
       }
     } catch (err) {
       log("ERROR", "Overdue invoice processor error", {

@@ -906,6 +906,8 @@ export interface MemberCreditEntryData {
   creditAccountId: string;
   entryType: CreditEntryType;
   amount: number;
+  balanceBefore?: number;
+  balanceAfter?: number;
   referenceType?: string | null;
   referenceId?: string | null;
   description: string;
