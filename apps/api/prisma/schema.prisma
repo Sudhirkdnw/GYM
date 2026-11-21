@@ -1317,4 +1317,46 @@ model EntitlementChangeLog {
   @@map("entitlement_change_logs")
 }
 
+/// Platform-level settings (Website branding, SMTP, WhatsApp, Platform Security)
+/// Controlled strictly by Platform Super Admin. Unrelated to tenant/gym data.
+model PlatformSetting {
+  id             String    @id @default(uuid()) @map("id") @db.Uuid
+  category       String    @map("category") @db.VarChar(50) // 'WEBSITE', 'EMAIL', 'WHATSAPP', 'SECURITY'
+  key            String    @unique @map("key") @db.VarChar(100)
+  value          Json?     @map("value")
+  encryptedValue String?   @map("encrypted_value") @db.Text
+  lastTestedAt   DateTime? @map("last_tested_at") @db.Timestamptz
+  testStatus     String?   @map("test_status") @db.VarChar(50) // 'SUCCESS', 'FAILED', 'UNTESTED'
+  testMessage    String?   @map("test_message") @db.VarChar(500)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([category], map: "idx_platform_settings_category")
+  @@map("platform_settings")
+}
+
+/// Platform-level transactional email templates managed by Super Admin
+model PlatformEmailTemplate {
+  id                 String    @id @default(uuid()) @map("id") @db.Uuid
+  code               String    @unique @map("code") @db.VarChar(100)
+  name               String    @map("name") @db.VarChar(255)
+  category           String    @map("category") @db.VarChar(100) // 'AUTHENTICATION', 'ONBOARDING', 'BILLING', 'MEMBERSHIP'
+  subject            String    @map("subject") @db.VarChar(255)
+  htmlBody           String    @map("html_body") @db.Text
+  textBody           String?   @map("text_body") @db.Text
+  availableVariables Json      @default("[]") @map("available_variables")
+  sampleVariables    Json?     @map("sample_variables")
+  isActive           Boolean   @default(true) @map("is_active")
+  version            Int       @default(1) @map("version")
+  history            Json?     @map("history")
+  updatedBy          String?   @map("updated_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([category], map: "idx_platform_templates_category")
+  @@map("platform_email_templates")
+}
+
+
 

@@ -16,6 +16,12 @@ import {
   X,
   Activity,
   AlertOctagon,
+  Settings,
+  Globe,
+  Mail,
+  MessageSquare,
+  FileText,
+  History,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -58,6 +64,40 @@ export default function PlatformLayout({
       label: "Feature Catalog",
       href: "/platform/features",
       icon: Layers,
+    },
+  ];
+
+  const settingsNavLinks: NavLinkItem[] = [
+    {
+      label: "Settings Overview",
+      href: "/platform/settings",
+      icon: Settings,
+      exact: true,
+    },
+    {
+      label: "Website Branding",
+      href: "/platform/settings/website",
+      icon: Globe,
+    },
+    {
+      label: "Email & SMTP",
+      href: "/platform/settings/email",
+      icon: Mail,
+    },
+    {
+      label: "WhatsApp Cloud API",
+      href: "/platform/settings/whatsapp",
+      icon: MessageSquare,
+    },
+    {
+      label: "Email Templates",
+      href: "/platform/settings/email-templates",
+      icon: FileText,
+    },
+    {
+      label: "Platform Audit Logs",
+      href: "/platform/settings/audit-logs",
+      icon: History,
     },
   ];
 
@@ -194,7 +234,7 @@ export default function PlatformLayout({
           <div className="mb-4 px-3 text-[10px] font-bold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
             SAAS MANAGEMENT
           </div>
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1 flex-1 overflow-y-auto">
             {navLinks.map((item) => {
               const ItemIcon = item.icon;
               const active = isActive(item.href, item.exact);
@@ -203,6 +243,33 @@ export default function PlatformLayout({
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                    active
+                      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-glow shadow-violet-500/20 font-semibold"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <ItemIcon
+                    className={`h-4 w-4 shrink-0 ${
+                      active ? "text-white" : "text-slate-500 dark:text-zinc-400"
+                    }`}
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+
+            <div className="pt-5 pb-2 px-3 text-[10px] font-bold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+              PLATFORM SETTINGS
+            </div>
+
+            {settingsNavLinks.map((item) => {
+              const ItemIcon = item.icon;
+              const active = isActive(item.href, item.exact);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                     active
                       ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-glow shadow-violet-500/20 font-semibold"
                       : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
@@ -248,7 +315,7 @@ export default function PlatformLayout({
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <nav className="mt-4 space-y-1 flex-1">
+              <nav className="mt-4 space-y-1 flex-1 overflow-y-auto">
                 {navLinks.map((item) => {
                   const ItemIcon = item.icon;
                   const active = isActive(item.href, item.exact);
@@ -257,7 +324,31 @@ export default function PlatformLayout({
                       key={item.href}
                       href={item.href}
                       onClick={() => setIsMobileOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                        active
+                          ? "bg-violet-600 text-white font-semibold"
+                          : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <ItemIcon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+
+                <div className="pt-4 pb-1 px-3 text-[10px] font-bold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                  PLATFORM SETTINGS
+                </div>
+
+                {settingsNavLinks.map((item) => {
+                  const ItemIcon = item.icon;
+                  const active = isActive(item.href, item.exact);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                         active
                           ? "bg-violet-600 text-white font-semibold"
                           : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]"
