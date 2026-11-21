@@ -27,6 +27,14 @@ import {
   createOrganizationSchema,
   CreateOrganizationInput,
 } from './dto/organization.dto';
+import {
+  GeneralSettingsDto,
+  GymSmtpConfigDto,
+  GymWhatsAppConfigDto,
+  GymNotificationSettingsDto,
+  TestOrgSmtpDto,
+  TestOrgWhatsAppDto,
+} from './dto/organization-settings.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -123,6 +131,214 @@ export class OrganizationsController {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.headers['user-agent'];
     return this.organizationsService.updateCurrentSettings(
+      orgId,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  // =========================================================================
+  // GYM PERSONAL SETTINGS: GENERAL, CUSTOM SMTP & WHATSAPP API
+  // =========================================================================
+
+  @Get('current/settings/overview')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_READ)
+  async getOrganizationSettingsOverview(
+    @CurrentTenant() orgId: string | null,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    return this.organizationsService.getOrganizationSettingsOverview(orgId);
+  }
+
+  @Get('current/settings/general')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_READ)
+  async getGeneralSettings(
+    @CurrentTenant() orgId: string | null,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    return this.organizationsService.getGeneralSettings(orgId);
+  }
+
+  @Patch('current/settings/general')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_UPDATE)
+  async updateGeneralSettings(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: GeneralSettingsDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.organizationsService.updateGeneralSettings(
+      orgId,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  // --- SMTP ---
+  @Get('current/settings/email')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_READ)
+  async getOrgSmtpConfig(
+    @CurrentTenant() orgId: string | null,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    return this.organizationsService.getOrgSmtpConfig(orgId);
+  }
+
+  @Patch('current/settings/email')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_UPDATE)
+  async updateOrgSmtpConfig(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: GymSmtpConfigDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.organizationsService.updateOrgSmtpConfig(
+      orgId,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post('current/settings/email/test-connection')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_MANAGE)
+  async testOrgSmtpConnection(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.organizationsService.testOrgSmtpConnection(orgId, user.id, ipAddress);
+  }
+
+  @Post('current/settings/email/test-send')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_MANAGE)
+  async sendOrgTestEmail(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: TestOrgSmtpDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.organizationsService.sendOrgTestEmail(orgId, dto, user.id, ipAddress);
+  }
+
+  // --- WHATSAPP ---
+  @Get('current/settings/whatsapp')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_READ)
+  async getOrgWhatsAppConfig(
+    @CurrentTenant() orgId: string | null,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    return this.organizationsService.getOrgWhatsAppConfig(orgId);
+  }
+
+  @Patch('current/settings/whatsapp')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_UPDATE)
+  async updateOrgWhatsAppConfig(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: GymWhatsAppConfigDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.organizationsService.updateOrgWhatsAppConfig(
+      orgId,
+      dto,
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post('current/settings/whatsapp/test-connection')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_MANAGE)
+  async verifyOrgWhatsAppConnection(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.organizationsService.verifyOrgWhatsAppConnection(orgId, user.id, ipAddress);
+  }
+
+  @Post('current/settings/whatsapp/test-send')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_MANAGE)
+  async sendOrgTestWhatsAppMessage(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: TestOrgWhatsAppDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.organizationsService.sendOrgTestWhatsAppMessage(orgId, dto, user.id, ipAddress);
+  }
+
+  // --- NOTIFICATIONS ---
+  @Get('current/settings/notifications')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_READ)
+  async getOrgNotificationSettings(
+    @CurrentTenant() orgId: string | null,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    return this.organizationsService.getOrgNotificationSettings(orgId);
+  }
+
+  @Patch('current/settings/notifications')
+  @RequirePermissions(Permission.ORGANIZATION_SETTINGS_UPDATE)
+  async updateOrgNotificationSettings(
+    @CurrentTenant() orgId: string | null,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: GymNotificationSettingsDto,
+    @Req() req: Request,
+  ) {
+    if (!orgId) {
+      throw new BadRequestException('Active organization context required');
+    }
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    return this.organizationsService.updateOrgNotificationSettings(
       orgId,
       dto,
       user.id,

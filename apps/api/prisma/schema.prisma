@@ -278,6 +278,7 @@ model Organization {
   entitlementOverrides    OrganizationEntitlementOverride[]
   usageRecords            OrganizationUsageRecord[]
   entitlementChangeLogs   EntitlementChangeLog[]
+  settings                OrganizationSetting[]
 
   @@map("organizations")
 }
@@ -1357,6 +1358,30 @@ model PlatformEmailTemplate {
   @@index([category], map: "idx_platform_templates_category")
   @@map("platform_email_templates")
 }
+
+/// Tenant-level configuration (Custom SMTP, Custom WhatsApp, Notification Triggers)
+/// Strictly isolated per gym organization with PostgreSQL Row-Level Security (RLS ENABLE + FORCE).
+model OrganizationSetting {
+  id             String       @id @default(uuid()) @map("id") @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  category       String       @map("category") @db.VarChar(50) // 'GENERAL', 'EMAIL', 'WHATSAPP', 'NOTIFICATIONS'
+  key            String       @map("key") @db.VarChar(100)
+  value          Json?        @map("value")
+  encryptedValue String?      @map("encrypted_value") @db.Text
+  lastTestedAt   DateTime?    @map("last_tested_at") @db.Timestamptz
+  testStatus     String?      @map("test_status") @db.VarChar(50) // 'SUCCESS', 'FAILED', 'UNTESTED'
+  testMessage    String?      @map("test_message") @db.VarChar(500)
+  updatedBy      String?      @map("updated_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key], name: "unique_org_setting_key")
+  @@index([organizationId, category], map: "idx_org_settings_category")
+  @@map("organization_settings")
+}
+
 
 
 

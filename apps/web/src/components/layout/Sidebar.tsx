@@ -18,6 +18,7 @@ import {
   Building,
   ArrowLeftRight,
   ShieldCheck,
+  Sliders,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useEntitlements } from "@/hooks/useEntitlements";
@@ -165,9 +166,14 @@ export function Sidebar({
           icon: CalendarCheck,
         },
         {
-          label: "Organization",
+          label: "Organization Profile",
           href: "/dashboard/organization",
           icon: Building,
+        },
+        {
+          label: "Gym Settings & APIs",
+          href: "/dashboard/organization/settings",
+          icon: Sliders,
         },
         {
           label: "Switch Gym",

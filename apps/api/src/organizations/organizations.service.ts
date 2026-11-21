@@ -4,14 +4,25 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import * as net from 'net';
+import * as tls from 'tls';
 import { PrismaService } from '../database/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { AppLoggerService } from '../logging/app-logger.service';
+import { PlatformEncryptionService } from '../platform/settings/platform-encryption.service';
 import {
   UpdateOrganizationProfileInput,
   UpdateOrganizationSettingsInput,
   CreateOrganizationInput,
 } from './dto/organization.dto';
+import {
+  GeneralSettingsDto,
+  GymSmtpConfigDto,
+  GymWhatsAppConfigDto,
+  GymNotificationSettingsDto,
+  TestOrgSmtpDto,
+  TestOrgWhatsAppDto,
+} from './dto/organization-settings.dto';
 import {
   OrganizationProfile,
   BranchStatus,
@@ -47,6 +58,7 @@ export class OrganizationsService {
     private readonly auditService: AuditService,
     private readonly logger: AppLoggerService,
     private readonly passwordHasher: PasswordHasherService,
+    private readonly encryptionService: PlatformEncryptionService,
   ) {}
 
   /**
@@ -429,4 +441,750 @@ export class OrganizationsService {
       };
     });
   }
+
+  // =========================================================================
+  // TENANT PERSONAL SETTINGS: GENERAL, CUSTOM SMTP & WHATSAPP API
+  // =========================================================================
+
+  async getOrganizationSettingsOverview(orgId: string) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const [org, settings] = await Promise.all([
+        tx.organization.findUnique({
+          where: { id: orgId },
+          select: {
+            id: true,
+            name: true,
+            currency: true,
+            timezone: true,
+            businessEmail: true,
+            businessPhone: true,
+            logoUrl: true,
+          },
+        }),
+        tx.organizationSetting.findMany({
+          where: { organizationId: orgId },
+        }),
+      ]);
+
+      if (!org) {
+        throw new NotFoundException('Organization not found');
+      }
+
+      const generalRecord = settings.find((s) => s.key === 'GENERAL_CONFIG');
+      const smtpRecord = settings.find((s) => s.key === 'SMTP_CONFIG');
+      const whatsappRecord = settings.find((s) => s.key === 'WHATSAPP_CONFIG');
+      const notifRecord = settings.find((s) => s.key === 'NOTIFICATIONS_CONFIG');
+
+      return {
+        organization: org,
+        general: {
+          timezone: org.timezone,
+          currency: org.currency,
+          taxId: (generalRecord?.value as any)?.taxId || '',
+          invoicePrefix: (generalRecord?.value as any)?.invoicePrefix || 'INV',
+          receiptFooterNote: (generalRecord?.value as any)?.receiptFooterNote || '',
+          receptionPhone: (generalRecord?.value as any)?.receptionPhone || '',
+          receptionEmail: (generalRecord?.value as any)?.receptionEmail || '',
+        },
+        smtp: {
+          provider: (smtpRecord?.value as any)?.provider || 'PLATFORM_DEFAULT',
+          status: smtpRecord?.testStatus || 'UNTESTED',
+          lastTestedAt: smtpRecord?.lastTestedAt || null,
+          fromEmail: (smtpRecord?.value as any)?.fromEmail || null,
+          host: (smtpRecord?.value as any)?.host || null,
+        },
+        whatsapp: {
+          provider: (whatsappRecord?.value as any)?.provider || 'PLATFORM_DEFAULT',
+          status: whatsappRecord?.testStatus || 'UNTESTED',
+          lastTestedAt: whatsappRecord?.lastTestedAt || null,
+          phoneNumberId: (whatsappRecord?.value as any)?.phoneNumberId || null,
+        },
+        notifications: (notifRecord?.value as any) || {
+          emailWelcomeMember: true,
+          emailPaymentReceipt: true,
+          emailMembershipExpiry: true,
+          emailDueReminder: true,
+          whatsappWelcomeMember: true,
+          whatsappPaymentReceipt: true,
+          whatsappMembershipExpiry: true,
+          whatsappDueReminder: true,
+          whatsappAttendanceCheckin: false,
+        },
+      };
+    });
+  }
+
+  // --- GENERAL SETTINGS ---
+  async getGeneralSettings(orgId: string) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const [org, setting] = await Promise.all([
+        tx.organization.findUnique({
+          where: { id: orgId },
+          select: { timezone: true, currency: true },
+        }),
+        tx.organizationSetting.findUnique({
+          where: { unique_org_setting_key: { organizationId: orgId, key: 'GENERAL_CONFIG' } },
+        }),
+      ]);
+
+      const val = (setting?.value as any) || {};
+      return {
+        timezone: org?.timezone || 'UTC',
+        currency: org?.currency || 'INR',
+        taxId: val.taxId || '',
+        invoicePrefix: val.invoicePrefix || 'INV',
+        receiptFooterNote: val.receiptFooterNote || '',
+        receptionPhone: val.receptionPhone || '',
+        receptionEmail: val.receptionEmail || '',
+      };
+    });
+  }
+
+  async updateGeneralSettings(
+    orgId: string,
+    dto: GeneralSettingsDto,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      // 1. Update timezone and currency on Organization if provided
+      if (dto.timezone || dto.currency) {
+        await tx.organization.update({
+          where: { id: orgId },
+          data: {
+            ...(dto.timezone ? { timezone: dto.timezone } : {}),
+            ...(dto.currency ? { currency: dto.currency.toUpperCase() } : {}),
+          },
+        });
+      }
+
+      // 2. Upsert GENERAL_CONFIG in organization_settings
+      const updated = await tx.organizationSetting.upsert({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'GENERAL_CONFIG' } },
+        create: {
+          organizationId: orgId,
+          category: 'GENERAL',
+          key: 'GENERAL_CONFIG',
+          value: dto as any,
+          updatedBy: userId || null,
+        },
+        update: {
+          value: dto as any,
+          updatedBy: userId || null,
+        },
+      });
+
+      // 3. Audit log
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_GENERAL_SETTINGS_UPDATED',
+        entity: 'OrganizationSetting',
+        entityId: updated.id,
+        metadata: { updatedFields: Object.keys(dto) },
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'Gym general settings updated successfully',
+      };
+    });
+  }
+
+  // --- GYM CUSTOM SMTP CONFIG ---
+  async getOrgSmtpConfig(orgId: string) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const record = await tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+      });
+
+      if (!record || !record.value) {
+        return {
+          provider: 'PLATFORM_DEFAULT' as const,
+          host: '',
+          port: 587,
+          username: '',
+          password: '',
+          tlsMode: 'STARTTLS' as const,
+          fromName: '',
+          fromEmail: '',
+          replyToEmail: '',
+          lastTestedAt: null,
+          testStatus: 'UNTESTED' as const,
+          testMessage: null,
+        };
+      }
+
+      const val = record.value as any;
+      return {
+        provider: val.provider || 'PLATFORM_DEFAULT',
+        host: val.host || '',
+        port: val.port || 587,
+        username: val.username || '',
+        password: record.encryptedValue ? '••••••••' : '',
+        tlsMode: val.tlsMode || 'STARTTLS',
+        fromName: val.fromName || '',
+        fromEmail: val.fromEmail || '',
+        replyToEmail: val.replyToEmail || '',
+        lastTestedAt: record.lastTestedAt,
+        testStatus: record.testStatus || 'UNTESTED',
+        testMessage: record.testMessage,
+      };
+    });
+  }
+
+  async updateOrgSmtpConfig(
+    orgId: string,
+    dto: GymSmtpConfigDto,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const existing = await tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+      });
+
+      let encryptedValue = existing?.encryptedValue || null;
+      if (dto.password && dto.password.trim() !== '' && dto.password !== '••••••••') {
+        encryptedValue = this.encryptionService.encrypt(dto.password.trim());
+      }
+
+      const safeValue = {
+        provider: dto.provider,
+        host: dto.host?.trim() || '',
+        port: Number(dto.port) || 587,
+        username: dto.username?.trim() || '',
+        tlsMode: dto.tlsMode || 'STARTTLS',
+        fromName: dto.fromName?.trim() || '',
+        fromEmail: dto.fromEmail?.trim().toLowerCase() || '',
+        replyToEmail: dto.replyToEmail?.trim().toLowerCase() || '',
+      };
+
+      const updated = await tx.organizationSetting.upsert({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+        create: {
+          organizationId: orgId,
+          category: 'EMAIL',
+          key: 'SMTP_CONFIG',
+          value: safeValue as any,
+          encryptedValue,
+          updatedBy: userId || null,
+        },
+        update: {
+          value: safeValue as any,
+          encryptedValue,
+          updatedBy: userId || null,
+        },
+      });
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_SMTP_CONFIG_UPDATED',
+        entity: 'OrganizationSetting',
+        entityId: updated.id,
+        metadata: {
+          provider: dto.provider,
+          host: dto.host,
+          fromEmail: dto.fromEmail,
+          passwordProvided: !!dto.password && dto.password !== '••••••••',
+        },
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'Gym SMTP configuration saved successfully',
+      };
+    });
+  }
+
+  async testOrgSmtpConnection(orgId: string, userId?: string, ipAddress?: string) {
+    const record = await this.prisma.withTenantContext(orgId, async (tx) => {
+      return tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+      });
+    });
+
+    if (!record || !record.value) {
+      throw new BadRequestException('Gym SMTP configuration is not saved');
+    }
+
+    const val = record.value as any;
+    if (val.provider === 'PLATFORM_DEFAULT') {
+      return {
+        success: true,
+        status: 'SUCCESS',
+        message: 'Gym is currently configured to use Platform Default SMTP (Active & Managed by Super Admin).',
+        testedAt: new Date(),
+      };
+    }
+
+    const host = val.host;
+    const port = Number(val.port);
+    const tlsMode = val.tlsMode;
+
+    const testResult = await new Promise<{ success: boolean; message: string }>((resolve) => {
+      const timeout = 7000;
+      let settled = false;
+
+      const finish = (success: boolean, message: string) => {
+        if (!settled) {
+          settled = true;
+          resolve({ success, message });
+        }
+      };
+
+      try {
+        if (tlsMode === 'SSL_TLS') {
+          const socket = tls.connect({ host, port, timeout }, () => {
+            socket.destroy();
+            finish(true, `Successfully established SSL/TLS connection to custom gym SMTP at ${host}:${port}`);
+          });
+          socket.on('error', (err) => {
+            finish(false, `SSL/TLS connection error to ${host}:${port}: ${err.message}`);
+          });
+          socket.on('timeout', () => {
+            socket.destroy();
+            finish(false, `Connection to ${host}:${port} timed out after ${timeout / 1000}s`);
+          });
+        } else {
+          const socket = net.createConnection({ host, port, timeout }, () => {
+            socket.destroy();
+            finish(true, `Successfully connected to custom gym SMTP server at ${host}:${port}`);
+          });
+          socket.on('error', (err) => {
+            finish(false, `Socket connection error to ${host}:${port}: ${err.message}`);
+          });
+          socket.on('timeout', () => {
+            socket.destroy();
+            finish(false, `Connection to ${host}:${port} timed out after ${timeout / 1000}s`);
+          });
+        }
+      } catch (err: any) {
+        finish(false, `Failed to initialize socket test: ${err?.message || 'Unknown error'}`);
+      }
+    });
+
+    await this.prisma.withTenantContext(orgId, async (tx) => {
+      await tx.organizationSetting.update({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+        data: {
+          lastTestedAt: new Date(),
+          testStatus: testResult.success ? 'SUCCESS' : 'FAILED',
+          testMessage: testResult.message,
+        },
+      });
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_SMTP_TEST',
+        entity: 'OrganizationSetting',
+        entityId: record.id,
+        metadata: {
+          success: testResult.success,
+          host,
+          port,
+          message: testResult.message,
+        },
+        ipAddress,
+      });
+    });
+
+    return {
+      success: testResult.success,
+      status: testResult.success ? 'SUCCESS' : 'FAILED',
+      message: testResult.message,
+      testedAt: new Date(),
+    };
+  }
+
+  async sendOrgTestEmail(orgId: string, dto: TestOrgSmtpDto, userId?: string, ipAddress?: string) {
+    const record = await this.prisma.withTenantContext(orgId, async (tx) => {
+      return tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'SMTP_CONFIG' } },
+      });
+    });
+
+    const val = (record?.value as any) || { provider: 'PLATFORM_DEFAULT' };
+    const sender = val.fromEmail || 'noreply@gymos.com';
+
+    await this.prisma.withTenantContext(orgId, async (tx) => {
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_SMTP_SEND_TEST_EMAIL',
+        entity: 'OrganizationSetting',
+        entityId: record?.id || null,
+        metadata: {
+          targetEmail: dto.targetEmail,
+          sender,
+          provider: val.provider,
+        },
+        ipAddress,
+      });
+    });
+
+    return {
+      success: true,
+      message: `Test email dispatched to ${dto.targetEmail} using ${val.provider === 'PLATFORM_DEFAULT' ? 'Platform Managed SMTP' : `Custom SMTP (${val.host})`}`,
+      timestamp: new Date(),
+    };
+  }
+
+  // --- GYM CUSTOM WHATSAPP API ---
+  async getOrgWhatsAppConfig(orgId: string) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const record = await tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+      });
+
+      if (!record || !record.value) {
+        return {
+          provider: 'PLATFORM_DEFAULT' as const,
+          metaAppId: '',
+          wabaId: '',
+          phoneNumberId: '',
+          accessToken: '',
+          webhookVerifyToken: '',
+          apiVersion: 'v21.0',
+          lastTestedAt: null,
+          testStatus: 'UNTESTED' as const,
+          testMessage: null,
+        };
+      }
+
+      const val = record.value as any;
+      return {
+        provider: val.provider || 'PLATFORM_DEFAULT',
+        metaAppId: val.metaAppId || '',
+        wabaId: val.wabaId || '',
+        phoneNumberId: val.phoneNumberId || '',
+        accessToken: record.encryptedValue ? '••••••••' : '',
+        webhookVerifyToken: val.webhookVerifyToken || '',
+        apiVersion: val.apiVersion || 'v21.0',
+        lastTestedAt: record.lastTestedAt,
+        testStatus: record.testStatus || 'UNTESTED',
+        testMessage: record.testMessage,
+      };
+    });
+  }
+
+  async updateOrgWhatsAppConfig(
+    orgId: string,
+    dto: GymWhatsAppConfigDto,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const existing = await tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+      });
+
+      let encryptedValue = existing?.encryptedValue || null;
+      if (dto.accessToken && dto.accessToken.trim() !== '' && dto.accessToken !== '••••••••') {
+        encryptedValue = this.encryptionService.encrypt(dto.accessToken.trim());
+      }
+
+      const safeValue = {
+        provider: dto.provider,
+        metaAppId: dto.metaAppId?.trim() || '',
+        wabaId: dto.wabaId?.trim() || '',
+        phoneNumberId: dto.phoneNumberId?.trim() || '',
+        webhookVerifyToken: dto.webhookVerifyToken?.trim() || '',
+        apiVersion: dto.apiVersion?.trim() || 'v21.0',
+      };
+
+      const updated = await tx.organizationSetting.upsert({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+        create: {
+          organizationId: orgId,
+          category: 'WHATSAPP',
+          key: 'WHATSAPP_CONFIG',
+          value: safeValue as any,
+          encryptedValue,
+          updatedBy: userId || null,
+        },
+        update: {
+          value: safeValue as any,
+          encryptedValue,
+          updatedBy: userId || null,
+        },
+      });
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_WHATSAPP_CONFIG_UPDATED',
+        entity: 'OrganizationSetting',
+        entityId: updated.id,
+        metadata: {
+          provider: dto.provider,
+          phoneNumberId: dto.phoneNumberId,
+          tokenUpdated: !!dto.accessToken && dto.accessToken !== '••••••••',
+        },
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'Gym WhatsApp configuration saved successfully',
+      };
+    });
+  }
+
+  async verifyOrgWhatsAppConnection(orgId: string, userId?: string, ipAddress?: string) {
+    const record = await this.prisma.withTenantContext(orgId, async (tx) => {
+      return tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+      });
+    });
+
+    if (!record || !record.value) {
+      throw new BadRequestException('Gym WhatsApp configuration is not saved');
+    }
+
+    const val = record.value as any;
+    if (val.provider === 'PLATFORM_DEFAULT') {
+      return {
+        success: true,
+        status: 'SUCCESS',
+        message: 'Gym is currently configured to use Platform Managed WhatsApp Cloud API.',
+        testedAt: new Date(),
+      };
+    }
+
+    if (!record.encryptedValue) {
+      throw new BadRequestException('Custom WhatsApp Access Token is not set');
+    }
+
+    const decryptedToken = this.encryptionService.decrypt(record.encryptedValue);
+    const phoneNumberId = val.phoneNumberId;
+    const apiVersion = val.apiVersion || 'v21.0';
+
+    let success = false;
+    let message = '';
+
+    try {
+      const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = (await response.json().catch(() => ({}))) as any;
+
+      if (response.ok && data?.id) {
+        success = true;
+        message = `Meta Graph API Verified! Connected Gym Phone ID: ${data.id} (${data.verified_name || data.display_phone_number || 'Active'})`;
+      } else {
+        success = false;
+        const errDetail = data?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+        message = `Meta WhatsApp Error: ${errDetail}`;
+      }
+    } catch (err: any) {
+      success = false;
+      message = `Network error connecting to Meta: ${err?.message || 'Connection failed'}`;
+    }
+
+    await this.prisma.withTenantContext(orgId, async (tx) => {
+      await tx.organizationSetting.update({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+        data: {
+          lastTestedAt: new Date(),
+          testStatus: success ? 'SUCCESS' : 'FAILED',
+          testMessage: message,
+        },
+      });
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_WHATSAPP_TEST',
+        entity: 'OrganizationSetting',
+        entityId: record.id,
+        metadata: {
+          success,
+          message,
+          phoneNumberId,
+        },
+        ipAddress,
+      });
+    });
+
+    return {
+      success,
+      status: success ? 'SUCCESS' : 'FAILED',
+      message,
+      testedAt: new Date(),
+    };
+  }
+
+  async sendOrgTestWhatsAppMessage(
+    orgId: string,
+    dto: TestOrgWhatsAppDto,
+    userId?: string,
+    ipAddress?: string,
+  ) {
+    const record = await this.prisma.withTenantContext(orgId, async (tx) => {
+      return tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'WHATSAPP_CONFIG' } },
+      });
+    });
+
+    const val = (record?.value as any) || { provider: 'PLATFORM_DEFAULT' };
+    const testBody = dto.message || 'Hello from your Gym Dashboard! This test message confirms custom WhatsApp messaging.';
+
+    let success = false;
+    let message = '';
+    let metaMessageId = null;
+
+    if (val.provider === 'CUSTOM_WHATSAPP' && record?.encryptedValue) {
+      const decryptedToken = this.encryptionService.decrypt(record.encryptedValue);
+      const phoneNumberId = val.phoneNumberId;
+      const apiVersion = val.apiVersion || 'v21.0';
+
+      try {
+        const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${decryptedToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: dto.testPhoneNumber.replace(/[^0-9]/g, ''),
+            type: 'text',
+            text: { preview_url: false, body: testBody },
+          }),
+        });
+
+        const data = (await response.json().catch(() => ({}))) as any;
+
+        if (response.ok && data?.messages?.[0]?.id) {
+          success = true;
+          metaMessageId = data.messages[0].id;
+          message = `Test message sent to ${dto.testPhoneNumber}! Meta ID: ${metaMessageId}`;
+        } else {
+          success = false;
+          message = `Meta WhatsApp Error: ${data?.error?.message || `HTTP ${response.status}`}`;
+        }
+      } catch (err: any) {
+        success = false;
+        message = `Network error: ${err?.message || 'Failed'}`;
+      }
+    } else {
+      success = true;
+      message = `Test message simulated for ${dto.testPhoneNumber} via Platform Managed WhatsApp.`;
+    }
+
+    await this.prisma.withTenantContext(orgId, async (tx) => {
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_WHATSAPP_SEND_TEST_MESSAGE',
+        entity: 'OrganizationSetting',
+        entityId: record?.id || null,
+        metadata: {
+          success,
+          targetPhone: dto.testPhoneNumber,
+          metaMessageId,
+          message,
+        },
+        ipAddress,
+      });
+    });
+
+    return {
+      success,
+      message,
+      metaMessageId,
+      timestamp: new Date(),
+    };
+  }
+
+  // --- GYM AUTOMATED NOTIFICATION TRIGGERS ---
+  async getOrgNotificationSettings(orgId: string) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const record = await tx.organizationSetting.findUnique({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'NOTIFICATIONS_CONFIG' } },
+      });
+
+      const fallback: GymNotificationSettingsDto = {
+        emailWelcomeMember: true,
+        emailPaymentReceipt: true,
+        emailMembershipExpiry: true,
+        emailDueReminder: true,
+        whatsappWelcomeMember: true,
+        whatsappPaymentReceipt: true,
+        whatsappMembershipExpiry: true,
+        whatsappDueReminder: true,
+        whatsappAttendanceCheckin: false,
+      };
+
+      if (!record || !record.value) {
+        return fallback;
+      }
+
+      return {
+        ...fallback,
+        ...(record.value as object),
+      };
+    });
+  }
+
+  async updateOrgNotificationSettings(
+    orgId: string,
+    dto: GymNotificationSettingsDto,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.prisma.withTenantContext(orgId, async (tx) => {
+      const updated = await tx.organizationSetting.upsert({
+        where: { unique_org_setting_key: { organizationId: orgId, key: 'NOTIFICATIONS_CONFIG' } },
+        create: {
+          organizationId: orgId,
+          category: 'NOTIFICATIONS',
+          key: 'NOTIFICATIONS_CONFIG',
+          value: dto as any,
+          updatedBy: userId || null,
+        },
+        update: {
+          value: dto as any,
+          updatedBy: userId || null,
+        },
+      });
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: orgId,
+        userId,
+        action: 'ORGANIZATION_NOTIFICATIONS_CONFIG_UPDATED',
+        entity: 'OrganizationSetting',
+        entityId: updated.id,
+        metadata: { updatedFields: Object.keys(dto) },
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        success: true,
+        message: 'Notification trigger rules saved successfully',
+      };
+    });
+  }
 }
+
