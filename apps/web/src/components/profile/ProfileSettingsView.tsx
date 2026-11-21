@@ -112,7 +112,13 @@ export function ProfileSettingsView({
   // Handle Profile Update
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+    const cleanFirstName = (firstName || "").trim();
+    const cleanLastName = (lastName || "").trim();
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanPhone = (phone || "").trim();
+    const cleanAvatarUrl = (avatarUrl || "").trim();
+
+    if (!cleanFirstName || !cleanLastName || !cleanEmail) {
       setNotification({
         type: "error",
         message: "First name, last name, and email are required fields.",
@@ -127,11 +133,11 @@ export function ProfileSettingsView({
       await apiClient("/auth/me/profile", {
         method: "PUT",
         body: JSON.stringify({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email.trim().toLowerCase(),
-          phone: phone.trim() || null,
-          avatarUrl: avatarUrl.trim() || null,
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          email: cleanEmail,
+          phone: cleanPhone ? cleanPhone : null,
+          avatarUrl: cleanAvatarUrl ? cleanAvatarUrl : null,
         }),
       });
 
@@ -155,7 +161,11 @@ export function ProfileSettingsView({
   // Handle Password Change
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword) {
+    const cleanCurrent = (currentPassword || "").trim();
+    const cleanNew = (newPassword || "").trim();
+    const cleanConfirm = (confirmPassword || "").trim();
+
+    if (!cleanCurrent) {
       setNotification({
         type: "error",
         message: "Please enter your current password for verification.",
@@ -163,7 +173,7 @@ export function ProfileSettingsView({
       return;
     }
 
-    if (newPassword.length < 8) {
+    if (cleanNew.length < 8) {
       setNotification({
         type: "error",
         message: "New password must be at least 8 characters long.",
@@ -171,7 +181,7 @@ export function ProfileSettingsView({
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (cleanNew !== cleanConfirm) {
       setNotification({
         type: "error",
         message: "New password and confirmation password do not match.",
@@ -186,8 +196,8 @@ export function ProfileSettingsView({
       await apiClient<{ success: boolean; message: string }>("/auth/me/password", {
         method: "PUT",
         body: JSON.stringify({
-          currentPassword,
-          newPassword,
+          currentPassword: cleanCurrent,
+          newPassword: cleanNew,
         }),
       });
 
@@ -233,7 +243,7 @@ export function ProfileSettingsView({
     }
   };
 
-  const initials = `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase() || "U";
+  const initials = `${(firstName || "")[0] || ""}${(lastName || "")[0] || ""}`.toUpperCase() || "U";
 
   return (
     <div className="space-y-8 animate-fade-in max-w-4xl pb-12">

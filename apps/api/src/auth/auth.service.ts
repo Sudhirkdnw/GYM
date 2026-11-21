@@ -718,28 +718,40 @@ export class AuthService {
       }
 
       const updateData: any = {};
-      if (dto.firstName !== undefined && dto.firstName.trim() !== '') {
-        updateData.firstName = dto.firstName.trim();
+      if (dto.firstName !== undefined && dto.firstName !== null) {
+        const val = typeof dto.firstName === 'string' ? dto.firstName.trim() : '';
+        if (val) updateData.firstName = val;
       }
-      if (dto.lastName !== undefined && dto.lastName.trim() !== '') {
-        updateData.lastName = dto.lastName.trim();
+      if (dto.lastName !== undefined && dto.lastName !== null) {
+        const val = typeof dto.lastName === 'string' ? dto.lastName.trim() : '';
+        if (val) updateData.lastName = val;
       }
       if (dto.phone !== undefined) {
-        updateData.phone = dto.phone.trim() || null;
+        if (dto.phone && typeof dto.phone === 'string' && dto.phone.trim() !== '') {
+          updateData.phone = dto.phone.trim();
+        } else {
+          updateData.phone = null;
+        }
       }
       if (dto.avatarUrl !== undefined) {
-        updateData.avatarUrl = dto.avatarUrl.trim() || null;
+        if (dto.avatarUrl && typeof dto.avatarUrl === 'string' && dto.avatarUrl.trim() !== '') {
+          updateData.avatarUrl = dto.avatarUrl.trim();
+        } else {
+          updateData.avatarUrl = null;
+        }
       }
 
-      if (dto.email && dto.email.trim().toLowerCase() !== existing.email.toLowerCase()) {
+      if (dto.email && typeof dto.email === 'string') {
         const normalizedEmail = dto.email.trim().toLowerCase();
-        const emailTaken = await tx.user.findUnique({
-          where: { email: normalizedEmail },
-        });
-        if (emailTaken && emailTaken.id !== userId) {
-          throw new ConflictException('Email address is already in use by another account');
+        if (normalizedEmail && normalizedEmail !== existing.email.toLowerCase()) {
+          const emailTaken = await tx.user.findUnique({
+            where: { email: normalizedEmail },
+          });
+          if (emailTaken && emailTaken.id !== userId) {
+            throw new ConflictException('Email address is already in use by another account');
+          }
+          updateData.email = normalizedEmail;
         }
-        updateData.email = normalizedEmail;
       }
 
       const updated = await tx.user.update({

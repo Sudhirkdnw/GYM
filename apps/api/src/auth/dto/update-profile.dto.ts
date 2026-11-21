@@ -10,9 +10,10 @@ export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'sudhirkdnw@gmail.com', description: 'User email address' })
   email?: string;
 
-  @ApiPropertyOptional({ example: '+919876543210', description: 'User phone number' })
-  phone?: string;
+  @ApiPropertyOptional({ example: '+919876543210', description: 'User phone number', nullable: true })
+  phone?: string | null;
 
-  @ApiPropertyOptional({ example: 'https://images.unsplash.com/...', description: 'Avatar image URL' })
-  avatarUrl?: string;
+  @ApiPropertyOptional({ example: 'https://images.unsplash.com/...', description: 'Avatar image URL', nullable: true })
+  avatarUrl?: string | null;
 }
+
