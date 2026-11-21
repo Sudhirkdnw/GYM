@@ -259,7 +259,15 @@ export function TopBar({
 
               <div className="py-1">
                 <Link
-                  href="/dashboard/organization"
+                  href="/dashboard/profile"
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors font-medium text-slate-800 dark:text-zinc-200"
+                >
+                  <UserIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>My Profile</span>
+                </Link>
+                <Link
+                  href="/dashboard/organization/settings"
                   onClick={() => setIsUserMenuOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
@@ -271,7 +279,7 @@ export function TopBar({
                   onClick={() => setIsUserMenuOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors"
                 >
-                  <UserIcon className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
+                  <Building className="h-3.5 w-3.5 text-slate-500 dark:text-zinc-400" />
                   <span>Switch Organization</span>
                 </Link>
               </div>

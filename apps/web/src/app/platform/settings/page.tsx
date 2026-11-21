@@ -11,6 +11,7 @@ import {
   FileText,
   History,
   Send,
+  User as UserIcon,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -387,6 +388,25 @@ export default function PlatformSettingsOverviewPage() {
             </h4>
             <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
               Real-time monitoring of all dispatched transactional emails, delivery statuses, SMTP error traces, and manual resend actions.
+            </p>
+          </Link>
+
+          {/* Card 7: Admin Profile & Credentials */}
+          <Link
+            href="/platform/profile"
+            className="group rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#12131a] p-6 hover:border-violet-500/40 dark:hover:border-violet-500/40 transition-all hover:shadow-lg hover:shadow-violet-500/5 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-violet-100 dark:bg-violet-600/20 text-violet-600 dark:text-violet-300">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 group-hover:text-violet-500 transition-all" />
+            </div>
+            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+              Admin Profile & Security
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Update Super Admin personal details, email address, password credentials, and inspect active sign-in sessions.
             </p>
           </Link>
         </div>

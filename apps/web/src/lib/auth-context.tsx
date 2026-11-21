@@ -11,9 +11,13 @@ export interface UserProfile {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
   isSuperAdmin: boolean;
   emailVerified: boolean;
   status: UserStatus;
+  createdAt?: string;
+  lastLoginAt?: string | null;
 }
 
 export interface OrganizationContextData {

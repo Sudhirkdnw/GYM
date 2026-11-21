@@ -5,3 +5,5 @@ export * from './reset-password.dto';
 export * from './verify-email.dto';
 export * from './select-organization.dto';
 export * from './refresh-token.dto';
+export * from './update-profile.dto';
+export * from './change-password.dto';

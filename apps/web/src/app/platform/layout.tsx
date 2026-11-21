@@ -23,6 +23,7 @@ import {
   FileText,
   History,
   Send,
+  User as UserIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,11 @@ export default function PlatformLayout({
       label: "Platform Audit Logs",
       href: "/platform/settings/audit-logs",
       icon: History,
+    },
+    {
+      label: "Admin Profile",
+      href: "/platform/profile",
+      icon: UserIcon,
     },
   ];
 
@@ -210,17 +216,23 @@ export default function PlatformLayout({
           <ThemeToggle />
 
           <div className="hidden md:flex items-center gap-2 pl-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-600/20 dark:border dark:border-violet-500/30 dark:text-violet-300 text-xs font-bold uppercase">
-              {user.firstName ? user.firstName[0] : "A"}
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight">
-                {user.firstName || "Platform"} {user.lastName || "Admin"}
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate max-w-[130px]">
-                {user.email}
-              </p>
-            </div>
+            <Link
+              href="/platform/profile"
+              className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors group"
+              title="View Admin Profile"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-600/20 dark:border dark:border-violet-500/30 dark:text-violet-300 text-xs font-bold uppercase group-hover:scale-105 transition-transform">
+                {user.firstName ? user.firstName[0] : "A"}
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-slate-900 dark:text-white leading-tight group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  {user.firstName || "Platform"} {user.lastName || "Admin"}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate max-w-[130px]">
+                  {user.email}
+                </p>
+              </div>
+            </Link>
           </div>
 
           <button

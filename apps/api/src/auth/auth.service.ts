@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { PasswordHasherService } from './password-hasher.service';
@@ -15,6 +16,8 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   SelectOrganizationDto,
+  UpdateProfileDto,
+  ChangePasswordDto,
 } from './dto';
 import {
   UserRole,
@@ -508,6 +511,8 @@ export class AuthService {
           email: true,
           firstName: true,
           lastName: true,
+          phone: true,
+          avatarUrl: true,
           isSuperAdmin: true,
           emailVerified: true,
           status: true,
@@ -697,5 +702,110 @@ export class AuthService {
   async revokeSession(userId: string, sessionId: string) {
     await this.tokenService.revokeSession(userId, sessionId);
     return { success: true, message: 'Session revoked successfully' };
+  }
+
+  /**
+   * Updates profile information for the authenticated user.
+   */
+  async updateProfile(userId: string, dto: UpdateProfileDto, _ipAddress?: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException('User profile not found');
+      }
+
+      const updateData: any = {};
+      if (dto.firstName !== undefined && dto.firstName.trim() !== '') {
+        updateData.firstName = dto.firstName.trim();
+      }
+      if (dto.lastName !== undefined && dto.lastName.trim() !== '') {
+        updateData.lastName = dto.lastName.trim();
+      }
+      if (dto.phone !== undefined) {
+        updateData.phone = dto.phone.trim() || null;
+      }
+      if (dto.avatarUrl !== undefined) {
+        updateData.avatarUrl = dto.avatarUrl.trim() || null;
+      }
+
+      if (dto.email && dto.email.trim().toLowerCase() !== existing.email.toLowerCase()) {
+        const normalizedEmail = dto.email.trim().toLowerCase();
+        const emailTaken = await tx.user.findUnique({
+          where: { email: normalizedEmail },
+        });
+        if (emailTaken && emailTaken.id !== userId) {
+          throw new ConflictException('Email address is already in use by another account');
+        }
+        updateData.email = normalizedEmail;
+      }
+
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          avatarUrl: true,
+          isSuperAdmin: true,
+          emailVerified: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true,
+        },
+      });
+
+      this.logger.log(`User profile updated for user ${userId}`, 'AuthService');
+
+      return updated;
+    });
+  }
+
+  /**
+   * Securely changes password for the authenticated user after verifying current password.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto, _ipAddress?: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User profile not found');
+      }
+
+      // Verify current password
+      const isCurrentValid = await this.passwordHasher.verifyPassword(
+        user.passwordHash,
+        dto.currentPassword,
+      );
+
+      if (!isCurrentValid) {
+        throw new BadRequestException('Current password does not match our records');
+      }
+
+      if (!dto.newPassword || dto.newPassword.length < 8) {
+        throw new BadRequestException('New password must be at least 8 characters long');
+      }
+
+      const newPasswordHash = await this.passwordHasher.hashPassword(dto.newPassword);
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { passwordHash: newPasswordHash },
+      });
+
+      this.logger.log(`Password changed successfully for user ${userId}`, 'AuthService');
+
+      return {
+        success: true,
+        message: 'Password changed successfully',
+      };
+    });
   }
 }

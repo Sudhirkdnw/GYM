@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Put,
   Delete,
   Body,
   Param,
@@ -27,6 +28,8 @@ import {
   VerifyEmailDto,
   SelectOrganizationDto,
   RefreshTokenDto,
+  UpdateProfileDto,
+  ChangePasswordDto,
 } from './dto';
 import {
   Public,
@@ -245,6 +248,32 @@ export class AuthController {
     @CurrentTenant() organizationId: string | null,
   ) {
     return this.authService.getMe(user.id, organizationId || undefined);
+  }
+
+  @Put('me/profile')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update profile details for the authenticated user' })
+  @SwaggerApiResponse({ status: 200, description: 'Profile updated successfully' })
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: UpdateProfileDto,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.authService.updateProfile(user.id, dto, ipAddress);
+  }
+
+  @Put('me/password')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password for the authenticated user' })
+  @SwaggerApiResponse({ status: 200, description: 'Password changed successfully' })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    return this.authService.changePassword(user.id, dto, ipAddress);
   }
 
   @Get('me/entitlements')
