@@ -22,6 +22,7 @@ import {
   MessageSquare,
   FileText,
   History,
+  Send,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,11 @@ export default function PlatformLayout({
       label: "Email Templates",
       href: "/platform/settings/email-templates",
       icon: FileText,
+    },
+    {
+      label: "Email Delivery Logs",
+      href: "/platform/settings/email-logs",
+      icon: Send,
     },
     {
       label: "Platform Audit Logs",

@@ -73,3 +73,14 @@ export class AuditLogQueryDto {
   startDate?: string;
   endDate?: string;
 }
+
+export class EmailLogQueryDto {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: 'ALL' | 'SUCCESS' | 'FAILED';
+  templateCode?: string;
+  startDate?: string;
+  endDate?: string;
+}
+

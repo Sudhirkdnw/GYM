@@ -1382,6 +1382,28 @@ model OrganizationSetting {
   @@map("organization_settings")
 }
 
+/// Platform-level email delivery logs managed by Super Admin
+model PlatformEmailLog {
+  id           String    @id @default(uuid()) @map("id") @db.Uuid
+  recipient    String    @map("recipient") @db.VarChar(255)
+  sender       String    @map("sender") @db.VarChar(255)
+  subject      String    @map("subject") @db.VarChar(255)
+  templateCode String?   @map("template_code") @db.VarChar(100)
+  status       String    @map("status") @db.VarChar(50) // 'SUCCESS', 'FAILED'
+  errorMessage String?   @map("error_message") @db.Text
+  messageId    String?   @map("message_id") @db.VarChar(255)
+  response     String?   @map("response") @db.Text
+  metadata     Json?     @map("metadata")
+  sentBy       String?   @map("sent_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([recipient], map: "idx_platform_email_logs_recipient")
+  @@index([status], map: "idx_platform_email_logs_status")
+  @@index([createdAt], map: "idx_platform_email_logs_created_at")
+  @@map("platform_email_logs")
+}
+
+
 
 
 

@@ -10,6 +10,7 @@ import {
   MessageSquare,
   FileText,
   History,
+  Send,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -367,6 +368,25 @@ export default function PlatformSettingsOverviewPage() {
             </h4>
             <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
               Immutable append-only records of all Super Admin configuration changes, test events, IP addresses, and metadata diffs.
+            </p>
+          </Link>
+
+          {/* Card 6: Email Delivery Logs */}
+          <Link
+            href="/platform/settings/email-logs"
+            className="group rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#12131a] p-6 hover:border-blue-500/40 dark:hover:border-blue-500/40 transition-all hover:shadow-lg hover:shadow-blue-500/5 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-600/20 text-blue-600 dark:text-blue-300">
+                <Send className="w-6 h-6" />
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 group-hover:text-blue-500 transition-all" />
+            </div>
+            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+              Email Delivery Logs
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+              Real-time monitoring of all dispatched transactional emails, delivery statuses, SMTP error traces, and manual resend actions.
             </p>
           </Link>
         </div>

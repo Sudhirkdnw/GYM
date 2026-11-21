@@ -17,6 +17,7 @@ import {
   Lock,
   RefreshCw,
   X,
+  History,
 } from "lucide-react";
 
 interface SmtpConfigForm {
@@ -203,6 +204,13 @@ export default function SmtpSettingsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/platform/settings/email-logs"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors shadow-sm"
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Email Logs</span>
+          </Link>
           <button
             type="button"
             onClick={handleTestConnection}
@@ -210,7 +218,7 @@ export default function SmtpSettingsPage() {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#12131a] hover:bg-slate-50 dark:hover:bg-white/[0.05] text-slate-700 dark:text-zinc-300 transition-colors shadow-sm disabled:opacity-50"
           >
             <PlugZap className={`w-3.5 h-3.5 ${isTestingSocket ? "animate-pulse text-amber-500" : ""}`} />
-            <span>{isTestingSocket ? "Testing Socket..." : "Test Connection"}</span>
+            <span>{isTestingSocket ? "Testing Handshake..." : "Test Connection"}</span>
           </button>
           <button
             type="button"
@@ -221,6 +229,24 @@ export default function SmtpSettingsPage() {
             <Send className="w-3.5 h-3.5" />
             <span>Send Test Email</span>
           </button>
+        </div>
+      </div>
+
+      {/* Provider Guide Banner */}
+      <div className="p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-950/20 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
+        <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="font-semibold text-blue-950 dark:text-blue-100">
+            Provider Configuration Guide:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-300/80">
+            <li>
+              <strong>Gmail:</strong> Host <code className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 py-0.5 rounded">smtp.gmail.com</code>, Port <code className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 py-0.5 rounded">587</code> (STARTTLS) or <code className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 py-0.5 rounded">465</code> (SSL/TLS). You <strong>must use a 16-character Google App Password</strong> (from Google Account &rarr; Security &rarr; 2-Step Verification &rarr; App Passwords). Regular Gmail login passwords will fail with error 535.
+            </li>
+            <li>
+              <strong>SendGrid / Brevo / Postmark:</strong> Use port <code className="font-mono bg-blue-100 dark:bg-blue-900/50 px-1 py-0.5 rounded">587</code> with TLS mode STARTTLS.
+            </li>
+          </ul>
         </div>
       </div>
 

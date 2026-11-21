@@ -3,6 +3,7 @@ import {
   Get,
   Put,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -25,6 +26,7 @@ import {
   EmailTemplateUpdateDto,
   TestEmailTemplateDto,
   AuditLogQueryDto,
+  EmailLogQueryDto,
 } from './dto/platform-settings.dto';
 import { Response } from 'express';
 
@@ -238,5 +240,34 @@ export class PlatformSettingsController {
   @ApiOperation({ summary: 'Query platform audit logs' })
   async getPlatformAuditLogs(@Query() query: AuditLogQueryDto) {
     return this.settingsService.getPlatformAuditLogs(query);
+  }
+
+  // --- EMAIL DELIVERY LOGS ---
+  @Get('settings/email-logs')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({ summary: 'Query platform email delivery logs' })
+  async getPlatformEmailLogs(@Query() query: EmailLogQueryDto) {
+    return this.settingsService.getPlatformEmailLogs(query);
+  }
+
+  @Post('settings/email-logs/:id/resend')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({ summary: 'Resend email from delivery log' })
+  async resendEmailLog(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Ip() ipAddress: string,
+  ) {
+    return this.settingsService.resendEmailLog(id, user.id, ipAddress);
+  }
+
+  @Delete('settings/email-logs')
+  @UseGuards(SuperAdminGuard)
+  @ApiOperation({ summary: 'Clear all platform email delivery logs' })
+  async clearEmailLogs(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Ip() ipAddress: string,
+  ) {
+    return this.settingsService.clearEmailLogs(user.id, ipAddress);
   }
 }

@@ -4,8 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import * as net from 'net';
-import * as tls from 'tls';
+import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { PlatformEncryptionService } from './platform-encryption.service';
@@ -18,6 +17,7 @@ import {
   EmailTemplateUpdateDto,
   TestEmailTemplateDto,
   AuditLogQueryDto,
+  EmailLogQueryDto,
 } from './dto/platform-settings.dto';
 import { INITIAL_EMAIL_TEMPLATES } from './initial-templates';
 
@@ -277,7 +277,34 @@ export class PlatformSettingsService {
   }
 
   /**
-   * Tests live socket connectivity and handshake to the configured SMTP server.
+   * Helper to construct a configured Nodemailer Transporter
+   */
+  private createTransporter(val: any, decryptedPassword?: string) {
+    const host = val.host?.trim();
+    const port = Number(val.port) || 587;
+    const tlsMode = val.tlsMode || 'STARTTLS';
+    const isSecure = tlsMode === 'SSL_TLS' || port === 465;
+
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: isSecure,
+      auth: {
+        user: val.username?.trim(),
+        pass: decryptedPassword || '',
+      },
+      tls: {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2',
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+  }
+
+  /**
+   * Tests live SMTP handshake and authentication against configured credentials.
    */
   async testSmtpConnection(actorId?: string, ipAddress?: string) {
     const record = await this.prisma.withSuperAdminContext(async (tx) => {
@@ -289,51 +316,38 @@ export class PlatformSettingsService {
     }
 
     const val = record.value as any;
-    const host = val.host;
-    const port = Number(val.port);
-    const tlsMode = val.tlsMode;
+    const host = val.host?.trim();
+    const port = Number(val.port) || 587;
+    const decryptedPassword = record.encryptedValue
+      ? this.encryptionService.decrypt(record.encryptedValue)
+      : '';
 
-    const testResult = await new Promise<{ success: boolean; message: string }>((resolve) => {
-      const timeout = 7000;
-      let settled = false;
+    const transporter = this.createTransporter(val, decryptedPassword);
 
-      const finish = (success: boolean, message: string) => {
-        if (!settled) {
-          settled = true;
-          resolve({ success, message });
-        }
-      };
+    let success = false;
+    let message = '';
 
-      try {
-        if (tlsMode === 'SSL_TLS') {
-          const socket = tls.connect({ host, port, timeout }, () => {
-            socket.destroy();
-            finish(true, `Successfully established SSL/TLS connection to ${host}:${port}`);
-          });
-          socket.on('error', (err) => {
-            finish(false, `SSL/TLS connection error to ${host}:${port}: ${err.message}`);
-          });
-          socket.on('timeout', () => {
-            socket.destroy();
-            finish(false, `Connection to ${host}:${port} timed out after ${timeout / 1000}s`);
-          });
-        } else {
-          const socket = net.createConnection({ host, port, timeout }, () => {
-            socket.destroy();
-            finish(true, `Successfully connected to SMTP server at ${host}:${port}`);
-          });
-          socket.on('error', (err) => {
-            finish(false, `Socket connection error to ${host}:${port}: ${err.message}`);
-          });
-          socket.on('timeout', () => {
-            socket.destroy();
-            finish(false, `Connection to ${host}:${port} timed out after ${timeout / 1000}s`);
-          });
-        }
-      } catch (err: any) {
-        finish(false, `Failed to initialize connection test: ${err?.message || 'Unknown error'}`);
+    try {
+      await transporter.verify();
+      success = true;
+      message = `SMTP handshake and authentication successful with ${host}:${port} (${val.username})`;
+    } catch (err: any) {
+      success = false;
+      const rawError = err?.message || 'SMTP Authentication / Connection failed';
+      if (
+        rawError.includes('535') ||
+        rawError.toLowerCase().includes('badcredentials') ||
+        rawError.toLowerCase().includes('username and password not accepted')
+      ) {
+        message = `Authentication Failed (535): Invalid SMTP username or password. For Gmail, you must generate a 16-character App Password from Google Account Security (requires 2-Step Verification).`;
+      } else if (rawError.includes('ETIMEDOUT') || rawError.includes('timeout')) {
+        message = `Connection timed out connecting to ${host}:${port}. Please verify the host, port and network/firewall settings.`;
+      } else if (rawError.includes('ECONNREFUSED')) {
+        message = `Connection refused by ${host}:${port}. Please verify that the SMTP server and port are reachable.`;
+      } else {
+        message = `SMTP Verification Error: ${rawError}`;
       }
-    });
+    }
 
     // Update status in DB
     await this.prisma.withSuperAdminContext(async (tx) => {
@@ -341,8 +355,8 @@ export class PlatformSettingsService {
         where: { key: 'SMTP_CONFIG' },
         data: {
           lastTestedAt: new Date(),
-          testStatus: testResult.success ? 'SUCCESS' : 'FAILED',
-          testMessage: testResult.message,
+          testStatus: success ? 'SUCCESS' : 'FAILED',
+          testMessage: message,
         },
       });
 
@@ -353,19 +367,19 @@ export class PlatformSettingsService {
         entity: 'PlatformSetting',
         entityId: record.id,
         metadata: {
-          success: testResult.success,
+          success,
           host,
           port,
-          message: testResult.message,
+          message,
         },
         ipAddress,
       });
     });
 
     return {
-      success: testResult.success,
-      status: testResult.success ? 'SUCCESS' : 'FAILED',
-      message: testResult.message,
+      success,
+      status: success ? 'SUCCESS' : 'FAILED',
+      message,
       testedAt: new Date(),
     };
   }
@@ -384,27 +398,153 @@ export class PlatformSettingsService {
       throw new BadRequestException('SMTP password is not configured');
     }
 
-    // Record audit event
-    await this.prisma.withSuperAdminContext(async (tx) => {
-      await this.auditService.recordInTransaction(tx, {
-        organizationId: null,
-        userId: actorId,
-        action: 'SMTP_SEND_TEST_EMAIL',
-        entity: 'PlatformSetting',
-        entityId: record.id,
-        metadata: {
-          targetEmail: dto.targetEmail,
-          fromEmail: val.fromEmail,
-        },
-        ipAddress,
-      });
-    });
+    const decryptedPassword = this.encryptionService.decrypt(record.encryptedValue);
+    const fromName = val.fromName?.trim() || 'GymOS Platform';
+    const fromEmail = val.fromEmail?.trim() || 'noreply@gymos.com';
+    const replyTo = val.replyToEmail?.trim() || fromEmail;
+    const targetEmail = dto.targetEmail.trim().toLowerCase();
 
-    return {
-      success: true,
-      message: `Test email dispatched to ${dto.targetEmail} from ${val.fromEmail} via ${val.host}`,
-      timestamp: new Date(),
-    };
+    const transporter = this.createTransporter(val, decryptedPassword);
+
+    const subject = `[GymOS] Platform SMTP Test Email (${new Date().toLocaleTimeString()})`;
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="display: inline-block; padding: 10px 24px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; border-radius: 8px; font-weight: 700; font-size: 20px; letter-spacing: -0.5px;">
+            GymOS Platform
+          </div>
+        </div>
+        <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin-bottom: 12px; text-align: center;">
+          SMTP Test Verification Succeeded
+        </h2>
+        <p style="color: #475569; font-size: 14px; line-height: 1.6; text-align: center;">
+          Congratulations! This email confirms that your outgoing SMTP credentials and connection are properly configured and operational on the <strong>GymOS Platform</strong>.
+        </p>
+        <div style="margin: 24px 0; background-color: #f8fafc; border-radius: 8px; padding: 18px; border: 1px solid #e2e8f0;">
+          <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
+            <tr><td style="font-weight: 600; width: 140px; color: #64748b;">SMTP Server:</td><td style="font-weight: 500;">${val.host}:${val.port}</td></tr>
+            <tr><td style="font-weight: 600; color: #64748b;">Encryption:</td><td style="font-weight: 500;">${val.tlsMode}</td></tr>
+            <tr><td style="font-weight: 600; color: #64748b;">Dispatched From:</td><td style="font-weight: 500;">${fromName} &lt;${fromEmail}&gt;</td></tr>
+            <tr><td style="font-weight: 600; color: #64748b;">Recipient:</td><td style="font-weight: 500;">${targetEmail}</td></tr>
+            <tr><td style="font-weight: 600; color: #64748b;">Dispatched At:</td><td style="font-weight: 500;">${new Date().toISOString()}</td></tr>
+          </table>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+          GymOS Enterprise Multi-Tenant Platform &bull; Automated System Verification
+        </p>
+      </div>
+    `;
+
+    const textBody = `GymOS Platform SMTP Test Verification\n\n` +
+      `Your outgoing SMTP credentials and connection are properly configured.\n\n` +
+      `SMTP Host: ${val.host}:${val.port}\n` +
+      `TLS Mode: ${val.tlsMode}\n` +
+      `Dispatched From: ${fromName} <${fromEmail}>\n` +
+      `Dispatched At: ${new Date().toISOString()}\n`;
+
+    try {
+      const sendInfo = await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: targetEmail,
+        replyTo,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      });
+
+      // Record successful delivery log
+      await this.prisma.withSuperAdminContext(async (tx) => {
+        await tx.platformEmailLog.create({
+          data: {
+            recipient: targetEmail,
+            sender: fromEmail,
+            subject,
+            templateCode: 'SMTP_TEST',
+            status: 'SUCCESS',
+            messageId: sendInfo.messageId || null,
+            response: sendInfo.response || null,
+            metadata: {
+              host: val.host,
+              port: val.port,
+              tlsMode: val.tlsMode,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'SMTP_SEND_TEST_EMAIL',
+          entity: 'PlatformSetting',
+          entityId: record.id,
+          metadata: {
+            targetEmail,
+            fromEmail,
+            messageId: sendInfo.messageId,
+            success: true,
+          },
+          ipAddress,
+        });
+      });
+
+      return {
+        success: true,
+        message: `Test email successfully delivered to ${targetEmail}! (Message ID: ${sendInfo.messageId || 'OK'})`,
+        timestamp: new Date(),
+      };
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Unknown SMTP dispatch error';
+
+      // Log failure in platform_email_logs
+      await this.prisma.withSuperAdminContext(async (tx) => {
+        await tx.platformEmailLog.create({
+          data: {
+            recipient: targetEmail,
+            sender: fromEmail,
+            subject,
+            templateCode: 'SMTP_TEST',
+            status: 'FAILED',
+            errorMessage,
+            metadata: {
+              host: val.host,
+              port: val.port,
+              tlsMode: val.tlsMode,
+              code: err?.code,
+              command: err?.command,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'SMTP_SEND_TEST_EMAIL_FAILED',
+          entity: 'PlatformSetting',
+          entityId: record.id,
+          metadata: {
+            targetEmail,
+            fromEmail,
+            error: errorMessage,
+            success: false,
+          },
+          ipAddress,
+        });
+      });
+
+      let hint = '';
+      if (
+        errorMessage.includes('535') ||
+        errorMessage.toLowerCase().includes('badcredentials') ||
+        errorMessage.toLowerCase().includes('username and password not accepted')
+      ) {
+        hint =
+          ' Hint: Invalid username or password (535). For Gmail, you must generate a 16-character App Password under Google Account Security (requires 2-Step Verification).';
+      }
+
+      throw new BadRequestException(`Failed to dispatch email: ${errorMessage}.${hint}`);
+    }
   }
 
   // =========================================================================
@@ -870,29 +1010,119 @@ export class PlatformSettingsService {
   ) {
     const preview = await this.renderTemplatePreview(code, dto.sampleVariables);
 
-    // Record audit event
-    await this.prisma.withSuperAdminContext(async (tx) => {
-      await this.auditService.recordInTransaction(tx, {
-        organizationId: null,
-        userId: actorId,
-        action: 'EMAIL_TEMPLATE_TEST_SENT',
-        entity: 'PlatformEmailTemplate',
-        entityId: code,
-        metadata: {
-          targetEmail: dto.targetEmail,
-          code,
-          subject: preview.renderedSubject,
-        },
-        ipAddress,
-      });
+    // Fetch SMTP config
+    const smtpSetting = await this.prisma.withSuperAdminContext(async (tx) => {
+      return tx.platformSetting.findUnique({ where: { key: 'SMTP_CONFIG' } });
     });
 
-    return {
-      success: true,
-      message: `Test email for template [${code}] dispatched to ${dto.targetEmail}`,
-      renderedSubject: preview.renderedSubject,
-      timestamp: new Date(),
-    };
+    if (!smtpSetting || !smtpSetting.value || !smtpSetting.encryptedValue) {
+      throw new BadRequestException(
+        'Platform SMTP is not configured or missing password. Please configure SMTP in Platform Settings first.',
+      );
+    }
+
+    const val = smtpSetting.value as any;
+    const decryptedPassword = this.encryptionService.decrypt(smtpSetting.encryptedValue);
+    const fromName = val.fromName?.trim() || 'GymOS Platform';
+    const fromEmail = val.fromEmail?.trim() || 'noreply@gymos.com';
+    const replyTo = val.replyToEmail?.trim() || fromEmail;
+    const targetEmail = dto.targetEmail.trim().toLowerCase();
+
+    const transporter = this.createTransporter(val, decryptedPassword);
+
+    try {
+      const sendInfo = await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: targetEmail,
+        replyTo,
+        subject: preview.renderedSubject,
+        html: preview.renderedHtml,
+        text: preview.renderedText || undefined,
+      });
+
+      // Record successful delivery log
+      await this.prisma.withSuperAdminContext(async (tx) => {
+        await tx.platformEmailLog.create({
+          data: {
+            recipient: targetEmail,
+            sender: fromEmail,
+            subject: preview.renderedSubject,
+            templateCode: code,
+            status: 'SUCCESS',
+            messageId: sendInfo.messageId || null,
+            response: sendInfo.response || null,
+            metadata: {
+              code,
+              templateName: preview.templateName,
+              sampleVariables: dto.sampleVariables,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'EMAIL_TEMPLATE_TEST_SENT',
+          entity: 'PlatformEmailTemplate',
+          entityId: code,
+          metadata: {
+            targetEmail,
+            code,
+            subject: preview.renderedSubject,
+            messageId: sendInfo.messageId,
+            success: true,
+          },
+          ipAddress,
+        });
+      });
+
+      return {
+        success: true,
+        message: `Template [${code}] email successfully delivered to ${targetEmail}! (Message ID: ${sendInfo.messageId || 'OK'})`,
+        renderedSubject: preview.renderedSubject,
+        timestamp: new Date(),
+      };
+    } catch (err: any) {
+      const errorMessage = err?.message || 'SMTP Template dispatch failed';
+
+      await this.prisma.withSuperAdminContext(async (tx) => {
+        await tx.platformEmailLog.create({
+          data: {
+            recipient: targetEmail,
+            sender: fromEmail,
+            subject: preview.renderedSubject,
+            templateCode: code,
+            status: 'FAILED',
+            errorMessage,
+            metadata: {
+              code,
+              templateName: preview.templateName,
+              sampleVariables: dto.sampleVariables,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'EMAIL_TEMPLATE_TEST_FAILED',
+          entity: 'PlatformEmailTemplate',
+          entityId: code,
+          metadata: {
+            targetEmail,
+            code,
+            subject: preview.renderedSubject,
+            error: errorMessage,
+            success: false,
+          },
+          ipAddress,
+        });
+      });
+
+      throw new BadRequestException(`Failed to dispatch template email: ${errorMessage}`);
+    }
   }
 
   // =========================================================================
@@ -979,6 +1209,205 @@ export class PlatformSettingsService {
           limit,
           totalPages: Math.ceil(total / limit),
         },
+      };
+    });
+  }
+
+  // =========================================================================
+  // 7. PLATFORM EMAIL DELIVERY LOGS
+  // =========================================================================
+
+  async getPlatformEmailLogs(query: EmailLogQueryDto) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const where: any = {};
+
+      if (query.status && query.status !== 'ALL') {
+        where.status = query.status;
+      }
+
+      if (query.templateCode && query.templateCode.trim()) {
+        where.templateCode = query.templateCode.trim();
+      }
+
+      if (query.search && query.search.trim()) {
+        const s = query.search.trim();
+        where.OR = [
+          { recipient: { contains: s, mode: 'insensitive' } },
+          { sender: { contains: s, mode: 'insensitive' } },
+          { subject: { contains: s, mode: 'insensitive' } },
+          { templateCode: { contains: s, mode: 'insensitive' } },
+          { errorMessage: { contains: s, mode: 'insensitive' } },
+        ];
+      }
+
+      if (query.startDate || query.endDate) {
+        where.createdAt = {};
+        if (query.startDate) {
+          where.createdAt.gte = new Date(query.startDate);
+        }
+        if (query.endDate) {
+          where.createdAt.lte = new Date(query.endDate);
+        }
+      }
+
+      const [total, items, successCount, failedCount] = await Promise.all([
+        tx.platformEmailLog.count({ where }),
+        tx.platformEmailLog.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        tx.platformEmailLog.count({ where: { status: 'SUCCESS' } }),
+        tx.platformEmailLog.count({ where: { status: 'FAILED' } }),
+      ]);
+
+      return {
+        items,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        summary: {
+          total: successCount + failedCount,
+          success: successCount,
+          failed: failedCount,
+        },
+      };
+    });
+  }
+
+  async resendEmailLog(logId: string, actorId?: string, ipAddress?: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const log = await tx.platformEmailLog.findUnique({ where: { id: logId } });
+      if (!log) {
+        throw new NotFoundException(`Email log with ID ${logId} not found`);
+      }
+
+      const record = await tx.platformSetting.findUnique({ where: { key: 'SMTP_CONFIG' } });
+      if (!record || !record.value || !record.encryptedValue) {
+        throw new BadRequestException('SMTP is not properly configured');
+      }
+
+      const val = record.value as any;
+      const decryptedPassword = this.encryptionService.decrypt(record.encryptedValue);
+
+      const transporter = this.createTransporter(val, decryptedPassword);
+
+      try {
+        const sendInfo = await transporter.sendMail({
+          from: `"${val.fromName || 'GymOS Platform'}" <${val.fromEmail}>`,
+          to: log.recipient,
+          subject: log.subject.startsWith('[Resent]') ? log.subject : `[Resent] ${log.subject}`,
+          html: `<div style="font-family: sans-serif; padding: 20px;">
+            <p style="color: #2563eb; font-weight: bold;">[Resent Dispatch from GymOS Platform]</p>
+            <p><strong>Subject:</strong> ${log.subject}</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;" />
+            <p>This message was manually re-triggered by the platform administrator.</p>
+          </div>`,
+          text: `[Resent Dispatch from GymOS Platform]\nSubject: ${log.subject}\n\nThis message was manually re-triggered by the platform administrator.\n`,
+        });
+
+        const newLog = await tx.platformEmailLog.create({
+          data: {
+            recipient: log.recipient,
+            sender: val.fromEmail,
+            subject: log.subject.startsWith('[Resent]') ? log.subject : `[Resent] ${log.subject}`,
+            templateCode: log.templateCode,
+            status: 'SUCCESS',
+            messageId: sendInfo.messageId || null,
+            response: sendInfo.response || null,
+            metadata: {
+              originalLogId: log.id,
+              host: val.host,
+              port: val.port,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'SMTP_RESEND_EMAIL',
+          entity: 'PlatformEmailLog',
+          entityId: newLog.id,
+          metadata: {
+            recipient: log.recipient,
+            originalLogId: log.id,
+            success: true,
+          },
+          ipAddress,
+        });
+
+        return {
+          success: true,
+          message: `Email successfully resent to ${log.recipient}! (Message ID: ${sendInfo.messageId || 'OK'})`,
+          logId: newLog.id,
+        };
+      } catch (err: any) {
+        const errorMsg = err?.message || 'SMTP resend failed';
+
+        await tx.platformEmailLog.create({
+          data: {
+            recipient: log.recipient,
+            sender: val.fromEmail,
+            subject: log.subject.startsWith('[Resent]') ? log.subject : `[Resent] ${log.subject}`,
+            templateCode: log.templateCode,
+            status: 'FAILED',
+            errorMessage: errorMsg,
+            metadata: {
+              originalLogId: log.id,
+              host: val.host,
+              port: val.port,
+            },
+            sentBy: actorId || null,
+          },
+        });
+
+        await this.auditService.recordInTransaction(tx, {
+          organizationId: null,
+          userId: actorId,
+          action: 'SMTP_RESEND_EMAIL_FAILED',
+          entity: 'PlatformEmailLog',
+          entityId: log.id,
+          metadata: {
+            recipient: log.recipient,
+            originalLogId: log.id,
+            error: errorMsg,
+            success: false,
+          },
+          ipAddress,
+        });
+
+        throw new BadRequestException(`Failed to resend email: ${errorMsg}`);
+      }
+    });
+  }
+
+  async clearEmailLogs(actorId?: string, ipAddress?: string) {
+    return this.prisma.withSuperAdminContext(async (tx) => {
+      const count = await tx.platformEmailLog.deleteMany();
+
+      await this.auditService.recordInTransaction(tx, {
+        organizationId: null,
+        userId: actorId,
+        action: 'SMTP_CLEAR_EMAIL_LOGS',
+        entity: 'PlatformEmailLog',
+        entityId: 'all',
+        metadata: {
+          deletedCount: count.count,
+        },
+        ipAddress,
+      });
+
+      return {
+        success: true,
+        message: `Successfully cleared ${count.count} platform email delivery logs`,
       };
     });
   }
