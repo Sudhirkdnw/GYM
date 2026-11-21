@@ -74,6 +74,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     return this.$transaction(
       async (tx) => {
         await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}';`);
+        await tx.$executeRawUnsafe(`SET LOCAL app.current_organization_id = '${tenantId}';`);
         if (isSuperAdmin) {
           await tx.$executeRawUnsafe(`SET LOCAL app.is_super_admin = 'true';`);
         }

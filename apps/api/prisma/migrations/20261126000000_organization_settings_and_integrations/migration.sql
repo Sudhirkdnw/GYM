@@ -36,11 +36,13 @@ BEGIN
     CREATE POLICY organization_settings_tenant_isolation_policy ON "organization_settings"
       FOR ALL
       USING (
-        current_setting('app.is_super_admin', true) = 'true'
+        NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+        OR organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
         OR organization_id = NULLIF(current_setting('app.current_organization_id', true), '')::uuid
       )
       WITH CHECK (
-        current_setting('app.is_super_admin', true) = 'true'
+        NULLIF(current_setting('app.is_super_admin', true), '') = 'true'
+        OR organization_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
         OR organization_id = NULLIF(current_setting('app.current_organization_id', true), '')::uuid
       );
   END IF;
